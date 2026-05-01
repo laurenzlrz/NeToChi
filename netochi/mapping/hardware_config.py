@@ -1,0 +1,61 @@
+from dataclasses import dataclass
+
+@dataclass
+class HardwareConfig:
+    nodes_per_router: int
+    neurons_per_core: int
+    router_levels: int
+    slice_factor: int = 2
+
+    @property
+    def total_cores(self) -> int:
+        return self.nodes_per_router ** self.router_levels
+
+    @property
+    def total_neurons(self) -> int:
+        return self.total_cores * self.neurons_per_core
+
+    @property
+    def max_distance(self) -> int:
+        return self.router_levels
+
+    def core_distance(self, core_a: int, core_b: int) -> int:
+        """Calculate the hierarchical distance between two cores."""
+        if core_a == core_b:
+            return 0
+
+        base = self.nodes_per_router
+        levels = self.router_levels
+
+        for level in range(levels - 1, -1, -1):
+            digit_a = (core_a // (base ** level)) % base
+            digit_b = (core_b // (base ** level)) % base
+            if digit_a != digit_b:
+                return level + 1
+
+        return 0
+
+    def num_slices_at_distance(self, distance: int) -> int:
+        """Number of slices a core is partitioned into at a given distance."""
+        return min(self.slice_factor ** distance, self.neurons_per_core)
+
+    def get_slice_bounds(self, distance: int, slice_idx: int) -> tuple[int, int]:
+        """Return the (start, end) local addresses for a given slice at a distance."""
+        slices = self.num_slices_at_distance(distance)
+        start = (slice_idx * self.neurons_per_core) // slices
+        end = ((slice_idx + 1) * self.neurons_per_core) // slices
+        return start, end
+
+    def is_valid_connection(self, source_core: int, target_core: int, source_local_addr: int, target_slice_idx: int) -> bool:
+        """
+        Check if a connection satisfies Fan-In constraints.
+        Delta_ij = 1 if d(c_i, c_j) = 0
+        Delta_ij = 1 if d(c_i, c_j) > 0 and x_j in B_{d, s_{i,d}}
+        where j is the source, i is the target.
+        """
+        dist = self.core_distance(target_core, source_core)
+        if dist == 0:
+            return True
+        
+        start, end = self.get_slice_bounds(dist, target_slice_idx)
+        return start <= source_local_addr < end

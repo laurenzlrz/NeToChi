@@ -1,0 +1,20 @@
+30.04
+
+Understand deep connection between slices
+
+Try to combine mappers (ILP to hSBM?)
+
+Make SBMBM use Graph TOols
+
+Try to formulate SBM without Degreeconnection
+
+New Mapper: PCA-based Mapper (hybrid), t-SNE Mapper
+
+Map to static matrix, look at possible reductions in size, 
+but anyway formulate that a as a QAP.
+
+Make parameter searches for this QAP (e.g. the connections that are between neuron slice proxies)
+
+Ask specifically about Relay neurons
+
+Also why only binary currently, why do we not weight the things
