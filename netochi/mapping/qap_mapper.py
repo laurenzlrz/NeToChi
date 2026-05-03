@@ -19,12 +19,12 @@ class QAPMapper(BaseMapper, IFixedHardwareMapper):
         # Size will be max(N_graph, M).
         size = max(N_graph, M)
         
-        # 1. Build Adjacency Matrix A
+        # Build Adjacency Matrix
         A = np.zeros((size, size))
         adj = gt.adjacency(mapping_input.graph).toarray()
         A[:N_graph, :N_graph] = adj
         
-        # 2. Build Affinity Matrix B
+        # Build Affinity Matrix
         # B[k, l] is the affinity from slot k to slot l.
         B = np.zeros((size, size))
         
@@ -43,14 +43,14 @@ class QAPMapper(BaseMapper, IFixedHardwareMapper):
                     s_d = mapping_input.hw_config.num_slices_at_distance(dist)
                     B[k, l] = 1.0 / s_d
                     
-        # 3. Solve QAP using FAQ
+        # Solve QAP
         # maximize=True because we want to maximize the sum of valid expected edges
         res = quadratic_assignment(A, B, method='faq', options={'maximize': True})
         
         # res.col_ind gives the assignment: node i goes to slot res.col_ind[i]
         perm = res.col_ind
         
-        # 4. Map the results back to the state (c and x)
+        # Map the results back to the state
         for node in range(N_graph):
             slot = perm[node]
             if slot >= M:
@@ -61,7 +61,7 @@ class QAPMapper(BaseMapper, IFixedHardwareMapper):
             state.c[node] = slot // mapping_input.hw_config.neurons_per_core
             state.x[node] = slot % mapping_input.hw_config.neurons_per_core
             
-        # 5. Greedy Slice Selection (s)
+        # Greedy Slice Selection
         for tgt in range(state.N):
             tgt_core = state.c[tgt]
             for d in range(1, mapping_input.hw_config.max_distance + 1):
