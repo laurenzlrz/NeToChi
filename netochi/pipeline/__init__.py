@@ -1,1 +1,1 @@
-from .core import InputPair, BaseInputFactory, BaseMapper, BaseMetric
+from .core import BaseInputFactory, BaseMapper, BaseMetric

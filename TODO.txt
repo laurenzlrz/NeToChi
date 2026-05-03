@@ -1,0 +1,9 @@
+30.04
+
+Understand deep connection between slices
+
+Try to combine mappers (ILP to hSBM?)
+
+Force Google to look into MCMC methods of the Graphtools
+
+Try to formulate SBM without Degreeconnection

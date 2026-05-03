@@ -104,7 +104,7 @@ class RandomNetwork:
         self._assignment = np.zeros((self._config.total_neurons, self._config.router_levels + 1), dtype=np.int64)
 
         for distance in range(0, self._config.router_levels + 1):
-            slices = min(2 ** distance, self._config.neurons_per_core)
+            slices = min(self._config.slice_factor ** distance, self._config.neurons_per_core)
             self._assignment[:, distance] = self._rng.integers(0, slices, size=self._config.total_neurons)
 
 
@@ -140,7 +140,7 @@ class RandomNetwork:
         self._graph.add_nodes_from(range(self._config.total_neurons))
 
         for target_neuron in range(self._config.total_neurons):
-            target_core = target_neuron // self._config.total_cores
+            target_core = target_neuron // self._config.neurons_per_core
 
             for source_core in range(self._config.total_cores):
                 distance = self._core_distance(source_core, target_core)

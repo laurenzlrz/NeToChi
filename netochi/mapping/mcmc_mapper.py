@@ -1,92 +1,165 @@
-import graph_tool.all as gt
+import time
+import threading
+import graph_tool.inference.mcmc as gt_mcmc
 import numpy as np
-from netochi.mapping.hardware_config import HardwareConfig
 from netochi.mapping.likelihood_state import MappingState
 from netochi.pipeline.core import BaseMapper, IFixedHardwareMapper, FixedHardwareInput
 
-class Section5SBM_MCMCMapper(BaseMapper, IFixedHardwareMapper):
-    """Mapper using Simulated Annealing to optimize the mapping objective."""
-    def map_fixed_hardware(self, mapping_input: FixedHardwareInput, iterations=1000, initial_temp=1.0, seed=None) -> MappingState:
-        """Execute Simulated Annealing optimization for fixed hardware."""
-        state = MappingState(mapping_input.graph, mapping_input.hw_config)
-        state.init_random(seed=seed)
-        
-        # Determine the objective function to use
-        # Fallback to log likelihood if not provided (though FixedHardwareInput should have it)
-        objective = mapping_input.objective
-        
-        def evaluate_energy(st):
-            if objective:
-                return objective.evaluate(st)
-            return -st.log_likelihood()
-            
-        current_energy = evaluate_energy(state)
-        best_energy = current_energy
-        
-        # Save best state
-        best_c = state.c.copy()
-        best_x = state.x.copy()
-        best_s = state.s.copy()
-        
-        rng = np.random.default_rng(seed)
-        
-        for i in range(iterations):
-            # Exponential cooling schedule
-            T = initial_temp * ((0.01 / initial_temp) ** (i / max(1, iterations - 1)))
-            
-            # Propose a move
-            move_type = rng.integers(0, 2)
-            node = rng.integers(0, state.N)
-            old_energy = current_energy
-            
+_MCMC_TIME_LIMIT_S = 10.0
+
+
+class GraphToolCompatibleState:
+    """Wrapper to make MappingState compatible with gt.mcmc_anneal."""
+
+    def __init__(self, mapping_state: MappingState, objective, seed=None):
+        self.state = mapping_state
+        self.objective = objective
+        self.rng = np.random.default_rng(seed)
+        # Best-state tracking so we can restore on timeout
+        self._best_energy = float("inf")
+        self._best_c: np.ndarray | None = None
+        self._best_x: np.ndarray | None = None
+        self._best_s: np.ndarray | None = None
+
+    def entropy(self, **kwargs) -> float:
+        """Graph-tool MCMC minimizes entropy. We route that to our cost function."""
+        if self.objective:
+            return self.objective.evaluate(self.state)
+        return -self.state.log_likelihood()
+
+    def _save_best(self, energy: float) -> None:
+        if energy < self._best_energy:
+            self._best_energy = energy
+            self._best_c = self.state.c.copy()
+            self._best_x = self.state.x.copy()
+            self._best_s = self.state.s.copy()
+
+    def restore_best(self) -> None:
+        """Restore the best-seen state (called after timeout or completion)."""
+        if self._best_c is not None:
+            self.state.c = self._best_c
+            self.state.x = self._best_x
+            self.state.s = self._best_s
+
+    def mcmc_sweep(self, beta: float = 1.0, **kwargs) -> tuple:
+        """
+        Perform one sweep of N move-attempts.
+        beta is the inverse temperature provided by gt.mcmc_anneal.
+        Returns (delta_entropy, nattempts, nmoves).
+        """
+        nattempts = 0
+        nmoves = 0
+        delta_entropy = 0.0
+
+        current_energy = self.entropy()
+        self._save_best(current_energy)
+
+        N = self.state.N
+        for _ in range(N):
+            nattempts += 1
+            move_type = self.rng.integers(0, 2)
+            node = int(self.rng.integers(0, N))
+
             if move_type == 0:
-                # Swap core and local address with another node
-                node2 = rng.integers(0, state.N)
+                # Swap core and local address between two nodes
+                node2 = int(self.rng.integers(0, N))
                 if node == node2:
                     continue
-                    
-                old_c1, old_x1 = state.c[node], state.x[node]
-                old_c2, old_x2 = state.c[node2], state.x[node2]
-                
-                state.c[node], state.x[node] = old_c2, old_x2
-                state.c[node2], state.x[node2] = old_c1, old_x1
-                
-                new_energy = evaluate_energy(state)
-                
-                if new_energy < old_energy or rng.random() < np.exp((old_energy - new_energy) / T):
+
+                old_c1, old_x1 = self.state.c[node], self.state.x[node]
+                old_c2, old_x2 = self.state.c[node2], self.state.x[node2]
+
+                self.state.c[node], self.state.x[node] = old_c2, old_x2
+                self.state.c[node2], self.state.x[node2] = old_c1, old_x1
+
+                new_energy = self.entropy()
+                dE = new_energy - current_energy
+
+                if dE < 0 or self.rng.random() < np.exp(-dE * beta):
                     current_energy = new_energy
+                    delta_entropy += dE
+                    nmoves += 1
+                    self._save_best(current_energy)
                 else:
-                    # Revert
-                    state.c[node], state.x[node] = old_c1, old_x1
-                    state.c[node2], state.x[node2] = old_c2, old_x2
-                    
+                    self.state.c[node], self.state.x[node] = old_c1, old_x1
+                    self.state.c[node2], self.state.x[node2] = old_c2, old_x2
+
             else:
-                # Mutate slice assignment at a random distance
-                d = rng.integers(1, state.config.max_distance + 1)
-                n_slices = state.config.num_slices_at_distance(d)
-                
-                old_s = state.s[node, d]
-                new_s = rng.integers(0, n_slices)
-                
+                # Mutate a slice assignment
+                d = int(self.rng.integers(1, self.state.config.max_distance + 1))
+                n_slices = self.state.config.num_slices_at_distance(d)
+
+                old_s = self.state.s[node, d]
+                new_s = int(self.rng.integers(0, n_slices))
+
                 if old_s == new_s:
                     continue
-                    
-                state.s[node, d] = new_s
-                new_energy = evaluate_energy(state)
-                
-                if new_energy < old_energy or rng.random() < np.exp((old_energy - new_energy) / T):
-                    current_energy = new_energy
-                else:
-                    state.s[node, d] = old_s
 
-            if current_energy < best_energy:
-                best_energy = current_energy
-                best_c = state.c.copy()
-                best_x = state.x.copy()
-                best_s = state.s.copy()
-                
-        # Restore best mapping found
-        state.c = best_c
-        state.x = best_x
-        state.s = best_s
-        return state
+                self.state.s[node, d] = new_s
+                new_energy = self.entropy()
+                dE = new_energy - current_energy
+
+                if dE < 0 or self.rng.random() < np.exp(-dE * beta):
+                    current_energy = new_energy
+                    delta_entropy += dE
+                    nmoves += 1
+                    self._save_best(current_energy)
+                else:
+                    self.state.s[node, d] = old_s
+
+        return delta_entropy, nattempts, nmoves
+
+
+class Section5SBM_MCMCMapper(BaseMapper, IFixedHardwareMapper):
+    """Mapper using Simulated Annealing (via Graph-Tool) limited to 10 seconds."""
+
+    def map_fixed_hardware(
+        self,
+        mapping_input: FixedHardwareInput,
+        iterations: int = 200,
+        initial_temp: float = 5.0,
+        seed: int = 42,
+    ) -> MappingState:
+        """Run gt.mcmc_anneal with a hard 10-second wall-clock time limit."""
+        state = MappingState(mapping_input.graph, mapping_input.hw_config)
+        state.init_random(seed=seed)
+
+        objective = mapping_input.objective
+        gt_state = GraphToolCompatibleState(state, objective, seed)
+
+        beta_0 = 1.0 / initial_temp
+        beta_1 = beta_0 * 1000.0
+
+        mcmc_equilibrate_args = {
+            "gibbs": False,
+            "multiflip": False,
+            "wait": 1,
+            "force_niter": 1,
+        }
+
+        # Run mcmc_anneal in a daemon thread so we can time it out cleanly.
+        exc_holder: list = []
+
+        def _run():
+            try:
+                gt_mcmc.mcmc_anneal(
+                    gt_state,
+                    beta_range=(beta_0, beta_1),
+                    niter=iterations,
+                    mcmc_equilibrate_args=mcmc_equilibrate_args,
+                    history=False,
+                    verbose=False,
+                )
+            except Exception as e:
+                exc_holder.append(e)
+
+        thread = threading.Thread(target=_run, daemon=True)
+        thread.start()
+        thread.join(timeout=_MCMC_TIME_LIMIT_S)
+
+        if exc_holder:
+            raise exc_holder[0]
+
+        # Restore best mapping seen regardless of whether we timed out
+        gt_state.restore_best()
+        return gt_state.state

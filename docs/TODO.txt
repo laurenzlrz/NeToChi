@@ -8,7 +8,6 @@ Make SBMBM use Graph TOols
 
 Try to formulate SBM without Degreeconnection
 
-New Mapper: PCA-based Mapper (hybrid), t-SNE Mapper
 
 Map to static matrix, look at possible reductions in size, 
 but anyway formulate that a as a QAP.

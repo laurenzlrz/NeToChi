@@ -27,16 +27,28 @@ class GroundTruthMapper(BaseMapper, IFixedHardwareMapper):
         return state
 
 def run_experiment():
-    hw_config = HardwareConfig(
+    # --- Hardware Configuration: 60 neurons (4 cores × 15) ---
+    hw_small = HardwareConfig(
         nodes_per_router=2,
         neurons_per_core=15,
         router_levels=2,   # 4 cores, 60 neurons total
         slice_factor=2
     )
 
-    # 1. Define the inputs (Factories)
+    # --- Hardware Configuration: 600 neurons (8 cores × 75) ---
+    hw_large = HardwareConfig(
+        nodes_per_router=2,
+        neurons_per_core=75,
+        router_levels=3,   # 8 cores, 600 neurons total
+        slice_factor=2
+    )
+
+    # 1. Define the inputs — one factory per (hw_config, probability) pair
+    probabilities = [0.1, 0.3, 0.5, 0.8, 1.0]
     factories = [
-        RandomNetworkFactory(hw_config=hw_config, probabilities=[0.1, 0.3, 0.5, 0.8, 1.0])
+        RandomNetworkFactory(hw_config=hw, edge_probability=p)
+        for hw in [hw_small, hw_large]
+        for p in probabilities
     ]
 
     # 2. Define the mappers to evaluate
