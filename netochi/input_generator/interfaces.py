@@ -14,9 +14,9 @@ WITH_HW_INPUT = TypeVar("WITH_HW_INPUT", bound=MappingInput)
 # Base Interfaces
 # -----------------------------------------------------------------------------
 
-class BaseInputFactory:
+class BaseInputFactory(Generic[WITH_HW_INPUT]):
     """Abstract base class for factories that generate MappingInputs."""
-    def generate(self) -> MappingInput:
+    def generate(self) -> WITH_HW_INPUT:
         """
         Returns a MappingInput object.
         """

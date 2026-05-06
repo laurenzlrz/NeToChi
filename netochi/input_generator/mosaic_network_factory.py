@@ -9,7 +9,10 @@ from netochi.input_generator.utils import nx_to_gt
 
 class MosaicNetworkFactory(BaseModel, BaseInputFactory):
     """Factory generating synthetic networks for a fixed hardware configuration."""
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        frozen=True
+    )
 
     hw_config: MosaicHardwareConfig
     probability: float = Field(..., gt=0, le=1)
@@ -19,9 +22,10 @@ class MosaicNetworkFactory(BaseModel, BaseInputFactory):
     _graph: Optional[nx.DiGraph] = PrivateAttr(default=None)
     _rng: Any = PrivateAttr(default=None)
 
-    def generate(self) -> MosaicMappingInput[None]:
+    def generate(self) -> MosaicMappingInput[Any]:
         """Generate a single MosaicMappingInput."""
-        self._rng = np.random.default_rng(self.seed)
+        # Use object.__setattr__ because the model is frozen
+        object.__setattr__(self, '_rng', np.random.default_rng(self.seed))
         self._generate_network()
         
         # Convert networkx to graph-tool
@@ -46,17 +50,19 @@ class MosaicNetworkFactory(BaseModel, BaseInputFactory):
         """Randomly assign fan-in slices to each target neuron at each router level."""
         total_neurons = self.hw_config.total_neurons
         router_levels = self.hw_config.router_levels
-        self._assignment = np.zeros((total_neurons, router_levels + 1), dtype=np.int64)
+        assignment = np.zeros((total_neurons, router_levels + 1), dtype=np.int64)
 
         for distance in range(0, router_levels + 1):
             slices = self.hw_config.num_slices_at_distance(distance)
-            self._assignment[:, distance] = self._rng.integers(0, slices, size=total_neurons)
+            assignment[:, distance] = self._rng.integers(0, slices, size=total_neurons)
+            
+        object.__setattr__(self, '_assignment', assignment)
 
     def _generate_network(self) -> None:
         """Perform the actual network generation using the Fan-In constraint."""
         self._sample_slice_assignment()
-        self._graph = nx.DiGraph()
-        self._graph.add_nodes_from(range(self.hw_config.total_neurons))
+        graph = nx.DiGraph()
+        graph.add_nodes_from(range(self.hw_config.total_neurons))
 
         total_neurons = self.hw_config.total_neurons
         neurons_per_core = self.hw_config.neurons_per_core
@@ -91,4 +97,6 @@ class MosaicNetworkFactory(BaseModel, BaseInputFactory):
                 # Sample edges based on probability
                 sampled = self._rng.random(source_candidates.size) < self.probability
                 selected_sources = source_candidates[sampled]
-                self._graph.add_edges_from((int(src), target_neuron) for src in selected_sources)
+                graph.add_edges_from((int(src), target_neuron) for src in selected_sources)
+        
+        object.__setattr__(self, '_graph', graph)

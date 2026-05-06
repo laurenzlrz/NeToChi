@@ -1,7 +1,9 @@
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, computed_field, ConfigDict
 
 class MosaicHardwareConfig(BaseModel):
     """Configuration for the target neuromorphic hardware."""
+    model_config = ConfigDict(frozen=True)
+
     nodes_per_router: int = Field(gt=0, description="Number of nodes connected to each router.")
     neurons_per_core: int = Field(gt=0, description="Number of neurons in each core.")
     router_levels: int = Field(gt=0, description="Number of levels in the router hierarchy.")
@@ -17,6 +19,7 @@ class MosaicHardwareConfig(BaseModel):
     def total_neurons(self) -> int:
         return self.total_cores * self.neurons_per_core
 
+    @computed_field
     @property
     def max_distance(self) -> int:
         return self.router_levels

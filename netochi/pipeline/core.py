@@ -10,12 +10,6 @@ from netochi.pipeline.objectives import MappingObjective
 # -----------------------------------------------------------------------------
 
 @runtime_checkable
-class Mapper(Protocol):
-    """Structural interface for mapping algorithms."""
-    def get_name(self) -> str: ...
-    def map_fixed_hardware(self, mapping_input: 'FixedHardwareInput') -> MappingState: ...
-
-@runtime_checkable
 class Metric(Protocol):
     """Structural interface for evaluating mapping quality."""
     def get_name(self) -> str: ...
