@@ -4,10 +4,14 @@ from collections import defaultdict
 from sklearn.decomposition import PCA
 from netochi.mapping.hardware_config import HardwareConfig
 from netochi.mapping.likelihood_state import MappingState
-from netochi.pipeline.core import BaseMapper, IFixedHardwareMapper, FixedHardwareInput
+from netochi.pipeline.core import FixedHardwareInput
 
-class HybridMapper(BaseMapper, IFixedHardwareMapper):
+class HybridMapper:
     """Mapper combining hSBM clustering and PCA-based local assignment."""
+    
+    def get_name(self) -> str:
+        return self.__class__.__name__
+
     def map_fixed_hardware(self, mapping_input: FixedHardwareInput) -> MappingState:
         """Map nodes using hSBM for cores and PCA for local addresses."""
         state = MappingState(mapping_input.graph, mapping_input.hw_config)

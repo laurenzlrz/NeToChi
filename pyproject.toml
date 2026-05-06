@@ -20,6 +20,7 @@ classifiers = [
 dependencies = [
     "numpy",
     "networkx",
+    "pydantic",
     # Note: graph-tool is a dependency but often requires manual installation
 ]
 

@@ -2,6 +2,16 @@ import numpy as np
 import graph_tool.all as gt
 from netochi.mapping.hardware_config import HardwareConfig
 
+from pydantic import BaseModel
+
+class MappingResult(BaseModel):
+    """Immutable results of a mapping execution."""
+    total_edges: int
+    valid_edges: int
+    inconsistencies: int
+    consistency_pct: float
+    log_likelihood: float
+
 class MappingState:
     def __init__(self, graph: gt.Graph, config: HardwareConfig, alpha: float = 0.9, epsilon: float = 0.1):
         self.g = graph
@@ -139,14 +149,9 @@ class MappingState:
         """
         return self.m - self.compute_e_valid()
 
-    def mapping_stats(self) -> dict:
+    def mapping_stats(self) -> MappingResult:
         """
-        Return a dictionary with all key mapping quality metrics:
-          - total_edges    : total number of directed edges
-          - valid_edges    : edges satisfying hardware constraints
-          - inconsistencies: edges violating hardware constraints
-          - consistency_pct: percentage of edges that are valid  (0–100)
-          - log_likelihood : the Section-5 log-likelihood score
+        Return a MappingResult with all key mapping quality metrics.
         """
         e_valid = self.compute_e_valid()
         e_invalid = self.m - e_valid
@@ -156,10 +161,10 @@ class MappingState:
             ll = -self.m * np.log(Z) + e_valid * np.log(self.alpha) + e_invalid * np.log(self.epsilon)
         else:
             ll = 0.0
-        return {
-            "total_edges":     self.m,
-            "valid_edges":     e_valid,
-            "inconsistencies": e_invalid,
-            "consistency_pct": pct,
-            "log_likelihood":  ll,
-        }
+        return MappingResult(
+            total_edges=self.m,
+            valid_edges=e_valid,
+            inconsistencies=e_invalid,
+            consistency_pct=pct,
+            log_likelihood=ll,
+        )

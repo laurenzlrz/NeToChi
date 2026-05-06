@@ -15,5 +15,6 @@ but anyway formulate that a as a QAP.
 Make parameter searches for this QAP (e.g. the connections that are between neuron slice proxies)
 
 Ask specifically about Relay neurons
+Add Postenforcement Steps generally
 
 Also why only binary currently, why do we not weight the things

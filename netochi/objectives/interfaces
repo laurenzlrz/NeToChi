@@ -1,0 +1,11 @@
+class MappingObjective(ABC):
+    """Abstract base class for all mapping objectives."""
+    @abstractmethod
+    def evaluate(self, state: MappingState) -> float:
+        """Evaluate a mapping state and return a cost (lower is better)."""
+        pass
+
+    @classmethod
+    def get_name(cls) -> str:
+        """Return the name of the objective class."""
+        return cls.__name__

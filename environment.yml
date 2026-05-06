@@ -1,0 +1,14 @@
+name: netochi
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.11
+  - numpy
+  - networkx
+  - graph-tool
+  - pydantic
+  - pytest
+  - pip
+  - pip:
+    - .

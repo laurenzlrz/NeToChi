@@ -3,7 +3,7 @@ import threading
 import graph_tool.inference.mcmc as gt_mcmc
 import numpy as np
 from netochi.mapping.likelihood_state import MappingState
-from netochi.pipeline.core import BaseMapper, IFixedHardwareMapper, FixedHardwareInput
+from netochi.pipeline.core import FixedHardwareInput
 
 _MCMC_TIME_LIMIT_S = 10.0
 
@@ -110,8 +110,11 @@ class GraphToolCompatibleState:
         return delta_entropy, nattempts, nmoves
 
 
-class Section5SBM_MCMCMapper(BaseMapper, IFixedHardwareMapper):
+class Section5SBM_MCMCMapper:
     """Mapper using Simulated Annealing (via Graph-Tool) limited to 10 seconds."""
+    
+    def get_name(self) -> str:
+        return self.__class__.__name__
 
     def map_fixed_hardware(
         self,

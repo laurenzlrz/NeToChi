@@ -1,16 +1,18 @@
-from dataclasses import dataclass
+from pydantic import BaseModel, Field, computed_field
 
-@dataclass
-class HardwareConfig:
-    nodes_per_router: int
-    neurons_per_core: int
-    router_levels: int
-    slice_factor: int = 2
+class MosaicHardwareConfig(BaseModel):
+    """Configuration for the target neuromorphic hardware."""
+    nodes_per_router: int = Field(gt=0, description="Number of nodes connected to each router.")
+    neurons_per_core: int = Field(gt=0, description="Number of neurons in each core.")
+    router_levels: int = Field(gt=0, description="Number of levels in the router hierarchy.")
+    slice_factor: int = Field(default=2, gt=0, description="Factor determining slice sizes for fan-in.")
 
+    @computed_field
     @property
     def total_cores(self) -> int:
         return self.nodes_per_router ** self.router_levels
 
+    @computed_field
     @property
     def total_neurons(self) -> int:
         return self.total_cores * self.neurons_per_core
@@ -47,12 +49,7 @@ class HardwareConfig:
         return start, end
 
     def is_valid_connection(self, source_core: int, target_core: int, source_local_addr: int, target_slice_idx: int) -> bool:
-        """
-        Check if a connection satisfies Fan-In constraints.
-        Delta_ij = 1 if d(c_i, c_j) = 0
-        Delta_ij = 1 if d(c_i, c_j) > 0 and x_j in B_{d, s_{i,d}}
-        where j is the source, i is the target.
-        """
+        """Check if a connection satisfies Fan-In constraints."""
         dist = self.core_distance(target_core, source_core)
         if dist == 0:
             return True

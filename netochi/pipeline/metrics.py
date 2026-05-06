@@ -1,15 +1,23 @@
-from netochi.pipeline.core import BaseMetric
 from netochi.mapping.likelihood_state import MappingState
 
-class LogLikelihoodMetric(BaseMetric):
+class LogLikelihoodMetric:
+    def get_name(self) -> str:
+        return self.__class__.__name__
+
     def evaluate(self, state: MappingState) -> float:
         return state.log_likelihood()
 
-class InconsistenciesMetric(BaseMetric):
+class InconsistenciesMetric:
+    def get_name(self) -> str:
+        return self.__class__.__name__
+
     def evaluate(self, state: MappingState) -> float:
         return state.inconsistencies()
         
-class ConsistencyPercentageMetric(BaseMetric):
+class ConsistencyPercentageMetric:
+    def get_name(self) -> str:
+        return self.__class__.__name__
+
     def evaluate(self, state: MappingState) -> float:
         stats = state.mapping_stats()
-        return stats["consistency_pct"]
+        return stats.consistency_pct
