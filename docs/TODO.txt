@@ -18,3 +18,5 @@ Ask specifically about Relay neurons
 Add Postenforcement Steps generally
 
 Also why only binary currently, why do we not weight the things
+
+Add Description Length to the likelihood function.

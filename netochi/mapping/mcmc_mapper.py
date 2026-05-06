@@ -1,17 +1,9 @@
-"""
-MCMC Mapper using Simulated Annealing via graph-tool's mcmc_anneal.
-
-We inherit from graph-tool's MCMCState (which itself inherits from EntropyState)
-and override `entropy()` and `mcmc_sweep()` with our hardware-specific
-likelihood and move proposals.
-"""
-
 import threading
 import graph_tool.inference.mcmc as gt_mcmc
 from graph_tool.inference import MCMCState
 import numpy as np
-from pydantic import BaseModel, ConfigDict, Field
-from typing import Any
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+from typing import Any, Optional
 
 from netochi.mapping.likelihood_state import MappingState
 from netochi.input_generator.interfaces import MosaicMappingInput
@@ -30,52 +22,60 @@ from netochi.mapping.constants import (
 )
 
 
-class HardwareMCMCState(MCMCState):
+class HardwareMCMCState(BaseModel, MCMCState):
     """
-    graph-tool compatible MCMC state for hardware mapping optimization.
-
-    Inherits from MCMCState (-> EntropyState) and overrides:
-      - entropy(): returns the negative log-likelihood of the Section 5 SBM model.
-      - mcmc_sweep(): performs hardware-specific moves (node swap, slice mutation).
+    Pydantic-based MCMC state for hardware mapping optimization.
+    
+    Inherits from MCMCState for graph-tool compatibility, but uses
+    Pydantic for structural validation and configuration.
     """
+    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=False)
 
-    def __init__(self, mapping_state: MappingState, seed: int | None = None, verbose: bool = False):
-        super().__init__(entropy_args={})
-        self.state = mapping_state
-        self.rng = np.random.default_rng(seed)
-        self.verbose = verbose
-        
-        # Best-state tracking so we can restore on timeout
-        self._best_energy = float("inf")
-        self._best_c: np.ndarray | None = None
-        self._best_x: np.ndarray | None = None
-        self._best_s: np.ndarray | None = None
+    # Inputs
+    mapping_state: MappingState
+    seed: Optional[int] = None
+    verbose: bool = False
+
+    # Private internal MCMC state
+    _rng: np.random.Generator = PrivateAttr()
+    _best_energy: float = PrivateAttr(default=float("inf"))
+    _best_c: Optional[np.ndarray] = PrivateAttr(default=None)
+    _best_x: Optional[np.ndarray] = PrivateAttr(default=None)
+    _best_s: Optional[np.ndarray] = PrivateAttr(default=None)
+
+    def __init__(self, **data):
+        # Initialize BaseModel first
+        super().__init__(**data)
+        # Initialize MCMCState (EntropyState)
+        MCMCState.__init__(self, entropy_args={})
+        # Initialize private attributes
+        self._rng = np.random.default_rng(self.seed)
 
     def entropy(self, **kwargs) -> float:
-        """Return the energy (negative log-likelihood) to minimize."""
+        """Return the energy to minimize."""
         if self.verbose:
             print(DEBUG_MCMC_ENTROPY_CALL)
-        return -self.state.log_likelihood()
+        return -self.mapping_state.log_likelihood()
 
     def _save_best(self, energy: float) -> None:
         """Snapshot the current state if it is the best seen so far."""
         if energy < self._best_energy:
             self._best_energy = energy
-            self._best_c = self.state.c.copy()
-            self._best_x = self.state.x.copy()
-            self._best_s = self.state.s.copy()
+            self._best_c = self.mapping_state.c.copy()
+            self._best_x = self.mapping_state.x.copy()
+            self._best_s = self.mapping_state.s.copy()
 
     def restore_best(self) -> None:
         """Restore the best-seen state (called after timeout or completion)."""
         if self.verbose:
             print(DEBUG_MCMC_RESTORE_BEST)
         if self._best_c is not None:
-            self.state.c = self._best_c
-            self.state.x = self._best_x
-            self.state.s = self._best_s
+            self.mapping_state.c = self._best_c
+            self.mapping_state.x = self._best_x
+            self.mapping_state.s = self._best_s
 
     def mcmc_sweep(self, beta: float = 1.0, **kwargs) -> tuple:
-        """Perform one sweep of N move-attempts with hardware-specific proposals."""
+        """Perform one sweep of N move-attempts."""
         if self.verbose:
             print(DEBUG_MCMC_SWEEP_CALL.format(beta=beta))
             
@@ -86,58 +86,56 @@ class HardwareMCMCState(MCMCState):
         current_energy = self.entropy()
         self._save_best(current_energy)
 
-        N = self.state.N
+        N = self.mapping_state.N
         for _ in range(N):
             nattempts += 1
-            move_type = self.rng.integers(0, MCMC_NUM_MOVE_TYPES)
-            node = int(self.rng.integers(0, N))
+            move_type = self._rng.integers(0, MCMC_NUM_MOVE_TYPES)
+            node = int(self._rng.integers(0, N))
 
             if move_type == 0:
                 # --- Node Swap ---
-                node2 = int(self.rng.integers(0, N))
-                if node == node2:
-                    continue
+                node2 = int(self._rng.integers(0, N))
+                if node == node2: continue
 
-                old_c1, old_x1 = self.state.c[node], self.state.x[node]
-                old_c2, old_x2 = self.state.c[node2], self.state.x[node2]
+                old_c1, old_x1 = self.mapping_state.c[node], self.mapping_state.x[node]
+                old_c2, old_x2 = self.mapping_state.c[node2], self.mapping_state.x[node2]
 
-                self.state.c[node], self.state.x[node] = old_c2, old_x2
-                self.state.c[node2], self.state.x[node2] = old_c1, old_x1
+                self.mapping_state.c[node], self.mapping_state.x[node] = old_c2, old_x2
+                self.mapping_state.c[node2], self.mapping_state.x[node2] = old_c1, old_x1
 
                 new_energy = self.entropy()
                 dE = new_energy - current_energy
 
-                if dE < 0 or self.rng.random() < np.exp(-dE * beta):
+                if dE < 0 or self._rng.random() < np.exp(-dE * beta):
                     current_energy = new_energy
                     delta_entropy += dE
                     nmoves += 1
                     self._save_best(current_energy)
                 else:
-                    self.state.c[node], self.state.x[node] = old_c1, old_x1
-                    self.state.c[node2], self.state.x[node2] = old_c2, old_x2
+                    self.mapping_state.c[node], self.mapping_state.x[node] = old_c1, old_x1
+                    self.mapping_state.c[node2], self.mapping_state.x[node2] = old_c2, old_x2
 
             else:
                 # --- Slice Mutation ---
-                d = int(self.rng.integers(1, self.state.config.max_distance + 1))
-                n_slices = self.state.config.num_slices_at_distance(d)
+                d = int(self._rng.integers(1, self.mapping_state.config.max_distance + 1))
+                n_slices = self.mapping_state.config.num_slices_at_distance(d)
 
-                old_s = self.state.s[node, d]
-                new_s = int(self.rng.integers(0, n_slices))
+                old_s = self.mapping_state.s[node, d]
+                new_s = int(self._rng.integers(0, n_slices))
 
-                if old_s == new_s:
-                    continue
+                if old_s == new_s: continue
 
-                self.state.s[node, d] = new_s
+                self.mapping_state.s[node, d] = new_s
                 new_energy = self.entropy()
                 dE = new_energy - current_energy
 
-                if dE < 0 or self.rng.random() < np.exp(-dE * beta):
+                if dE < 0 or self._rng.random() < np.exp(-dE * beta):
                     current_energy = new_energy
                     delta_entropy += dE
                     nmoves += 1
                     self._save_best(current_energy)
                 else:
-                    self.state.s[node, d] = old_s
+                    self.mapping_state.s[node, d] = old_s
 
         return delta_entropy, nattempts, nmoves
 
@@ -155,20 +153,22 @@ class MCMCMapper(BaseModel, BaseMapper[MosaicMappingState, MosaicMappingInput[An
     verbose: bool = Field(default=False)
 
     def run(self, mapping_input: MosaicMappingInput[Any]) -> MosaicMappingState:
-        """
-        Run gt.mcmc_anneal with a hard wall-clock time limit.
-        """
+        """Run the optimization."""
         if self.verbose:
             print(DEBUG_MCMC_RUN_START)
             
         graph = mapping_input.graph
         hw = mapping_input.hw_config
 
-        # Build a mutable MappingState for the MCMC to mutate
         state = MappingState(graph, hw)
         state.init_random(seed=self.seed)
 
-        hw_state = HardwareMCMCState(state, seed=self.seed, verbose=self.verbose)
+        # Initialize Pydantic-based MCMC state
+        hw_state = HardwareMCMCState(
+            mapping_state=state, 
+            seed=self.seed, 
+            verbose=self.verbose
+        )
 
         beta_0 = 1.0 / self.initial_temp
         beta_1 = beta_0 * MCMC_BETA_MULTIPLIER
@@ -190,7 +190,7 @@ class MCMCMapper(BaseModel, BaseMapper[MosaicMappingState, MosaicMappingInput[An
                     niter=self.iterations,
                     mcmc_equilibrate_args=mcmc_equilibrate_args,
                     history=False,
-                    verbose=False, # We handle verbose internally
+                    verbose=False,
                 )
             except Exception as e:
                 exc_holder.append(e)
@@ -202,7 +202,6 @@ class MCMCMapper(BaseModel, BaseMapper[MosaicMappingState, MosaicMappingInput[An
         if exc_holder:
             raise exc_holder[0]
 
-        # Restore best mapping seen (even if timed out mid-sweep)
         hw_state.restore_best()
 
         return MosaicMappingState(

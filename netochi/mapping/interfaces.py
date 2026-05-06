@@ -17,6 +17,8 @@ from netochi.mapping.exceptions import MappingValidationError
 # Type Variables
 # -----------------------------------------------------------------------------
 MAPPING_STATE = TypeVar('MAPPING_STATE', bound='MappingState')
+ANY_MAPPING_INPUT = TypeVar('ANY_MAPPING_INPUT', bound=MappingInput)
+WITH_HW_INPUT = TypeVar('WITH_HW_INPUT', bound=MappingInput)
 
 # -----------------------------------------------------------------------------
 # Mapping State Interfaces
