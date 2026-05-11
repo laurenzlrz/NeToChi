@@ -1,81 +1,87 @@
 import time
-from typing import List, Type, Dict, Any
-from pydantic import BaseModel, Field
-from netochi.pipeline.core import InputFactory, Mapper, Metric, MappingInput
-from netochi.mapping.likelihood_state import MappingResult
+from typing import List, Dict, Optional, Generic, TypeVar
+from pydantic import BaseModel, ConfigDict
 
-class ExperimentResult(BaseModel):
-    """Result of a single experiment run."""
-    mapper: str
-    time_s: float
-    metadata: Dict[str, Any]
-    metrics: Dict[str, float]
+from netochi.pipeline.interfaces import BasePipelineRunner, MappingMetric
+from netochi.pipeline.results import ExperimentResult, PipelineSummary
+from netochi.pipeline.constants import PIPELINE_LOG_FORMAT
+from netochi.mapping.interfaces import BaseMapper, MappingState, ANY_MAPPING_INPUT
+from netochi.input_generator.interfaces import BaseInputFactory
 
-class PipelineRunner:
-    """Executes the benchmarking pipeline over factories, mappers, and metrics."""
-    def __init__(
-        self, 
-        factories: List[InputFactory],
-        mapper_classes: List[Type[Mapper]],
-        metric_classes: List[Type[Metric]]
-    ):
-        """Initialize with factories, mapper classes, and metric classes."""
-        self.factories = factories
-        self.mapper_classes = mapper_classes
-        self.metric_classes = metric_classes
-        self.results: List[ExperimentResult] = []
-        
-    def run(self) -> List[ExperimentResult]:
-        """Execute the pipeline Cartesian product and collect results."""
-        metrics = [m() for m in self.metric_classes]
-        
+
+MAPPING_STATE = TypeVar("MAPPING_STATE", bound=MappingState)
+
+
+class PipelineRunner(BaseModel, BasePipelineRunner, Generic[ANY_MAPPING_INPUT, MAPPING_STATE]):
+    """
+    Pydantic-based benchmark runner.
+    Coordinates factories, mappers, and metrics to produce structured results.
+    """
+    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
+
+    factories: List[BaseInputFactory[ANY_MAPPING_INPUT]]
+    mappers: List[BaseMapper[MAPPING_STATE, ANY_MAPPING_INPUT]]
+    metrics: List[MappingMetric[MAPPING_STATE]]
+    verbose: bool = True
+
+    def run(self) -> PipelineSummary:
+        """Execute the pipeline Cartesian product."""
+        results: List[ExperimentResult] = []
+        start_time = time.time()
+
         for factory in self.factories:
-            for mapping_input, meta in factory.generate():
-                # Print input header
-                print(f"\n--- Input: {meta.get('graph_type')} (Nodes={meta.get('nodes')}, Edges={meta.get('edges')}, Prob={meta.get('edge_prob')}) ---")
+            # Note: Current factories return a single MappingInput
+            mapping_input = factory.generate()
+            meta = mapping_input.descriptions
+            
+            if self.verbose:
+                print(f"\n--- Input: {meta.get('graph_type')} (Nodes={meta.get('nodes')}, Edges={meta.get('edges')}) ---")
+
+            for mapper in self.mappers:
+                mapper_name = mapper.get_name()
                 
-                # For each generated input, evaluate all mappers
-                for mapper_cls in self.mapper_classes:
-                    mapper = mapper_cls()
-                    mapper_name = mapper.get_name()
-                    
-                    t0 = time.time()
-                    try:
-                        state = mapping_input.accept(mapper)
-                    except (NotImplementedError, AttributeError) as e:
-                        print(f"  {mapper_name:<25} | {'SKIPPED (Unsupported Input)':>30} |")
-                        continue
-                        
-                    elapsed = time.time() - t0
-                    
-                    # Evaluate all metrics
-                    metric_values = {}
-                    for metric in metrics:
-                        val = metric.evaluate(state)
-                        metric_values[metric.get_name()] = val
-                        
-                    result = ExperimentResult(
+                t0 = time.time()
+                error_msg: Optional[str] = None
+                state: Optional[MAPPING_STATE] = None
+                
+                try:
+                    state = mapper.run(mapping_input)
+                except Exception as e:
+                    error_msg = str(e)
+                    if self.verbose:
+                        print(f"  {mapper_name:<25} | FAILED: {error_msg}")
+                
+                elapsed = time.time() - t0
+                
+                metric_values: Dict[str, float] = {}
+                if state:
+                    for metric in self.metrics:
+                        try:
+                            val = metric.evaluate(state)
+                            metric_values[metric.get_name()] = val
+                        except Exception as e:
+                            print(f"    Metric {metric.get_name()} failed: {e}")
+                
+                result = ExperimentResult(
+                    mapper_name=mapper_name,
+                    input_metadata=meta,
+                    metrics=metric_values,
+                    execution_time_s=elapsed,
+                    error=error_msg
+                )
+                results.append(result)
+
+                if self.verbose and not error_msg:
+                    # Log first metric value as a placeholder for LL in the old format
+                    ll_val = next(iter(metric_values.values())) if metric_values else 0.0
+                    print(PIPELINE_LOG_FORMAT.format(
                         mapper=mapper_name,
-                        time_s=elapsed,
-                        metadata=meta,
-                        metrics=metric_values
-                    )
-                    
-                    self.results.append(result)
-                    
-                    # Print concise live feedback for this mapper
-                    metrics_str = " | ".join([f"{name}: {val:>10.2f}" for name, val in metric_values.items()])
-                    print(f"  {mapper_name:<25} | {metrics_str} | {elapsed:.3f}s")
-                    
-        return self.results
-        
-    def print_results(self):
-        """Final summary of results."""
-        print("\n" + "="*80)
-        print(f"{'Mapper':<25} | {'Graph':<20} | {'Log-Likelihood':<15} | {'Time (s)':<10}")
-        print("-" * 80)
-        for res in self.results:
-            ll = res.metrics.get("LikelihoodObjective", 0.0)
-            graph_type = res.metadata.get("graph_type", "Unknown")
-            print(f"{res.mapper:<25} | {graph_type:<20} | {ll:<15.2f} | {res.time_s:<10.3f}")
-        print("="*80)
+                        graph_type=meta.get('graph_type', 'Unknown'),
+                        ll=ll_val,
+                        elapsed=elapsed
+                    ))
+
+        return PipelineSummary(
+            results=results,
+            total_time_s=time.time() - start_time
+        )
