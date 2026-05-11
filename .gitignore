@@ -1,5 +1,6 @@
 # CLION stuff
 .idea/
+.idea
 *.iml
 
 # Byte-compiled / optimized / DLL files
