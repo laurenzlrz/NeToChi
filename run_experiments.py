@@ -28,44 +28,29 @@ def run_experiment():
         slice_factor=2
     )
 
-    # --- Hardware Configuration: Large (8 cores × 75 = 600 neurons) ---
-    hw_large = MosaicHardwareConfig(
-        nodes_per_router=2,
-        neurons_per_core=75,
-        router_levels=3,
-        slice_factor=2
-    )
-
     # 1. Define the inputs (Factories)
-    probabilities = [0.1, 0.3, 0.5]
+    probabilities = [0.1, 0.5]
     factories: List[Any] = []
 
-    # Add SBM-based Mosaic factories
+    # Add SBM-based Mosaic factories (These provide a pre_assignment/baseline)
     for p in probabilities:
         factories.append(MosaicNetworkFactory(hw_config=hw_small, probability=p, seed=42))
-        factories.append(MosaicNetworkFactory(hw_config=hw_large, probability=p, seed=42))
 
-    # Add Erdős-Rényi factories
+    # Add Erdős-Rényi factories (No baseline provided)
     for p in probabilities:
         factories.append(ErdosRenyiFactory(hw_config=hw_small, n=60, probability=p, seed=42))
 
-    # Add WTA factories
-    for p in probabilities:
-        factories.append(WTAFactory(hw_config=hw_small, probability=p, seed=42))
-
-    # 2. Define the mappers to evaluate (Instantiated)
+    # 2. Define the mappers to evaluate
     log_likelihood_obj = LogLikelihoodObjective()
     
     mappers: List[Any] = [
         RandomMapper(),
         GreedyMapper(),
-        HybridMapper(),
-        QAPMapper(),
-        MCMCMapper(objective=log_likelihood_obj, iterations=1000, verbose=False),
-        # JointInferenceMapper(objective=log_likelihood_obj, hw_template=hw_small, verbose=False),
+        MCMCMapper(objective=log_likelihood_obj, iterations=2000, verbose=False),
+        JointInferenceMapper(objective=log_likelihood_obj, hw_template=hw_small, verbose=False),
     ]
 
-    # 3. Define the metrics (Instantiated using ObjectiveMetric adapter)
+    # 3. Define the metrics (Now baseline-aware)
     metrics = [
         ObjectiveMetric(objective=log_likelihood_obj),
         ObjectiveMetric(objective=InconsistencyObjective())
@@ -73,7 +58,7 @@ def run_experiment():
 
     # 4. Run Pipeline
     print("=" * 80)
-    print("Neuromorphic Mapping Pipeline Execution (Modern Architecture)")
+    print("Neuromorphic Mapping Pipeline Execution (Baseline-Aware)")
     print("=" * 80)
 
     runner = PipelineRunner(
@@ -87,14 +72,16 @@ def run_experiment():
 
     # 5. Summary Report
     print("\n" + "=" * 80)
-    print(f"{'Mapper':<25} | {'Graph':<20} | {'Log-Likelihood':<15} | {'Time (s)':<10}")
+    print(f"{'Mapper':<25} | {'Graph':<20} | {'Rel-Likelihood':<15} | {'Rel-Incons':<10} | {'Time (s)':<10}")
     print("-" * 80)
     
     for res in summary.results:
-        ll = res.metrics.get("LogLikelihoodObjective", 0.0)
-        inconsistency = res.metrics.get("InconsistencyObjective", 0.0)
+        # Note: These values are now relative to the baseline if it existed
+        rel_ll = res.metrics.get("LogLikelihoodObjective", 0.0)
+        rel_inc = res.metrics.get("InconsistencyObjective", 0.0)
         graph_type = res.input_metadata.get("graph_type", "Unknown")
-        print(f"{res.mapper_name:<25} | {graph_type:<20} | {ll:<15.2f} | {res.execution_time_s:<10.3f}")
+        
+        print(f"{res.mapper_name:<25} | {graph_type:<20} | {rel_ll:<15.2f} | {rel_inc:<10.0f} | {res.execution_time_s:<10.3f}")
     
     print("=" * 80)
     print(f"Total Experiment Time: {summary.total_time_s:.2f}s")

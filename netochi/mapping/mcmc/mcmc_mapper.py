@@ -140,7 +140,7 @@ class MCMCMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicNetworkMappingSta
     """
     Pydantic-based MCMC Mapper using Simulated Annealing via graph-tool.
     """
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
     objective: LogLikelihoodObjectiveInterface
     iterations: int = Field(default=MCMC_DEFAULT_ITERATIONS)

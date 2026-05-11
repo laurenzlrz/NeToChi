@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar, TYPE_CHECKING
+from typing import Generic, TypeVar, TYPE_CHECKING, Optional
 from pydantic import BaseModel, ConfigDict
 from netochi.mapping.interfaces import MappingState
 
@@ -7,17 +7,21 @@ if TYPE_CHECKING:
     from netochi.pipeline.results import PipelineSummary
 
 MAPPING_STATE = TypeVar("MAPPING_STATE", bound=MappingState)
+MAPPING_STATE2 = TypeVar("MAPPING_STATE2", bound=MappingState)
 
-class MappingMetric(BaseModel, ABC, Generic[MAPPING_STATE]):
+class MappingMetric(BaseModel, ABC, Generic[MAPPING_STATE, MAPPING_STATE2]):
     """
     Abstract interface for mapping metrics.
-    Metrics evaluate a final mapping state and return a scalar value.
+    Metrics evaluate a final mapping state, potentially against a baseline.
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
     @abstractmethod
-    def evaluate(self, state: MAPPING_STATE) -> float:
-        """Evaluate the state and return a score."""
+    def evaluate(self, state: MAPPING_STATE, baseline: Optional[MAPPING_STATE2] = None) -> float:
+        """
+        Evaluate the state and return a score.
+        If a baseline is provided, the metric may perform comparative evaluation.
+        """
         pass
 
     @classmethod

@@ -7,7 +7,7 @@ from netochi.input_generator.interfaces import BaseInputFactory, MosaicMappingIn
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.utils import nx_to_gt
 
-class MosaicNetworkFactory(BaseModel, BaseInputFactory):
+class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput[Any]]):
     """Factory generating synthetic networks for a fixed hardware configuration."""
     model_config = ConfigDict(
         arbitrary_types_allowed=True,

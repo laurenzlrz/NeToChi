@@ -5,33 +5,51 @@ from pydantic.dataclasses import dataclass
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 
 # -----------------------------------------------------------------------------
-# Type Variables for Generics
+# Base Models
 # -----------------------------------------------------------------------------
+
 PAYLOAD = TypeVar("PAYLOAD")
-WITH_HW_INPUT = TypeVar("WITH_HW_INPUT", bound=MappingInput)
 
-# -----------------------------------------------------------------------------
-# Base Interfaces
-# -----------------------------------------------------------------------------
-
-class BaseInputFactory(Generic[WITH_HW_INPUT]):
-    """Abstract base class for factories that generate MappingInputs."""
-    def generate(self) -> WITH_HW_INPUT:
-        """
-        Returns a MappingInput object.
-        """
-        raise NotImplementedError
-
-@dataclass
+@dataclass(config=dict(arbitrary_types_allowed=True), kw_only=True)
 class MappingInput(Generic[PAYLOAD]):
     """Base model for all experiment inputs, generic over payload."""
     graph: gt.Graph
     descriptions: Dict[str, str]
     payload: Optional[PAYLOAD] = None
 
+@dataclass(config=dict(arbitrary_types_allowed=True), kw_only=True)
+class HWMappingInput(MappingInput[PAYLOAD, HW_CONFIG], Generic[PAYLOAD, HW_CONFIG]):
+    """Base model for all experiment inputs, generic over payload."""
+    hw_config: HW_CONFIG
 
-@dataclass
-class MosaicMappingInput(MappingInput[PAYLOAD], Generic[PAYLOAD]):
+@dataclass(config=dict(arbitrary_types_allowed=True), kw_only=True)
+class MosaicMappingInput(HWMappingInput[PAYLOAD, MosaicHardwareConfig], Generic[PAYLOAD]):
     """Problem input with a predefined hardware configuration."""
-    hw_config: MosaicHardwareConfig
     pre_assignment: Optional[np.ndarray] = None
+
+# -----------------------------------------------------------------------------
+# Type Variables for Factory
+# -----------------------------------------------------------------------------
+
+MAPPING_INPUT = TypeVar("MAPPING_INPUT", bound=HWMappingInput[PAYLOAD, HW_CONFIG])
+WITH_HW_INPUT = TypeVar("WITH_HW_INPUT", bound=MappingInput)
+
+# -----------------------------------------------------------------------------
+# Base Interfaces
+# -----------------------------------------------------------------------------
+
+class BaseInputFactory(Generic[MAPPING_INPUT]):
+    """Abstract base class for factories that generate MappingInputs."""
+    def generate(self) -> MAPPING_INPUT:
+        """
+        Returns a MappingInput object.
+        """
+        raise NotImplementedError
+
+class HWBaseInputFactory(BaseInputFactory[WITH_HW_INPUT], Generic[WITH_HW_INPUT]):
+    """Abstract base class for factories that generate MappingInputs."""
+    def generate(self) -> WITH_HW_INPUT:
+        """
+        Returns a MappingInput object.
+        """
+        raise NotImplementedError

@@ -5,8 +5,13 @@ from pydantic import BaseModel, ConfigDict
 from netochi.pipeline.interfaces import BasePipelineRunner, MappingMetric
 from netochi.pipeline.results import ExperimentResult, PipelineSummary
 from netochi.pipeline.constants import PIPELINE_LOG_FORMAT
-from netochi.mapping.interfaces import BaseMapper, MappingState, ANY_MAPPING_INPUT
-from netochi.input_generator.interfaces import BaseInputFactory
+from netochi.mapping.interfaces import (
+    BaseMapper, 
+    MappingState, 
+    ANY_MAPPING_INPUT,
+    MosaicNetworkMappingState
+)
+from netochi.input_generator.interfaces import BaseInputFactory, MosaicMappingInput
 
 
 MAPPING_STATE = TypeVar("MAPPING_STATE", bound=MappingState)
@@ -16,12 +21,13 @@ class PipelineRunner(BaseModel, BasePipelineRunner, Generic[ANY_MAPPING_INPUT, M
     """
     Pydantic-based benchmark runner.
     Coordinates factories, mappers, and metrics to produce structured results.
+    Supports baseline-aware evaluation if input provides reference assignments.
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
     factories: List[BaseInputFactory[ANY_MAPPING_INPUT]]
     mappers: List[BaseMapper[MAPPING_STATE, ANY_MAPPING_INPUT]]
-    metrics: List[MappingMetric[MAPPING_STATE]]
+    metrics: List[MappingMetric[MAPPING_STATE, MAPPING_STATE]]
     verbose: bool = True
 
     def run(self) -> PipelineSummary:
@@ -30,12 +36,15 @@ class PipelineRunner(BaseModel, BasePipelineRunner, Generic[ANY_MAPPING_INPUT, M
         start_time = time.time()
 
         for factory in self.factories:
-            # Note: Current factories return a single MappingInput
             mapping_input = factory.generate()
             meta = mapping_input.descriptions
             
+            # Attempt to create a baseline state for comparative evaluation
+            baseline: Optional[MAPPING_STATE] = self._create_baseline_state(mapping_input)
+            
             if self.verbose:
-                print(f"\n--- Input: {meta.get('graph_type')} (Nodes={meta.get('nodes')}, Edges={meta.get('edges')}) ---")
+                baseline_info = " (with baseline)" if baseline else ""
+                print(f"\n--- Input: {meta.get('graph_type')} (Nodes={meta.get('nodes')}, Edges={meta.get('edges')}){baseline_info} ---")
 
             for mapper in self.mappers:
                 mapper_name = mapper.get_name()
@@ -57,7 +66,8 @@ class PipelineRunner(BaseModel, BasePipelineRunner, Generic[ANY_MAPPING_INPUT, M
                 if state:
                     for metric in self.metrics:
                         try:
-                            val = metric.evaluate(state)
+                            # Evaluate with optional baseline
+                            val = metric.evaluate(state, baseline=baseline)
                             metric_values[metric.get_name()] = val
                         except Exception as e:
                             print(f"    Metric {metric.get_name()} failed: {e}")
@@ -72,7 +82,6 @@ class PipelineRunner(BaseModel, BasePipelineRunner, Generic[ANY_MAPPING_INPUT, M
                 results.append(result)
 
                 if self.verbose and not error_msg:
-                    # Log first metric value as a placeholder for LL in the old format
                     ll_val = next(iter(metric_values.values())) if metric_values else 0.0
                     print(PIPELINE_LOG_FORMAT.format(
                         mapper=mapper_name,
@@ -85,3 +94,24 @@ class PipelineRunner(BaseModel, BasePipelineRunner, Generic[ANY_MAPPING_INPUT, M
             results=results,
             total_time_s=time.time() - start_time
         )
+
+    def _create_baseline_state(self, mapping_input: ANY_MAPPING_INPUT) -> Optional[MAPPING_STATE]:
+        """Creates a baseline MappingState if the input contains pre-assignment data."""
+        if isinstance(mapping_input, MosaicMappingInput) and mapping_input.pre_assignment is not None:
+            # For Mosaic inputs with pre-assignments, create a MosaicNetworkMappingState
+            # and populate it with the ground truth.
+            try:
+                state = MosaicNetworkMappingState.from_input(mapping_input)
+                # pre_assignment is expected to be the slice assignments s[neuron, dist]
+                # We assume c and x can be derived from indices if not provided
+                N = mapping_input.graph.num_vertices()
+                hw = mapping_input.hw_config
+                for i in range(N):
+                    state.neuron_core_idxs_assignment[i] = i // hw.neurons_per_core
+                    state.neuron_local_idxs_assignment[i] = i % hw.neurons_per_core
+                
+                state.neuron_slice_assignments[:] = mapping_input.pre_assignment
+                return state  # type: ignore
+            except Exception:
+                return None
+        return None

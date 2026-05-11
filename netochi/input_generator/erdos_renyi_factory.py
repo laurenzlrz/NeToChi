@@ -6,7 +6,7 @@ from netochi.input_generator.interfaces import BaseInputFactory, MosaicMappingIn
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.utils import nx_to_gt
 
-class ErdosRenyiFactory(BaseModel, BaseInputFactory):
+class ErdosRenyiFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput[Any]]):
     """Factory generating Erdős-Rényi networks for a fixed hardware configuration."""
     model_config = ConfigDict(
         arbitrary_types_allowed=True,

@@ -7,7 +7,7 @@ from netochi.input_generator.interfaces import BaseInputFactory, MosaicMappingIn
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.utils import nx_to_gt
 
-class WTAFactory(BaseModel, BaseInputFactory):
+class WTAFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput[Any]]):
     """
     Factory generating Winner-Takes-All (WTA) networks using a hub-and-spoke skeleton.
     - Excitatory Pool: n-1 nodes.

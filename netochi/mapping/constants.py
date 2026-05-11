@@ -31,7 +31,7 @@ JOINT_P_SWAP = 0.45
 JOINT_P_SLICE = 0.45
 JOINT_P_ADD_CORE = 0.05
 JOINT_P_REMOVE_CORE = 0.05
-JOINT_SPLIT_PROBABILITY = 0.5  # Bernoulli p for neuron redistribution on split
+JOINT_P_SPLIT = 0.5  # Bernoulli p for neuron redistribution on split
 RISSANEN_C0 = 2.865064
 
 # Joint Inference Debug Messages

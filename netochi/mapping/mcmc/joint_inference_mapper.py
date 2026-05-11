@@ -50,7 +50,7 @@ class JointHardwareMCMCState(BaseModel, MCMCState, Generic[PAYLOAD]):
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=False)
 
     # Unified HW State
-    mapping_state: MosaicHWMappingState[PAYLOAD]
+    mapping_state: MosaicHWMappingState[MappingInput[PAYLOAD], PAYLOAD]
     objective: LogLikelihoodObjectiveInterface
     seed: Optional[int] = None
     verbose: bool = False
@@ -240,7 +240,7 @@ class JointHardwareMCMCState(BaseModel, MCMCState, Generic[PAYLOAD]):
         return delta_entropy, nattempts, nmoves
 
 
-class JointInferenceMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicHWMappingState[PAYLOAD], MappingInput[PAYLOAD]]):
+class JointInferenceMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicHWMappingState[MappingInput[PAYLOAD], PAYLOAD], MappingInput[PAYLOAD]]):
     """
     Pydantic-based Joint Inference Mapper.
     Input is purely the network (MappingInput).
@@ -257,7 +257,7 @@ class JointInferenceMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicHWMappi
     time_limit_s: float = Field(default=MCMC_TIME_LIMIT_S)
     verbose: bool = Field(default=False)
 
-    def run(self, mapping_input: MappingInput[PAYLOAD]) -> MosaicHWMappingState[PAYLOAD]:
+    def run(self, mapping_input: MappingInput[PAYLOAD]) -> MosaicHWMappingState[MappingInput[PAYLOAD], PAYLOAD]:
         """Run joint inference starting from the template hardware constraints."""
         if self.verbose:
             k_min = math.ceil(mapping_input.graph.num_vertices() / self.hw_template.neurons_per_core)
