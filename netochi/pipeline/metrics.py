@@ -20,6 +20,6 @@ class ObjectiveMetric(MappingMetric[MAPPING_STATE], Generic[MAPPING_STATE, BASEL
         """Evaluate using the internal objective's direct evaluate method."""
         return self.objective.evaluate(state)
 
-    @classmethod
-    def get_name(cls) -> str:
-        return "ObjectiveMetric"
+    def get_name(self) -> str:
+        """Return the name of the wrapped objective."""
+        return self.objective.__class__.__name__
