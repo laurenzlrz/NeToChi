@@ -3,11 +3,11 @@ import graph_tool.inference.mcmc as gt_mcmc
 from graph_tool.inference import MCMCState
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
-from typing import Any, Optional
+from typing import Optional, Generic
 
-from netochi.mapping.mcmc.likelihood_state import MappingState
 from netochi.input_generator.interfaces import MosaicMappingInput
-from netochi.mapping.interfaces import BaseMapper, MosaicMappingState
+from netochi.mapping.interfaces import BaseMapper, MosaicMappingState, PAYLOAD
+from netochi.objectives.log_likelihood import LogLikelihoodObjectiveInterface
 from netochi.mapping.constants import (
     MCMC_TIME_LIMIT_S,
     MCMC_DEFAULT_ITERATIONS,
@@ -22,17 +22,15 @@ from netochi.mapping.constants import (
 )
 
 
-class HardwareMCMCState(BaseModel, MCMCState):
+class HardwareMCMCState(BaseModel, MCMCState, Generic[PAYLOAD]):
     """
     Pydantic-based MCMC state for hardware mapping optimization.
-    
-    Inherits from MCMCState for graph-tool compatibility, but uses
-    Pydantic for structural validation and configuration.
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=False)
 
-    # Inputs
-    mapping_state: MappingState
+    # Unified State
+    mapping_state: MosaicMappingState[PAYLOAD]
+    objective: LogLikelihoodObjectiveInterface
     seed: Optional[int] = None
     verbose: bool = False
 
@@ -44,18 +42,15 @@ class HardwareMCMCState(BaseModel, MCMCState):
     _best_s: Optional[np.ndarray] = PrivateAttr(default=None)
 
     def __init__(self, **data):
-        # Initialize BaseModel first
         super().__init__(**data)
-        # Initialize MCMCState (EntropyState)
         MCMCState.__init__(self, entropy_args={})
-        # Initialize private attributes
         self._rng = np.random.default_rng(self.seed)
 
     def entropy(self, **kwargs) -> float:
         """Return the energy to minimize."""
         if self.verbose:
             print(DEBUG_MCMC_ENTROPY_CALL)
-        return -self.mapping_state.log_likelihood()
+        return -self.objective.log_likelihood(self.mapping_state)
 
     def _save_best(self, energy: float) -> None:
         """Snapshot the current state if it is the best seen so far."""
@@ -66,13 +61,13 @@ class HardwareMCMCState(BaseModel, MCMCState):
             self._best_s = self.mapping_state.s.copy()
 
     def restore_best(self) -> None:
-        """Restore the best-seen state (called after timeout or completion)."""
+        """Restore the best-seen state."""
         if self.verbose:
             print(DEBUG_MCMC_RESTORE_BEST)
         if self._best_c is not None:
-            self.mapping_state.c = self._best_c
-            self.mapping_state.x = self._best_x
-            self.mapping_state.s = self._best_s
+            self.mapping_state.neuron_core_idxs_assignment = self._best_c
+            self.mapping_state.neuron_local_idxs_assignment = self._best_x
+            self.mapping_state.neuron_slice_assignments = self._best_s
 
     def mcmc_sweep(self, beta: float = 1.0, **kwargs) -> tuple:
         """Perform one sweep of N move-attempts."""
@@ -86,7 +81,7 @@ class HardwareMCMCState(BaseModel, MCMCState):
         current_energy = self.entropy()
         self._save_best(current_energy)
 
-        N = self.mapping_state.N
+        N = self.mapping_state.mapping_input.graph.num_vertices()
         for _ in range(N):
             nattempts += 1
             move_type = self._rng.integers(0, MCMC_NUM_MOVE_TYPES)
@@ -117,8 +112,9 @@ class HardwareMCMCState(BaseModel, MCMCState):
 
             else:
                 # --- Slice Mutation ---
-                d = int(self._rng.integers(1, self.mapping_state.config.max_distance + 1))
-                n_slices = self.mapping_state.config.num_slices_at_distance(d)
+                hw = self.mapping_state.mapping_input.hw_config
+                d = int(self._rng.integers(1, hw.max_distance + 1))
+                n_slices = hw.num_slices_at_distance(d)
 
                 old_s = self.mapping_state.s[node, d]
                 new_s = int(self._rng.integers(0, n_slices))
@@ -140,32 +136,30 @@ class HardwareMCMCState(BaseModel, MCMCState):
         return delta_entropy, nattempts, nmoves
 
 
-class MCMCMapper(BaseModel, BaseMapper[MosaicMappingState, MosaicMappingInput[Any]]):
+class MCMCMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicMappingState[PAYLOAD], MosaicMappingInput[PAYLOAD]]):
     """
     Pydantic-based MCMC Mapper using Simulated Annealing via graph-tool.
     """
     model_config = ConfigDict(frozen=True)
 
+    objective: LogLikelihoodObjectiveInterface
     iterations: int = Field(default=MCMC_DEFAULT_ITERATIONS)
     initial_temp: float = Field(default=MCMC_DEFAULT_INITIAL_TEMP)
     seed: int = Field(default=MCMC_DEFAULT_SEED)
     time_limit_s: float = Field(default=MCMC_TIME_LIMIT_S)
     verbose: bool = Field(default=False)
 
-    def run(self, mapping_input: MosaicMappingInput[Any]) -> MosaicMappingState:
+    def run(self, mapping_input: MosaicMappingInput[PAYLOAD]) -> MosaicMappingState[PAYLOAD]:
         """Run the optimization."""
         if self.verbose:
             print(DEBUG_MCMC_RUN_START)
-            
-        graph = mapping_input.graph
-        hw = mapping_input.hw_config
 
-        state = MappingState(graph, hw)
+        state = MosaicMappingState.from_input(mapping_input)
         state.init_random(seed=self.seed)
 
-        # Initialize Pydantic-based MCMC state
         hw_state = HardwareMCMCState(
             mapping_state=state, 
+            objective=self.objective,
             seed=self.seed, 
             verbose=self.verbose
         )
@@ -204,9 +198,4 @@ class MCMCMapper(BaseModel, BaseMapper[MosaicMappingState, MosaicMappingInput[An
 
         hw_state.restore_best()
 
-        return MosaicMappingState(
-            mapping_input=mapping_input,
-            neuron_core_idxs_assignment=state.c,
-            neuron_local_idxs_assignment=state.x,
-            neuron_slice_assignments=state.s,
-        )
+        return state

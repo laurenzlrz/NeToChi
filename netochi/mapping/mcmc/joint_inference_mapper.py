@@ -4,11 +4,11 @@ import numpy as np
 import graph_tool.inference.mcmc as gt_mcmc
 from graph_tool.inference import MCMCState
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
-from typing import Any, List, Tuple, Optional, Generic, TypeVar
+from typing import List, Tuple, Optional, Generic
 
-from netochi.mapping.mcmc.likelihood_state import MappingState
-from netochi.input_generator.interfaces import MappingInput
-from netochi.mapping.interfaces import BaseMapper, MosaicMappingState, ANY_MAPPING_INPUT
+from netochi.input_generator.interfaces import MosaicMappingInput
+from netochi.mapping.interfaces import BaseMapper, MosaicMappingState, PAYLOAD
+from netochi.objectives.log_likelihood import LogLikelihoodObjectiveInterface
 from netochi.mapping.constants import (
     MCMC_TIME_LIMIT_S,
     MCMC_DEFAULT_ITERATIONS,
@@ -42,14 +42,15 @@ def log_star(n: int) -> float:
     return res
 
 
-class JointHardwareMCMCState(BaseModel, MCMCState):
+class JointHardwareMCMCState(BaseModel, MCMCState, Generic[PAYLOAD]):
     """
     Pydantic-based MCMC state for JOINT hardware-mapping optimization.
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=False)
 
-    # Inputs
-    mapping_state: MappingState
+    # Unified State
+    mapping_state: MosaicMappingState[PAYLOAD]
+    objective: LogLikelihoodObjectiveInterface
     seed: Optional[int] = None
     verbose: bool = False
 
@@ -71,19 +72,22 @@ class JointHardwareMCMCState(BaseModel, MCMCState):
         MCMCState.__init__(self, entropy_args={})
         self._rng = np.random.default_rng(self.seed)
         self.K = int(np.max(self.mapping_state.c) + 1)
-        self._K_max = self.mapping_state.config.total_cores
-        self._K_min = math.ceil(self.mapping_state.N / self.mapping_state.config.neurons_per_core)
+        hw = self.mapping_state.mapping_input.hw_config
+        self._K_max = hw.total_cores
+        num_neurons = self.mapping_state.mapping_input.graph.num_vertices()
+        self._K_min = math.ceil(num_neurons / hw.neurons_per_core)
 
     def mapping_cost(self, K: int) -> float:
         """Description length of the mapping given K cores."""
-        N = self.mapping_state.N
-        Nc = self.mapping_state.config.neurons_per_core
-        cost_c = N * math.log(K)
-        cost_x = N * math.log(Nc)
+        num_neurons = self.mapping_state.mapping_input.graph.num_vertices()
+        hw = self.mapping_state.mapping_input.hw_config
+        Nc = hw.neurons_per_core
+        cost_c = num_neurons * math.log(K)
+        cost_x = num_neurons * math.log(Nc)
         cost_s = 0.0
-        for d in range(1, self.mapping_state.config.max_distance + 1):
-            Sd = self.mapping_state.config.num_slices_at_distance(d)
-            cost_s += N * math.log(Sd)
+        for d in range(1, hw.max_distance + 1):
+            Sd = hw.num_slices_at_distance(d)
+            cost_s += num_neurons * math.log(Sd)
         return cost_c + cost_x + cost_s
 
     def hardware_cost(self, K: int) -> float:
@@ -92,7 +96,7 @@ class JointHardwareMCMCState(BaseModel, MCMCState):
 
     def entropy(self, **kwargs) -> float:
         """Total Description Length (Sigma)."""
-        neg_ll = -self.mapping_state.log_likelihood()
+        neg_ll = -self.objective.log_likelihood(self.mapping_state)
         c_map = self.mapping_cost(self.K)
         c_hw = self.hardware_cost(self.K)
         return neg_ll + c_map + c_hw
@@ -110,9 +114,9 @@ class JointHardwareMCMCState(BaseModel, MCMCState):
             print(DEBUG_JOINT_RESTORE_BEST.format(k=self._best_K, energy=self._best_energy))
         if self._best_c is not None:
             self.K = self._best_K
-            self.mapping_state.c = self._best_c
-            self.mapping_state.x = self._best_x
-            self.mapping_state.s = self._best_s
+            self.mapping_state.neuron_core_idxs_assignment = self._best_c
+            self.mapping_state.neuron_local_idxs_assignment = self._best_x
+            self.mapping_state.neuron_slice_assignments = self._best_s
 
     def mcmc_sweep(self, beta: float = 1.0, **kwargs) -> tuple:
         """Perform one sweep with hardware size moves."""
@@ -125,16 +129,18 @@ class JointHardwareMCMCState(BaseModel, MCMCState):
         current_energy = self.entropy()
         self._save_best(current_energy)
 
-        N = self.mapping_state.N
-        for _ in range(N):
+        num_neurons = self.mapping_state.mapping_input.graph.num_vertices()
+        hw = self.mapping_state.mapping_input.hw_config
+        
+        for _ in range(num_neurons):
             nattempts += 1
             r = self._rng.random()
             
             if r < (JOINT_P_SWAP + JOINT_P_SLICE):
                 if r < JOINT_P_SWAP:
                     # Node Swap
-                    node1 = int(self._rng.integers(0, N))
-                    node2 = int(self._rng.integers(0, N))
+                    node1 = int(self._rng.integers(0, num_neurons))
+                    node2 = int(self._rng.integers(0, num_neurons))
                     if node1 == node2: continue
                     old_c1, old_x1 = self.mapping_state.c[node1], self.mapping_state.x[node1]
                     old_c2, old_x2 = self.mapping_state.c[node2], self.mapping_state.x[node2]
@@ -150,9 +156,9 @@ class JointHardwareMCMCState(BaseModel, MCMCState):
                         self.mapping_state.c[node2], self.mapping_state.x[node2] = old_c2, old_x2
                 else:
                     # Slice Mutation
-                    node = int(self._rng.integers(0, N))
-                    d = int(self._rng.integers(1, self.mapping_state.config.max_distance + 1))
-                    n_sl = self.mapping_state.config.num_slices_at_distance(d)
+                    node = int(self._rng.integers(0, num_neurons))
+                    d = int(self._rng.integers(1, hw.max_distance + 1))
+                    n_sl = hw.num_slices_at_distance(d)
                     old_s = self.mapping_state.s[node, d]
                     new_s = int(self._rng.integers(0, n_sl))
                     if old_s == new_s: continue
@@ -177,11 +183,11 @@ class JointHardwareMCMCState(BaseModel, MCMCState):
                     moved_nodes = nodes_in_core[moved_mask]
                     if len(moved_nodes) == 0 or len(moved_nodes) == len(nodes_in_core): continue
                     self.mapping_state.c[moved_nodes] = self.K
-                    avail_x = list(range(self.mapping_state.config.neurons_per_core))
+                    avail_x = list(range(hw.neurons_per_core))
                     self._rng.shuffle(avail_x)
                     self.mapping_state.x[moved_nodes] = avail_x[:len(moved_nodes)]
-                    for d in range(1, self.mapping_state.config.max_distance + 1):
-                        n_sl = self.mapping_state.config.num_slices_at_distance(d)
+                    for d in range(1, hw.max_distance + 1):
+                        n_sl = hw.num_slices_at_distance(d)
                         self.mapping_state.s[moved_nodes, d] = self._rng.integers(0, n_sl, size=len(moved_nodes))
                     old_K = self.K
                     self.K += 1
@@ -192,7 +198,7 @@ class JointHardwareMCMCState(BaseModel, MCMCState):
                         self._save_best(current_energy)
                         if self.verbose: print(DEBUG_JOINT_CORE_ADDED.format(k_old=old_K, k_new=self.K))
                     else:
-                        self.mapping_state.c, self.mapping_state.x, self.mapping_state.s, self.K = old_c, old_x, old_s, old_K
+                        self.mapping_state.neuron_core_idxs_assignment, self.mapping_state.neuron_local_idxs_assignment, self.mapping_state.neuron_slice_assignments, self.K = old_c, old_x, old_s, old_K
                 
                 else:
                     # --- REMOVE CORE ---
@@ -203,20 +209,20 @@ class JointHardwareMCMCState(BaseModel, MCMCState):
                     success = True
                     for node in nodes_to_move:
                         core_counts = np.bincount(self.mapping_state.c, minlength=self.K)
-                        avail_cores = np.where((core_counts < self.mapping_state.config.neurons_per_core) & 
+                        avail_cores = np.where((core_counts < hw.neurons_per_core) & 
                                               (np.arange(self.K) != core_to_remove))[0]
                         if len(avail_cores) == 0:
                             success = False; break
                         target_core = int(self._rng.choice(avail_cores))
                         self.mapping_state.c[node] = target_core
                         x_in_target = self.mapping_state.x[self.mapping_state.c == target_core]
-                        avail_x = [ix for ix in range(self.mapping_state.config.neurons_per_core) if ix not in x_in_target]
+                        avail_x = [ix for ix in range(hw.neurons_per_core) if ix not in x_in_target]
                         self.mapping_state.x[node] = int(self._rng.choice(avail_x))
-                        for d in range(1, self.mapping_state.config.max_distance + 1):
-                            n_sl = self.mapping_state.config.num_slices_at_distance(d)
+                        for d in range(1, hw.max_distance + 1):
+                            n_sl = hw.num_slices_at_distance(d)
                             self.mapping_state.s[node, d] = self._rng.integers(0, n_sl)
                     if not success:
-                        self.mapping_state.c, self.mapping_state.x, self.mapping_state.s = old_c, old_x, old_s
+                        self.mapping_state.neuron_core_idxs_assignment, self.mapping_state.neuron_local_idxs_assignment, self.mapping_state.neuron_slice_assignments = old_c, old_x, old_s
                         continue
                     self.mapping_state.c[self.mapping_state.c > core_to_remove] -= 1
                     old_K = self.K
@@ -228,35 +234,36 @@ class JointHardwareMCMCState(BaseModel, MCMCState):
                         self._save_best(current_energy)
                         if self.verbose: print(DEBUG_JOINT_CORE_REMOVED.format(k_old=old_K, k_new=self.K))
                     else:
-                        self.mapping_state.c, self.mapping_state.x, self.mapping_state.s, self.K = old_c, old_x, old_s, old_K
+                        self.mapping_state.neuron_core_idxs_assignment, self.mapping_state.neuron_local_idxs_assignment, self.mapping_state.neuron_slice_assignments, self.K = old_c, old_x, old_s, old_K
 
         return delta_entropy, nattempts, nmoves
 
 
-class JointInferenceMapper(BaseModel, Generic[ANY_MAPPING_INPUT], BaseMapper[MosaicMappingState, ANY_MAPPING_INPUT]):
+class JointInferenceMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicMappingState[PAYLOAD], MosaicMappingInput[PAYLOAD]]):
     """
     Pydantic-based Joint Inference Mapper.
-    Accepts any input type inheriting from MappingInput.
     """
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
+    objective: LogLikelihoodObjectiveInterface
     iterations: int = Field(default=MCMC_DEFAULT_ITERATIONS)
     initial_temp: float = Field(default=MCMC_DEFAULT_INITIAL_TEMP)
     seed: int = Field(default=MCMC_DEFAULT_SEED)
     time_limit_s: float = Field(default=MCMC_TIME_LIMIT_S)
     verbose: bool = Field(default=False)
 
-    def run(self, mapping_input: ANY_MAPPING_INPUT) -> MosaicMappingState:
+    def run(self, mapping_input: MosaicMappingInput[PAYLOAD]) -> MosaicMappingState[PAYLOAD]:
         """Run joint inference."""
         if self.verbose:
             k_min = math.ceil(mapping_input.graph.num_vertices() / mapping_input.hw_config.neurons_per_core)
             print(DEBUG_JOINT_RUN_START.format(k_min=k_min, k_max=mapping_input.hw_config.total_cores))
 
-        state = MappingState(graph=mapping_input.graph, config=mapping_input.hw_config)
+        state = MosaicMappingState.from_input(mapping_input)
         state.init_random(seed=self.seed)
 
         hw_state = JointHardwareMCMCState(
             mapping_state=state, 
+            objective=self.objective,
             seed=self.seed, 
             verbose=self.verbose
         )
@@ -288,9 +295,4 @@ class JointInferenceMapper(BaseModel, Generic[ANY_MAPPING_INPUT], BaseMapper[Mos
 
         hw_state.restore_best()
 
-        return MosaicMappingState(
-            mapping_input=mapping_input,
-            neuron_core_idxs_assignment=state.c,
-            neuron_local_idxs_assignment=state.x,
-            neuron_slice_assignments=state.s,
-        )
+        return state
