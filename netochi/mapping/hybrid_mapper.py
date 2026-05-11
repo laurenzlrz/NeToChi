@@ -3,28 +3,29 @@ import graph_tool.all as gt
 import numpy as np
 from collections import defaultdict
 from sklearn.decomposition import PCA
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
-from netochi.mapping.interfaces import BaseMapper, MosaicMappingState
+from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
 from netochi.input_generator.interfaces import MosaicMappingInput
 
 
-class HybridMapper(BaseModel, BaseMapper[MosaicMappingState[Any], MosaicMappingInput[Any]]):
+class HybridMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicMappingInput[Any]]):
     """
-    Mapper combining hSBM clustering and PCA-based local assignment.
+    Heuristic mapper combining initial greedy clustering with random refinements.
     
     Refactored to follow the "Großprojekt" Pydantic standard.
     """
     model_config = ConfigDict(frozen=True)
+    greedy_iterations: int = Field(default=10)
 
-    def run(self, mapping_input: MosaicMappingInput[Any]) -> MosaicMappingState[Any]:
-        """Map nodes using hSBM for cores and PCA for local addresses."""
+    def run(self, mapping_input: MosaicMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
+        """Execute hybrid mapping strategy."""
         graph = mapping_input.graph
         hw = mapping_input.hw_config
         num_neurons = graph.num_vertices()
         
         # Initialize result state
-        state = MosaicMappingState.from_input(mapping_input)
+        state = MosaicNetworkMappingState.from_input(mapping_input)
         c_assignment = state.neuron_core_idxs_assignment
         x_assignment = state.neuron_local_idxs_assignment
         s_assignment = state.neuron_slice_assignments

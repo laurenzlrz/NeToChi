@@ -1,59 +1,39 @@
-import numpy as np
-from typing import Dict, Any, Optional, Generic
+from typing import Dict, Any, Generic
 from pydantic import PrivateAttr, ConfigDict
 
-from netochi.objectives.interfaces import (
-    NetworkMappingObjective, 
-    LogLikelihoodObjectiveInterface
-)
+from netochi.objectives.interfaces import NetworkMappingObjective
 from netochi.mapping.interfaces import (
     BaseMosaicMappingState, 
-    NetworkAssignmentState, 
+    NetworkAssignmentState,
     ANY_MAPPING_INPUT,
     WITH_HW_INPUT
-)
-from netochi.objectives.constants import (
-    LL_INVALID_PENALTY_LOG,
-    LL_LAPLACIAN_SMOOTHING_NUM,
-    LL_LAPLACIAN_SMOOTHING_DEN
 )
 from netochi.objectives.exceptions import BaselineMismatchError
 
 
-class LogLikelihoodObjective(NetworkMappingObjective[BaseMosaicMappingState[ANY_MAPPING_INPUT], NetworkAssignmentState[WITH_HW_INPUT]], LogLikelihoodObjectiveInterface[BaseMosaicMappingState[ANY_MAPPING_INPUT]], Generic[ANY_MAPPING_INPUT, WITH_HW_INPUT]):
+class InconsistencyObjective(NetworkMappingObjective[BaseMosaicMappingState[ANY_MAPPING_INPUT], NetworkAssignmentState[WITH_HW_INPUT]], Generic[ANY_MAPPING_INPUT, WITH_HW_INPUT]):
     """
-    SBM-based Log-Likelihood objective for neuromorphic mapping.
+    Objective that counts the number of invalid edges (edges violating hardware constraints).
     """
     model_config = ConfigDict(arbitrary_types_allowed=True)
     
-    # Internal cache for connectivity data (input_id -> graph_data)
     _graph_cache: Dict[int, Any] = PrivateAttr(default_factory=dict)
 
     def evaluate(self, state: BaseMosaicMappingState[ANY_MAPPING_INPUT]) -> float:
-        """Returns Negative Log-Likelihood (Energy)."""
-        return -self.log_likelihood(state)
-
-    def evaluate_against_baseline(self, state: BaseMosaicMappingState[ANY_MAPPING_INPUT], baseline: NetworkAssignmentState[WITH_HW_INPUT]) -> float:
-        """Evaluate relative difference in energy."""
-        if id(state.mapping_input.graph) != id(baseline.mapping_input.graph):
-            raise BaselineMismatchError("Graph topology mismatch between state and baseline.")
-        return self.evaluate(state) - self.evaluate(baseline)
-
-    def log_likelihood(self, state: BaseMosaicMappingState[ANY_MAPPING_INPUT]) -> float:
-        """Calculate the log-likelihood for the current mapping assignment."""
+        """Returns total number of invalid edges."""
         input_id = id(state.mapping_input)
         if input_id not in self._graph_cache:
             self._graph_cache[input_id] = self._precompute_graph(state)
             
         data = self._graph_cache[input_id]
         e_v = self._compute_e_valid(state, data)
-        
-        hw = state.hw
-        n0 = data['N'] * hw.neurons_per_core
-        p0 = (e_v + LL_LAPLACIAN_SMOOTHING_NUM) / (n0 + LL_LAPLACIAN_SMOOTHING_DEN)
-        
-        ll = e_v * np.log(p0) + (data['m'] - e_v) * LL_INVALID_PENALTY_LOG
-        return float(ll)
+        return float(data['m'] - e_v)
+
+    def evaluate_against_baseline(self, state: BaseMosaicMappingState[ANY_MAPPING_INPUT], baseline: NetworkAssignmentState[WITH_HW_INPUT]) -> float:
+        """Evaluate relative difference in inconsistencies."""
+        if id(state.mapping_input.graph) != id(baseline.mapping_input.graph):
+            raise BaselineMismatchError("Graph topology mismatch between state and baseline.")
+        return self.evaluate(state) - self.evaluate(baseline)
 
     def _precompute_graph(self, state: BaseMosaicMappingState[ANY_MAPPING_INPUT]) -> Dict[str, Any]:
         graph = state.mapping_input.graph

@@ -4,11 +4,11 @@ import graph_tool.all as gt
 from scipy.optimize import quadratic_assignment
 from pydantic import BaseModel, ConfigDict
 
-from netochi.mapping.interfaces import BaseMapper, MosaicMappingState
+from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
 from netochi.input_generator.interfaces import MosaicMappingInput
 
 
-class QAPMapper(BaseModel, BaseMapper[MosaicMappingState[Any], MosaicMappingInput[Any]]):
+class QAPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicMappingInput[Any]]):
     """
     Mapper based on the Quadratic Assignment Problem (QAP).
     
@@ -16,14 +16,14 @@ class QAPMapper(BaseModel, BaseMapper[MosaicMappingState[Any], MosaicMappingInpu
     """
     model_config = ConfigDict(frozen=True)
 
-    def run(self, mapping_input: MosaicMappingInput[Any]) -> MosaicMappingState[Any]:
+    def run(self, mapping_input: MosaicMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
         """Find core and address allocations using QAP FAQ heuristic."""
         graph = mapping_input.graph
         hw = mapping_input.hw_config
         N_graph = graph.num_vertices()
         
         # Initialize result state
-        state = MosaicMappingState.from_input(mapping_input)
+        state = MosaicNetworkMappingState.from_input(mapping_input)
         c_assignment = state.neuron_core_idxs_assignment
         x_assignment = state.neuron_local_idxs_assignment
         s_assignment = state.neuron_slice_assignments

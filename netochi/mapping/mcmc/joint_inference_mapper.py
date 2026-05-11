@@ -6,8 +6,9 @@ from graph_tool.inference import MCMCState
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from typing import List, Tuple, Optional, Generic
 
-from netochi.input_generator.interfaces import MosaicMappingInput
-from netochi.mapping.interfaces import BaseMapper, MosaicMappingState, PAYLOAD
+from netochi.input_generator.interfaces import MappingInput
+from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
+from netochi.mapping.interfaces import BaseMapper, MosaicHWMappingState, PAYLOAD
 from netochi.objectives.log_likelihood import LogLikelihoodObjectiveInterface
 from netochi.mapping.constants import (
     MCMC_TIME_LIMIT_S,
@@ -20,7 +21,7 @@ from netochi.mapping.constants import (
     JOINT_P_SLICE,
     JOINT_P_ADD_CORE,
     JOINT_P_REMOVE_CORE,
-    JOINT_SPLIT_PROBABILITY,
+    JOINT_P_SPLIT,
     RISSANEN_C0,
     DEBUG_JOINT_RUN_START,
     DEBUG_JOINT_SWEEP_CALL,
@@ -48,8 +49,8 @@ class JointHardwareMCMCState(BaseModel, MCMCState, Generic[PAYLOAD]):
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=False)
 
-    # Unified State
-    mapping_state: MosaicMappingState[PAYLOAD]
+    # Unified HW State
+    mapping_state: MosaicHWMappingState[PAYLOAD]
     objective: LogLikelihoodObjectiveInterface
     seed: Optional[int] = None
     verbose: bool = False
@@ -72,7 +73,7 @@ class JointHardwareMCMCState(BaseModel, MCMCState, Generic[PAYLOAD]):
         MCMCState.__init__(self, entropy_args={})
         self._rng = np.random.default_rng(self.seed)
         self.K = int(np.max(self.mapping_state.c) + 1)
-        hw = self.mapping_state.mapping_input.hw_config
+        hw = self.mapping_state.hw_config
         self._K_max = hw.total_cores
         num_neurons = self.mapping_state.mapping_input.graph.num_vertices()
         self._K_min = math.ceil(num_neurons / hw.neurons_per_core)
@@ -80,7 +81,7 @@ class JointHardwareMCMCState(BaseModel, MCMCState, Generic[PAYLOAD]):
     def mapping_cost(self, K: int) -> float:
         """Description length of the mapping given K cores."""
         num_neurons = self.mapping_state.mapping_input.graph.num_vertices()
-        hw = self.mapping_state.mapping_input.hw_config
+        hw = self.mapping_state.hw_config
         Nc = hw.neurons_per_core
         cost_c = num_neurons * math.log(K)
         cost_x = num_neurons * math.log(Nc)
@@ -130,7 +131,7 @@ class JointHardwareMCMCState(BaseModel, MCMCState, Generic[PAYLOAD]):
         self._save_best(current_energy)
 
         num_neurons = self.mapping_state.mapping_input.graph.num_vertices()
-        hw = self.mapping_state.mapping_input.hw_config
+        hw = self.mapping_state.hw_config
         
         for _ in range(num_neurons):
             nattempts += 1
@@ -179,7 +180,7 @@ class JointHardwareMCMCState(BaseModel, MCMCState, Generic[PAYLOAD]):
                     nodes_in_core = np.where(self.mapping_state.c == core_to_split)[0]
                     if len(nodes_in_core) <= 1: continue
                     old_c, old_x, old_s = self.mapping_state.c.copy(), self.mapping_state.x.copy(), self.mapping_state.s.copy()
-                    moved_mask = self._rng.random(len(nodes_in_core)) < JOINT_SPLIT_PROBABILITY
+                    moved_mask = self._rng.random(len(nodes_in_core)) < JOINT_P_SPLIT
                     moved_nodes = nodes_in_core[moved_mask]
                     if len(moved_nodes) == 0 or len(moved_nodes) == len(nodes_in_core): continue
                     self.mapping_state.c[moved_nodes] = self.K
@@ -239,27 +240,31 @@ class JointHardwareMCMCState(BaseModel, MCMCState, Generic[PAYLOAD]):
         return delta_entropy, nattempts, nmoves
 
 
-class JointInferenceMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicMappingState[PAYLOAD], MosaicMappingInput[PAYLOAD]]):
+class JointInferenceMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicHWMappingState[PAYLOAD], MappingInput[PAYLOAD]]):
     """
     Pydantic-based Joint Inference Mapper.
+    Input is purely the network (MappingInput).
+    Output is the state and the optimized hardware (MosaicHWMappingState).
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
     objective: LogLikelihoodObjectiveInterface
+    hw_template: MosaicHardwareConfig  # Template constraints for the hardware (e.g. max_distance, neurons_per_core)
+    
     iterations: int = Field(default=MCMC_DEFAULT_ITERATIONS)
     initial_temp: float = Field(default=MCMC_DEFAULT_INITIAL_TEMP)
     seed: int = Field(default=MCMC_DEFAULT_SEED)
     time_limit_s: float = Field(default=MCMC_TIME_LIMIT_S)
     verbose: bool = Field(default=False)
 
-    def run(self, mapping_input: MosaicMappingInput[PAYLOAD]) -> MosaicMappingState[PAYLOAD]:
-        """Run joint inference."""
+    def run(self, mapping_input: MappingInput[PAYLOAD]) -> MosaicHWMappingState[PAYLOAD]:
+        """Run joint inference starting from the template hardware constraints."""
         if self.verbose:
-            k_min = math.ceil(mapping_input.graph.num_vertices() / mapping_input.hw_config.neurons_per_core)
-            print(DEBUG_JOINT_RUN_START.format(k_min=k_min, k_max=mapping_input.hw_config.total_cores))
+            k_min = math.ceil(mapping_input.graph.num_vertices() / self.hw_template.neurons_per_core)
+            print(DEBUG_JOINT_RUN_START.format(k_min=k_min, k_max=self.hw_template.total_cores))
 
-        state = MosaicMappingState.from_input(mapping_input)
-        state.init_random(seed=self.seed)
+        state = MosaicHWMappingState.from_input_and_hw(mapping_input, self.hw_template)
+        state.init_random_assignments(seed=self.seed)
 
         hw_state = JointHardwareMCMCState(
             mapping_state=state, 
@@ -294,5 +299,14 @@ class JointInferenceMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicMapping
         if exc_holder: raise exc_holder[0]
 
         hw_state.restore_best()
+
+        optimized_hw = MosaicHardwareConfig(
+            neurons_per_core=self.hw_template.neurons_per_core,
+            total_cores=hw_state.K,
+            router_levels=self.hw_template.router_levels,
+            slices_per_level=self.hw_template.slices_per_level,
+            max_distance=self.hw_template.max_distance
+        )
+        state.hw_config = optimized_hw
 
         return state

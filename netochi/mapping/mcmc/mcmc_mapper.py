@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from typing import Optional, Generic
 
 from netochi.input_generator.interfaces import MosaicMappingInput
-from netochi.mapping.interfaces import BaseMapper, MosaicMappingState, PAYLOAD
+from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState, PAYLOAD
 from netochi.objectives.log_likelihood import LogLikelihoodObjectiveInterface
 from netochi.mapping.constants import (
     MCMC_TIME_LIMIT_S,
@@ -29,7 +29,7 @@ class HardwareMCMCState(BaseModel, MCMCState, Generic[PAYLOAD]):
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=False)
 
     # Unified State
-    mapping_state: MosaicMappingState[PAYLOAD]
+    mapping_state: MosaicNetworkMappingState[PAYLOAD]
     objective: LogLikelihoodObjectiveInterface
     seed: Optional[int] = None
     verbose: bool = False
@@ -136,7 +136,7 @@ class HardwareMCMCState(BaseModel, MCMCState, Generic[PAYLOAD]):
         return delta_entropy, nattempts, nmoves
 
 
-class MCMCMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicMappingState[PAYLOAD], MosaicMappingInput[PAYLOAD]]):
+class MCMCMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicNetworkMappingState[PAYLOAD], MosaicMappingInput[PAYLOAD]]):
     """
     Pydantic-based MCMC Mapper using Simulated Annealing via graph-tool.
     """
@@ -149,13 +149,13 @@ class MCMCMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicMappingState[PAYL
     time_limit_s: float = Field(default=MCMC_TIME_LIMIT_S)
     verbose: bool = Field(default=False)
 
-    def run(self, mapping_input: MosaicMappingInput[PAYLOAD]) -> MosaicMappingState[PAYLOAD]:
+    def run(self, mapping_input: MosaicMappingInput[PAYLOAD]) -> MosaicNetworkMappingState[PAYLOAD]:
         """Run the optimization."""
         if self.verbose:
             print(DEBUG_MCMC_RUN_START)
 
-        state = MosaicMappingState.from_input(mapping_input)
-        state.init_random(seed=self.seed)
+        state = MosaicNetworkMappingState.from_input(mapping_input)
+        state.init_random_assignments(seed=self.seed)
 
         hw_state = HardwareMCMCState(
             mapping_state=state, 

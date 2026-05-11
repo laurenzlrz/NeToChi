@@ -7,14 +7,14 @@ import pulp
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 
-from netochi.mapping.interfaces import BaseMapper, MosaicMappingState
+from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
 from netochi.input_generator.interfaces import MosaicMappingInput
 from netochi.mapping.constants import MCMC_TIME_LIMIT_S
 
 _ILP_MAX_NEURONS = 100
 
 
-class ILPMapper(BaseModel, BaseMapper[MosaicMappingState[Any], MosaicMappingInput[Any]]):
+class ILPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicMappingInput[Any]]):
     """
     Mapper formulating the problem as a Mixed Integer Linear Program (MILP).
     """
@@ -22,7 +22,7 @@ class ILPMapper(BaseModel, BaseMapper[MosaicMappingState[Any], MosaicMappingInpu
     time_limit_s: float = Field(default=MCMC_TIME_LIMIT_S)
     max_neurons: int = Field(default=_ILP_MAX_NEURONS)
 
-    def run(self, mapping_input: MosaicMappingInput[Any]) -> MosaicMappingState[Any]:
+    def run(self, mapping_input: MosaicMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
         """Solve for optimal mapping using the PuLP MILP solver."""
         graph = mapping_input.graph
         hw = mapping_input.hw_config
@@ -33,7 +33,7 @@ class ILPMapper(BaseModel, BaseMapper[MosaicMappingState[Any], MosaicMappingInpu
             raise ValueError(f"ILPMapper: problem size N={N} exceeds limit of {self.max_neurons} neurons")
 
         # Initialize result state
-        state = MosaicMappingState.from_input(mapping_input)
+        state = MosaicNetworkMappingState.from_input(mapping_input)
 
         C = hw.total_cores
         X = hw.neurons_per_core
@@ -56,7 +56,7 @@ class ILPMapper(BaseModel, BaseMapper[MosaicMappingState[Any], MosaicMappingInpu
         v = pulp.LpVariable.dicts("v", edges, cat='Binary')
 
         if _budget_remaining() <= 1:
-            state.init_random()
+            state.init_random_assignments()
             return state
 
         pair = pulp.LpVariable.dicts("pair", ((i, j, c1, c2) for (i, j) in edges for c1 in range(C) for c2 in range(C)), cat='Binary')
@@ -69,7 +69,7 @@ class ILPMapper(BaseModel, BaseMapper[MosaicMappingState[Any], MosaicMappingInpu
                     validCross[(i, j, d, sigma)] = pulp.LpVariable(f"vc_{i}_{j}_{d}_{sigma}", cat='Binary')
 
         if _budget_remaining() <= 1:
-            state.init_random()
+            state.init_random_assignments()
             return state
 
         # 2. Objective
@@ -90,7 +90,7 @@ class ILPMapper(BaseModel, BaseMapper[MosaicMappingState[Any], MosaicMappingInpu
                 prob += pulp.lpSum(s_vars[(i, d, sigma)] for sigma in range(n_slices)) == 1
 
         if _budget_remaining() <= 1:
-            state.init_random()
+            state.init_random_assignments()
             return state
 
         for (i, j) in edges:
@@ -121,7 +121,7 @@ class ILPMapper(BaseModel, BaseMapper[MosaicMappingState[Any], MosaicMappingInpu
         # 4. Solve
         remaining = _budget_remaining()
         if remaining <= 1:
-            state.init_random()
+            state.init_random_assignments()
             return state
 
         with tempfile.NamedTemporaryFile(suffix=".mps", delete=False) as mps_file:
