@@ -24,11 +24,10 @@ WITH_HW_INPUT = TypeVar('WITH_HW_INPUT', bound=MappingInput)
 # Mapping State Interfaces
 # -----------------------------------------------------------------------------
 
-class MappingState(BaseModel, Generic[WITH_HW_INPUT]):
+class MappingState(BaseModel, Generic[ANY_MAPPING_INPUT]):
     """Base class for all mapping results, encapsulating the original input."""
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
-    
-    mapping_input: WITH_HW_INPUT
+    mapping_input: ANY_MAPPING_INPUT
 
 
 class MosaicMappingState(MappingState[MosaicMappingInput[Any]]):

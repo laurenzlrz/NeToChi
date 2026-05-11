@@ -2,51 +2,64 @@ import os
 import subprocess
 import tempfile
 import time
-
+from typing import Any
 import pulp
 import graph_tool.all as gt
-from netochi.mapping.likelihood_state import MappingState
-from netochi.pipeline.core import BaseMapper, IFixedHardwareMapper, FixedHardwareInput
+import numpy as np
+from pydantic import BaseModel, ConfigDict, Field
+
+from netochi.mapping.mcmc.likelihood_state import MappingState
+from netochi.mapping.interfaces import BaseMapper, MosaicMappingState
+from netochi.input_generator.interfaces import MosaicMappingInput
 
 _ILP_TIME_LIMIT_S = 10
 _ILP_MAX_NEURONS = 100  # Skip ILP for problems larger than this
 
 
-class ILPMapper(BaseMapper, IFixedHardwareMapper):
-    """Mapper formulating the problem as a Mixed Integer Linear Program (MILP).
+class ILPMapper(BaseModel, BaseMapper[MosaicMappingState, MosaicMappingInput[Any]]):
+    """
+    Mapper formulating the problem as a Mixed Integer Linear Program (MILP).
 
     Enforces a hard wall-clock budget of _ILP_TIME_LIMIT_S seconds for the
     entire execution (model construction + solve). Automatically skips
     problems with more than _ILP_MAX_NEURONS neurons.
+    
+    Refactored to follow the "Großprojekt" Pydantic standard.
     """
+    model_config = ConfigDict(frozen=True)
+    time_limit_s: float = Field(default=_ILP_TIME_LIMIT_S)
+    max_neurons: int = Field(default=_ILP_MAX_NEURONS)
 
-    def map_fixed_hardware(self, mapping_input: FixedHardwareInput) -> MappingState:
+    def run(self, mapping_input: MosaicMappingInput[Any]) -> MosaicMappingState:
         """Solve for optimal mapping using the PuLP MILP solver."""
-        state = MappingState(mapping_input.graph, mapping_input.hw_config)
+        graph = mapping_input.graph
+        hw = mapping_input.hw_config
+        
+        calc_state = MappingState(graph=graph, config=hw)
         t_start = time.monotonic()
 
-        N = state.N
-        if N > _ILP_MAX_NEURONS:
+        N = calc_state.N
+        if N > self.max_neurons:
             raise NotImplementedError(
-                f"ILPMapper: problem size N={N} exceeds limit of {_ILP_MAX_NEURONS} neurons"
+                f"ILPMapper: problem size N={N} exceeds limit of {self.max_neurons} neurons"
             )
 
-        C = mapping_input.hw_config.total_cores
-        X = mapping_input.hw_config.neurons_per_core
-        max_d = mapping_input.hw_config.max_distance
+        C = hw.total_cores
+        X = hw.neurons_per_core
+        max_d = hw.max_distance
 
         # Create the model
         prob = pulp.LpProblem("NeuromorphicMapping", pulp.LpMaximize)
 
         # Identify all directed edges
         edges = []
-        for e in mapping_input.graph.edges():
+        for e in graph.edges():
             src, tgt = int(e.source()), int(e.target())
             edges.append((src, tgt))
 
         # --- Budget check: abort early if model construction is too slow ---
         def _budget_remaining() -> float:
-            return _ILP_TIME_LIMIT_S - (time.monotonic() - t_start)
+            return self.time_limit_s - (time.monotonic() - t_start)
 
         # 1. Variables
         # w[i, c, x]: 1 if node i is assigned to core c, address x
@@ -56,7 +69,7 @@ class ILPMapper(BaseMapper, IFixedHardwareMapper):
         s_vars = {}
         for i in range(N):
             for d in range(1, max_d + 1):
-                n_slices = mapping_input.hw_config.num_slices_at_distance(d)
+                n_slices = hw.num_slices_at_distance(d)
                 for sigma in range(n_slices):
                     s_vars[(i, d, sigma)] = pulp.LpVariable(f"s_{i}_{d}_{sigma}", cat='Binary')
 
@@ -64,8 +77,8 @@ class ILPMapper(BaseMapper, IFixedHardwareMapper):
         v = pulp.LpVariable.dicts("v", edges, cat='Binary')
 
         if _budget_remaining() <= 1:
-            state.init_random()
-            return state
+            calc_state.init_random()
+            return self._to_mosaic_state(mapping_input, calc_state)
 
         # pair[i, j, c1, c2]: 1 if node i is in core c1 AND node j is in core c2
         pair = pulp.LpVariable.dicts("pair", ((i, j, c1, c2) for (i, j) in edges for c1 in range(C) for c2 in range(C)), cat='Binary')
@@ -74,13 +87,13 @@ class ILPMapper(BaseMapper, IFixedHardwareMapper):
         validCross = {}
         for (i, j) in edges:
             for d in range(1, max_d + 1):
-                n_slices = mapping_input.hw_config.num_slices_at_distance(d)
+                n_slices = hw.num_slices_at_distance(d)
                 for sigma in range(n_slices):
                     validCross[(i, j, d, sigma)] = pulp.LpVariable(f"vc_{i}_{j}_{d}_{sigma}", cat='Binary')
 
         if _budget_remaining() <= 1:
-            state.init_random()
-            return state
+            calc_state.init_random()
+            return self._to_mosaic_state(mapping_input, calc_state)
 
         # 2. Objective: Maximize total valid edges
         prob += pulp.lpSum(v[e] for e in edges), "MaximizeValidEdges"
@@ -99,12 +112,12 @@ class ILPMapper(BaseMapper, IFixedHardwareMapper):
         # C. Unique Slice: Each node selects exactly one slice per distance
         for i in range(N):
             for d in range(1, max_d + 1):
-                n_slices = mapping_input.hw_config.num_slices_at_distance(d)
+                n_slices = hw.num_slices_at_distance(d)
                 prob += pulp.lpSum(s_vars[(i, d, sigma)] for sigma in range(n_slices)) == 1
 
         if _budget_remaining() <= 1:
-            state.init_random()
-            return state
+            calc_state.init_random()
+            return self._to_mosaic_state(mapping_input, calc_state)
 
         # D. Pairwise core tracking
         for (i, j) in edges:
@@ -116,8 +129,8 @@ class ILPMapper(BaseMapper, IFixedHardwareMapper):
                     prob += pair[i, j, c1, c2] <= j_in_c2
 
         if _budget_remaining() <= 1:
-            state.init_random()
-            return state
+            calc_state.init_random()
+            return self._to_mosaic_state(mapping_input, calc_state)
 
         # E. Validity bounds
         for (i, j) in edges:
@@ -125,16 +138,16 @@ class ILPMapper(BaseMapper, IFixedHardwareMapper):
 
             cross_core_expr = []
             for d in range(1, max_d + 1):
-                n_slices = mapping_input.hw_config.num_slices_at_distance(d)
+                n_slices = hw.num_slices_at_distance(d)
                 pairs_at_dist = [pair[i, j, c1, c2] for c1 in range(C) for c2 in range(C)
-                                 if mapping_input.hw_config.core_distance(c2, c1) == d]
+                                 if hw.core_distance(c2, c1) == d]
                 dist_match_expr = pulp.lpSum(pairs_at_dist)
 
                 for sigma in range(n_slices):
                     vc = validCross[(i, j, d, sigma)]
                     prob += vc <= s_vars[(j, d, sigma)]
                     prob += vc <= dist_match_expr
-                    start_x, end_x = mapping_input.hw_config.get_slice_bounds(d, sigma)
+                    start_x, end_x = hw.get_slice_bounds(d, sigma)
                     i_in_slice_bounds = pulp.lpSum(w[i, c, x] for c in range(C) for x in range(start_x, end_x))
                     prob += vc <= i_in_slice_bounds
                     cross_core_expr.append(vc)
@@ -144,8 +157,8 @@ class ILPMapper(BaseMapper, IFixedHardwareMapper):
         # 4. Solve with remaining time budget via subprocess
         remaining = _budget_remaining()
         if remaining <= 1:
-            state.init_random()
-            return state
+            calc_state.init_random()
+            return self._to_mosaic_state(mapping_input, calc_state)
 
         cbc_seconds = max(1, int(remaining))
 
@@ -193,14 +206,22 @@ class ILPMapper(BaseMapper, IFixedHardwareMapper):
                 for x in range(X):
                     val = pulp.value(w[i, c, x])
                     if val is not None and val > 0.5:
-                        state.c[i] = c
-                        state.x[i] = x
+                        calc_state.c[i] = c
+                        calc_state.x[i] = x
 
             for d in range(1, max_d + 1):
-                n_slices = mapping_input.hw_config.num_slices_at_distance(d)
+                n_slices = hw.num_slices_at_distance(d)
                 for sigma in range(n_slices):
                     val = pulp.value(s_vars[(i, d, sigma)])
                     if val is not None and val > 0.5:
-                        state.s[i, d] = sigma
+                        calc_state.s[i, d] = sigma
 
-        return state
+        return self._to_mosaic_state(mapping_input, calc_state)
+
+    def _to_mosaic_state(self, mapping_input: MosaicMappingInput[Any], calc_state: MappingState) -> MosaicMappingState:
+        return MosaicMappingState(
+            mapping_input=mapping_input,
+            neuron_core_idxs_assignment=calc_state.c,
+            neuron_local_idxs_assignment=calc_state.x,
+            neuron_slice_assignments=calc_state.s,
+        )

@@ -5,7 +5,7 @@ import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from typing import Any, Optional
 
-from netochi.mapping.likelihood_state import MappingState
+from netochi.mapping.mcmc.likelihood_state import MappingState
 from netochi.input_generator.interfaces import MosaicMappingInput
 from netochi.mapping.interfaces import BaseMapper, MosaicMappingState
 from netochi.mapping.constants import (

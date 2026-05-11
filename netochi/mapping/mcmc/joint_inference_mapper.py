@@ -6,7 +6,7 @@ from graph_tool.inference import MCMCState
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from typing import Any, List, Tuple, Optional, Generic, TypeVar
 
-from netochi.mapping.likelihood_state import MappingState
+from netochi.mapping.mcmc.likelihood_state import MappingState
 from netochi.input_generator.interfaces import MappingInput
 from netochi.mapping.interfaces import BaseMapper, MosaicMappingState, ANY_MAPPING_INPUT
 from netochi.mapping.constants import (

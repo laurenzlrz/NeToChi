@@ -1,11 +1,17 @@
 from typing import Dict, Any, Optional
 import graph_tool.all as gt
 import numpy as np
+from pydantic import BaseModel, ConfigDict
 from netochi.input_generator.interfaces import MosaicMappingInput
 from netochi.mapping.interfaces import BaseMapper, MosaicMappingState
 
-class GreedyMapper(BaseMapper[MosaicMappingState, MosaicMappingInput[Any]]):
-    """Mapper implementing a pure greedy heuristic based on node degrees and local clustering."""
+class GreedyMapper(BaseModel, BaseMapper[MosaicMappingState, MosaicMappingInput[Any]]):
+    """
+    Mapper implementing a pure greedy heuristic based on node degrees and local clustering.
+    
+    Refactored to follow the "Großprojekt" Pydantic standard.
+    """
+    model_config = ConfigDict(frozen=True)
 
     def run(self, mapping_input: MosaicMappingInput[Any]) -> MosaicMappingState:
         """
