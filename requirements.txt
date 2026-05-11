@@ -1,4 +1,6 @@
 numpy
 networkx
+scikit-learn
+pulp
 pydantic
 # graph-tool should be installed separately via conda or system packages
