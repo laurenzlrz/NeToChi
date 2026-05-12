@@ -33,24 +33,26 @@ class MosaicMappingInput(HWMappingInput[PAYLOAD, MosaicHardwareConfig], Generic[
 # Type Variables for Factory
 # -----------------------------------------------------------------------------
 
-MAPPING_INPUT = TypeVar("MAPPING_INPUT", bound=HWMappingInput[Any, Any])
+MAPPING_INPUT = TypeVar("MAPPING_INPUT", bound=MappingInput[Any])
+MAPPING_INPUT_CO = TypeVar("MAPPING_INPUT_CO", bound=MappingInput[Any], covariant=True)
 WITH_HW_INPUT = TypeVar("WITH_HW_INPUT", bound=HWMappingInput[Any, Any])
+WITH_HW_INPUT_CO = TypeVar("WITH_HW_INPUT_CO", bound=HWMappingInput[Any, Any], covariant=True)
 
 # -----------------------------------------------------------------------------
 # Base Interfaces
 # -----------------------------------------------------------------------------
 
-class BaseInputFactory(Generic[MAPPING_INPUT]):
+class BaseInputFactory(Generic[MAPPING_INPUT_CO]):
     """Abstract base class for factories that generate MappingInputs."""
-    def generate(self) -> MAPPING_INPUT:
+    def generate(self) -> MAPPING_INPUT_CO:
         """
         Returns a MappingInput object.
         """
         raise NotImplementedError
 
-class HWBaseInputFactory(BaseInputFactory[WITH_HW_INPUT], Generic[WITH_HW_INPUT]):
+class HWBaseInputFactory(BaseInputFactory[WITH_HW_INPUT_CO], Generic[WITH_HW_INPUT_CO]):
     """Abstract base class for factories that generate MappingInputs."""
-    def generate(self) -> WITH_HW_INPUT:
+    def generate(self) -> WITH_HW_INPUT_CO:
         """
         Returns a MappingInput object.
         """

@@ -11,6 +11,7 @@ class ExperimentResult(BaseModel):
     mapper_name: str
     input_metadata: Dict[str, str]
     metrics: Dict[str, float]
+    raw_metrics: Dict[str, float] = Field(default_factory=dict)
     execution_time_s: float
     error: Optional[str] = None
 

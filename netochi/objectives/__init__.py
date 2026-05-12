@@ -5,7 +5,7 @@ from .interfaces import (
 )
 from .log_likelihood import LogLikelihoodObjective
 from .inconsistency import InconsistencyObjective
-from .hardware_cost import HardwareCostObjective
+from .hardware_size import MosaicHardwareSizeObjective
 from .constants import *
 from .exceptions import *
 
@@ -15,5 +15,5 @@ __all__ = [
     "LogLikelihoodObjectiveInterface",
     "LogLikelihoodObjective",
     "InconsistencyObjective",
-    "HardwareCostObjective",
+    "MosaicHardwareSizeObjective",
 ]

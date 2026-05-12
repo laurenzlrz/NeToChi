@@ -250,7 +250,8 @@ class JointHardwareMCMCState(MCMCState, Generic[PAYLOAD]):  # type: ignore[misc]
                     old_c, old_x, old_s = self.mapping_state.c.copy(), self.mapping_state.x.copy(), self.mapping_state.s.copy()
                     success = True
                     for node in nodes_to_move:
-                        core_counts = np.bincount(self.mapping_state.c, minlength=self.K)
+                        # Slice bincount to self.K to handle potential out-of-sync state during core moves
+                        core_counts = np.bincount(self.mapping_state.c, minlength=self.K)[:self.K]
                         avail_cores = np.where((core_counts < hw.neurons_per_core) & 
                                               (np.arange(self.K) != core_to_remove))[0]
                         if len(avail_cores) == 0:
@@ -283,8 +284,8 @@ class JointHardwareMCMCState(MCMCState, Generic[PAYLOAD]):  # type: ignore[misc]
                     delta = 1 if self._rng.random() < 0.5 else -1
                     new_nc = self.Nc + delta
                     if new_nc < 1: continue
-                    core_counts = np.bincount(self.mapping_state.c, minlength=self.K)
-                    if np.max(core_counts) > new_nc: continue
+                    core_counts = np.bincount(self.mapping_state.c, minlength=self.K)[:self.K]
+                    if len(core_counts) > 0 and np.max(core_counts) > new_nc: continue
                     if np.max(self.mapping_state.x) >= new_nc: continue
                     old_nc = self.Nc
                     self.Nc = new_nc
@@ -394,7 +395,7 @@ class JointInferenceMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicHWMappi
             print(f"DEBUG: Joint Inference Mapper: Starting full architecture search...")
 
         # 2. Initialize state
-        state: MosaicHWMappingState[MappingInput[PAYLOAD], PAYLOAD] = MosaicHWMappingState.from_input_and_hw(mapping_input, init_hw)
+        state: MosaicHWMappingState[MappingInput[PAYLOAD], PAYLOAD] = MosaicHWMappingState.create_uninitialized_state(mapping_input, init_hw)
         
         # Preallocate large S array to handle dimension changes in L
         from netochi.mapping.constants import JOINT_MAX_L
