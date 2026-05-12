@@ -10,5 +10,6 @@ dependencies:
   - pydantic
   - pytest
   - pip
+  - mypy
   - pip:
     - .

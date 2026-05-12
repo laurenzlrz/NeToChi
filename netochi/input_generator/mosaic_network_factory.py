@@ -3,9 +3,10 @@ import graph_tool.all as gt
 import networkx as nx
 import numpy as np
 from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
-from netochi.input_generator.interfaces import BaseInputFactory, MosaicMappingInput
+from netochi.input_generator.interfaces import BaseInputFactory, MosaicMappingInput, HWBaseInputFactory
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.utils import nx_to_gt
+import numpy.typing as npt
 
 class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput[Any]]):
     """Factory generating synthetic networks for a fixed hardware configuration."""
@@ -18,9 +19,9 @@ class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput[Any]
     probability: float = Field(..., gt=0, le=1)
     seed: int = 42
     
-    _assignment: Optional[np.ndarray] = PrivateAttr(default=None)
+    _assignment: Optional[npt.NDArray[np.int64]] = PrivateAttr(default=None)
     _graph: Optional[nx.DiGraph] = PrivateAttr(default=None)
-    _rng: Any = PrivateAttr(default=None)
+    _rng: Optional[np.random.Generator] = PrivateAttr(default=None)
 
     def generate(self) -> MosaicMappingInput[Any]:
         """Generate a single MosaicMappingInput."""
@@ -48,12 +49,13 @@ class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput[Any]
 
     def _sample_slice_assignment(self) -> None:
         """Randomly assign fan-in slices to each target neuron at each router level."""
-        total_neurons = self.hw_config.total_neurons
-        router_levels = self.hw_config.router_levels
-        assignment = np.zeros((total_neurons, router_levels + 1), dtype=np.int64)
+        total_neurons: int = self.hw_config.total_neurons
+        router_levels: int = self.hw_config.router_levels
+        assignment: npt.NDArray[np.int64] = np.zeros((total_neurons, router_levels + 1), dtype=np.int64)
 
+        assert self._rng is not None
         for distance in range(0, router_levels + 1):
-            slices = self.hw_config.num_slices_at_distance(distance)
+            slices: int = self.hw_config.num_slices_at_distance(distance)
             assignment[:, distance] = self._rng.integers(0, slices, size=total_neurons)
             
         object.__setattr__(self, '_assignment', assignment)
@@ -64,18 +66,20 @@ class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput[Any]
         graph = nx.DiGraph()
         graph.add_nodes_from(range(self.hw_config.total_neurons))
 
-        total_neurons = self.hw_config.total_neurons
-        neurons_per_core = self.hw_config.neurons_per_core
-        total_cores = self.hw_config.total_cores
+        total_neurons: int = self.hw_config.total_neurons
+        neurons_per_core: int = self.hw_config.neurons_per_core
+        total_cores: int = self.hw_config.total_cores
 
+        assert self._assignment is not None
+        assert self._rng is not None
         for target_neuron in range(total_neurons):
-            target_core = target_neuron // neurons_per_core
+            target_core: int = target_neuron // neurons_per_core
 
             for source_core in range(total_cores):
-                distance = self.hw_config.core_distance(source_core, target_core)
+                distance: int = self.hw_config.core_distance(source_core, target_core)
 
                 # Get the slice this target neuron is listening to for this source core
-                chosen_slice = int(self._assignment[target_neuron, distance])
+                chosen_slice: int = int(self._assignment[target_neuron, distance])
                 local_start, local_end = self.hw_config.get_slice_bounds(distance, chosen_slice)
 
                 if local_end <= local_start:

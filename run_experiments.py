@@ -1,4 +1,7 @@
-from typing import List, Any
+from typing import List, Any, Sequence
+from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
+from netochi.input_generator.interfaces import BaseInputFactory, MosaicMappingInput
+from netochi.pipeline.interfaces import MappingMetric, MappingMetric
 
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.erdos_renyi_factory import ErdosRenyiFactory
@@ -10,8 +13,8 @@ from netochi.mapping.greedy_mapper import GreedyMapper
 from netochi.mapping.hybrid_mapper import HybridMapper
 from netochi.mapping.mcmc.mcmc_mapper import MCMCMapper
 from netochi.mapping.mcmc.joint_inference_mapper import JointInferenceMapper
-from netochi.mapping.qap_mapper import QAPMapper
 from netochi.mapping.ilp_mapper import ILPMapper
+from netochi.mapping.qap_mapper import QAPMapper
 
 from netochi.pipeline.runner import PipelineRunner
 from netochi.pipeline.metrics import ObjectiveMetric
@@ -19,7 +22,7 @@ from netochi.objectives.log_likelihood import LogLikelihoodObjective
 from netochi.objectives.inconsistency import InconsistencyObjective
 
 
-def run_experiment():
+def run_experiment() -> None:
     # --- Hardware Configuration: Small (4 cores × 15 = 60 neurons) ---
     hw_small = MosaicHardwareConfig(
         nodes_per_router=2,
@@ -30,7 +33,7 @@ def run_experiment():
 
     # 1. Define the inputs (Factories)
     probabilities = [0.1, 0.5]
-    factories: List[Any] = []
+    factories: List[BaseInputFactory[MosaicMappingInput[Any]]] = []
 
     # Add SBM-based Mosaic factories (These provide a pre_assignment/baseline)
     for p in probabilities:
@@ -41,17 +44,19 @@ def run_experiment():
         factories.append(ErdosRenyiFactory(hw_config=hw_small, n=60, probability=p, seed=42))
 
     # 2. Define the mappers to evaluate
-    log_likelihood_obj = LogLikelihoodObjective()
+    log_likelihood_obj: LogLikelihoodObjective[MosaicMappingInput[Any], Any] = LogLikelihoodObjective()
     
-    mappers: List[Any] = [
+    mappers: List[BaseMapper[Any, Any]] = [
         RandomMapper(),
         GreedyMapper(),
-        MCMCMapper(objective=log_likelihood_obj, iterations=2000, verbose=False),
-        JointInferenceMapper(objective=log_likelihood_obj, hw_template=hw_small, verbose=False),
+        MCMCMapper(objective=log_likelihood_obj, iterations=200, verbose=False),
+        QAPMapper(),
+        HybridMapper(),
+        JointInferenceMapper(objective=log_likelihood_obj, iterations=200, verbose=False),
     ]
 
     # 3. Define the metrics (Now baseline-aware)
-    metrics = [
+    metrics: List[MappingMetric[Any, Any]] = [
         ObjectiveMetric(objective=log_likelihood_obj),
         ObjectiveMetric(objective=InconsistencyObjective())
     ]
@@ -61,7 +66,7 @@ def run_experiment():
     print("Neuromorphic Mapping Pipeline Execution (Baseline-Aware)")
     print("=" * 80)
 
-    runner = PipelineRunner(
+    runner = PipelineRunner[MosaicMappingInput[Any], MosaicNetworkMappingState[Any]](
         factories=factories,
         mappers=mappers,
         metrics=metrics,

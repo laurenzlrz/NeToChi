@@ -1,13 +1,14 @@
 import threading
+import numpy as np
+import numpy.typing as npt
 import graph_tool.inference.mcmc as gt_mcmc
 from graph_tool.inference import MCMCState
-import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
-from typing import Optional, Generic
+from typing import Optional, Generic, Tuple, List, Any, Dict
 
 from netochi.input_generator.interfaces import MosaicMappingInput
-from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState, PAYLOAD
-from netochi.objectives.log_likelihood import LogLikelihoodObjectiveInterface
+from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState, BaseMosaicMappingState, PAYLOAD
+from netochi.objectives.interfaces import LogLikelihoodObjectiveInterface
 from netochi.mapping.constants import (
     MCMC_TIME_LIMIT_S,
     MCMC_DEFAULT_ITERATIONS,
@@ -22,31 +23,41 @@ from netochi.mapping.constants import (
 )
 
 
-class HardwareMCMCState(BaseModel, MCMCState, Generic[PAYLOAD]):
+class HardwareMCMCState(MCMCState, Generic[PAYLOAD]):  # type: ignore[misc]
     """
-    Pydantic-based MCMC state for hardware mapping optimization.
+    Internal MCMC state for hardware mapping optimization.
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=False)
-
-    # Unified State
     mapping_state: MosaicNetworkMappingState[PAYLOAD]
-    objective: LogLikelihoodObjectiveInterface
-    seed: Optional[int] = None
-    verbose: bool = False
+    objective: LogLikelihoodObjectiveInterface[BaseMosaicMappingState[Any]]
+    seed: Optional[int]
+    verbose: bool
 
-    # Private internal MCMC state
-    _rng: np.random.Generator = PrivateAttr()
-    _best_energy: float = PrivateAttr(default=float("inf"))
-    _best_c: Optional[np.ndarray] = PrivateAttr(default=None)
-    _best_x: Optional[np.ndarray] = PrivateAttr(default=None)
-    _best_s: Optional[np.ndarray] = PrivateAttr(default=None)
+    _rng: np.random.Generator
+    _best_energy: float
+    _best_c: Optional[npt.NDArray[np.int_]]
+    _best_x: Optional[npt.NDArray[np.int_]]
+    _best_s: Optional[npt.NDArray[np.int_]]
 
-    def __init__(self, **data):
-        super().__init__(**data)
-        MCMCState.__init__(self, entropy_args={})
+    def __init__(
+        self, 
+        mapping_state: MosaicNetworkMappingState[PAYLOAD],
+        objective: LogLikelihoodObjectiveInterface[BaseMosaicMappingState[Any]],
+        seed: Optional[int] = None,
+        verbose: bool = False
+    ) -> None:
+        MCMCState.__init__(self)
+        self.mapping_state = mapping_state
+        self.objective = objective
+        self.seed = seed
+        self.verbose = verbose
+        
         self._rng = np.random.default_rng(self.seed)
+        self._best_energy = float("inf")
+        self._best_c: Optional[npt.NDArray[np.int_]] = None
+        self._best_x: Optional[npt.NDArray[np.int_]] = None
+        self._best_s: Optional[npt.NDArray[np.int_]] = None
 
-    def entropy(self, **kwargs) -> float:
+    def entropy(self, **kwargs: Any) -> float:
         """Return the energy to minimize."""
         if self.verbose:
             print(DEBUG_MCMC_ENTROPY_CALL)
@@ -64,12 +75,12 @@ class HardwareMCMCState(BaseModel, MCMCState, Generic[PAYLOAD]):
         """Restore the best-seen state."""
         if self.verbose:
             print(DEBUG_MCMC_RESTORE_BEST)
-        if self._best_c is not None:
+        if self._best_c is not None and self._best_x is not None and self._best_s is not None:
             self.mapping_state.neuron_core_idxs_assignment = self._best_c
             self.mapping_state.neuron_local_idxs_assignment = self._best_x
             self.mapping_state.neuron_slice_assignments = self._best_s
 
-    def mcmc_sweep(self, beta: float = 1.0, **kwargs) -> tuple:
+    def mcmc_sweep(self, beta: float = 1.0, **kwargs: Any) -> Tuple[float, int, int]:
         """Perform one sweep of N move-attempts."""
         if self.verbose:
             print(DEBUG_MCMC_SWEEP_CALL.format(beta=beta))
@@ -81,7 +92,7 @@ class HardwareMCMCState(BaseModel, MCMCState, Generic[PAYLOAD]):
         current_energy = self.entropy()
         self._save_best(current_energy)
 
-        N = self.mapping_state.mapping_input.graph.num_vertices()
+        N: int = self.mapping_state.mapping_input.graph.num_vertices()
         for _ in range(N):
             nattempts += 1
             move_type = self._rng.integers(0, MCMC_NUM_MOVE_TYPES)
@@ -114,7 +125,7 @@ class HardwareMCMCState(BaseModel, MCMCState, Generic[PAYLOAD]):
                 # --- Slice Mutation ---
                 hw = self.mapping_state.mapping_input.hw_config
                 d = int(self._rng.integers(1, hw.max_distance + 1))
-                n_slices = hw.num_slices_at_distance(d)
+                n_slices: int = hw.num_slices_at_distance(d)
 
                 old_s = self.mapping_state.s[node, d]
                 new_s = int(self._rng.integers(0, n_slices))
@@ -135,6 +146,17 @@ class HardwareMCMCState(BaseModel, MCMCState, Generic[PAYLOAD]):
 
         return delta_entropy, nattempts, nmoves
 
+    def _get_entropy_args(self) -> Dict[str, Any]:
+        return {}
+
+    def _mcmc_sweep_dispatch(self, **kwargs: Any) -> Tuple[float, int, int]:
+        return self.mcmc_sweep(**kwargs)
+    def multiflip_mcmc_sweep(self, **kwargs: Any) -> Tuple[float, int, int]:
+        return self.mcmc_sweep(**kwargs)
+
+    def gibbs_mcmc_sweep(self, **kwargs: Any) -> Tuple[float, int, int]:
+        return self.mcmc_sweep(**kwargs)
+
 
 class MCMCMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicNetworkMappingState[PAYLOAD], MosaicMappingInput[PAYLOAD]]):
     """
@@ -142,7 +164,7 @@ class MCMCMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicNetworkMappingSta
     """
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
-    objective: LogLikelihoodObjectiveInterface
+    objective: LogLikelihoodObjectiveInterface[BaseMosaicMappingState[Any]]
     iterations: int = Field(default=MCMC_DEFAULT_ITERATIONS)
     initial_temp: float = Field(default=MCMC_DEFAULT_INITIAL_TEMP)
     seed: int = Field(default=MCMC_DEFAULT_SEED)
@@ -154,10 +176,10 @@ class MCMCMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicNetworkMappingSta
         if self.verbose:
             print(DEBUG_MCMC_RUN_START)
 
-        state = MosaicNetworkMappingState.from_input(mapping_input)
+        state: MosaicNetworkMappingState[PAYLOAD] = MosaicNetworkMappingState.from_input(mapping_input)
         state.init_random_assignments(seed=self.seed)
 
-        hw_state = HardwareMCMCState(
+        hw_state: HardwareMCMCState[PAYLOAD] = HardwareMCMCState(
             mapping_state=state, 
             objective=self.objective,
             seed=self.seed, 
@@ -174,9 +196,9 @@ class MCMCMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicNetworkMappingSta
             "force_niter": 1,
         }
 
-        exc_holder: list = []
+        exc_holder: List[Exception] = []
 
-        def _run():
+        def _run() -> None:
             try:
                 gt_mcmc.mcmc_anneal(
                     hw_state,
@@ -187,6 +209,8 @@ class MCMCMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicNetworkMappingSta
                     verbose=False,
                 )
             except Exception as e:
+                import traceback
+                traceback.print_exc()
                 exc_holder.append(e)
 
         thread = threading.Thread(target=_run, daemon=True)
@@ -194,7 +218,7 @@ class MCMCMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicNetworkMappingSta
         thread.join(timeout=self.time_limit_s)
 
         if exc_holder:
-            raise exc_holder[0]
+            raise Exception(repr(exc_holder[0]))
 
         hw_state.restore_best()
 

@@ -5,13 +5,13 @@ from netochi.objectives.interfaces import NetworkMappingObjective
 from netochi.mapping.interfaces import (
     BaseMosaicMappingState, 
     NetworkAssignmentState,
-    ANY_MAPPING_INPUT,
-    WITH_HW_INPUT
+    ANY_MAPPING_INPUT
 )
+from netochi.input_generator.interfaces import WITH_HW_INPUT
 from netochi.objectives.exceptions import BaselineMismatchError
 
 
-class InconsistencyObjective(NetworkMappingObjective[BaseMosaicMappingState[ANY_MAPPING_INPUT], NetworkAssignmentState[WITH_HW_INPUT]], Generic[ANY_MAPPING_INPUT, WITH_HW_INPUT]):
+class InconsistencyObjective(NetworkMappingObjective[BaseMosaicMappingState[ANY_MAPPING_INPUT], BaseMosaicMappingState[ANY_MAPPING_INPUT]], Generic[ANY_MAPPING_INPUT, WITH_HW_INPUT]):
     """
     Objective that counts the number of invalid edges (edges violating hardware constraints).
     """
@@ -29,7 +29,7 @@ class InconsistencyObjective(NetworkMappingObjective[BaseMosaicMappingState[ANY_
         e_v = self._compute_e_valid(state, data)
         return float(data['m'] - e_v)
 
-    def evaluate_against_baseline(self, state: BaseMosaicMappingState[ANY_MAPPING_INPUT], baseline: NetworkAssignmentState[WITH_HW_INPUT]) -> float:
+    def evaluate_against_baseline(self, state: BaseMosaicMappingState[ANY_MAPPING_INPUT], baseline: BaseMosaicMappingState[ANY_MAPPING_INPUT]) -> float:
         """Evaluate relative difference in inconsistencies."""
         if id(state.mapping_input.graph) != id(baseline.mapping_input.graph):
             raise BaselineMismatchError("Graph topology mismatch between state and baseline.")

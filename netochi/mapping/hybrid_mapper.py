@@ -2,7 +2,7 @@ from typing import Any
 import graph_tool.all as gt
 import numpy as np
 from collections import defaultdict
-from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA  # type: ignore[import-untyped]
 from pydantic import BaseModel, ConfigDict, Field
 
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
@@ -25,7 +25,7 @@ class HybridMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicM
         num_neurons = graph.num_vertices()
         
         # Initialize result state
-        state = MosaicNetworkMappingState.from_input(mapping_input)
+        state: MosaicNetworkMappingState[Any] = MosaicNetworkMappingState.from_input(mapping_input)
         c_assignment = state.neuron_core_idxs_assignment
         x_assignment = state.neuron_local_idxs_assignment
         s_assignment = state.neuron_slice_assignments

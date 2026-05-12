@@ -1,67 +1,29 @@
 from dataclasses import dataclass
-
+from typing import Optional
 import networkx as nx
 import numpy as np
 
-
 @dataclass
 class SwtaGeneratorConfig:
-
-    def __init__(self,
-                 num_clusters: int,
-                 neurons_per_cluster: int,
-                 inhibitory_ratio: float = 0.2,  # 20% of clusters are inhibitory
-                 p_neighbor: float = 0.1,  # Neighboring E-cluster connection
-                 p_e_to_i: float = 0.2,  # Excitatory to Inhibitory
-                 p_i_to_e: float = 0.8,  # Inhibitory to Excitatory (Blanket inhibition)
-                 seed: int | None = None):
-        self._num_clusters = num_clusters
-        self._neurons_per_cluster = neurons_per_cluster
-        self._inhibitory_ratio = inhibitory_ratio
-        self._p_neighbor = p_neighbor
-        self._p_e_to_i = p_e_to_i
-        self._p_i_to_e = p_i_to_e
-        self._seed = seed
-
-    @property
-    def num_clusters(self) -> int:
-        return self._num_clusters
-
-    @property
-    def neurons_per_cluster(self) -> int:
-        return self._neurons_per_cluster
-
-    @property
-    def inhibitory_ratio(self) -> float:
-        return self._inhibitory_ratio
-
-    @property
-    def p_neighbor(self) -> float:
-        return self._p_neighbor
-
-    @property
-    def p_e_to_i(self) -> float:
-        return self._p_e_to_i
-
-    @property
-    def p_i_to_e(self) -> float:
-        return self._p_i_to_e
-
-    @property
-    def seed(self) -> int | None:
-        return self._seed
+    num_clusters: int
+    neurons_per_cluster: int
+    inhibitory_ratio: float = 0.2  # 20% of clusters are inhibitory
+    p_neighbor: float = 0.1  # Neighboring E-cluster connection
+    p_e_to_i: float = 0.2  # Excitatory to Inhibitory
+    p_i_to_e: float = 0.8  # Inhibitory to Excitatory (Blanket inhibition)
+    seed: Optional[int] = None
 
     @property
     def num_i_clusters(self) -> int:
-        return max(1, int(self._num_clusters * self._inhibitory_ratio)) # Ensures at least 1 inhibitory cluster if ratio > 0
+        return max(1, int(self.num_clusters * self.inhibitory_ratio)) # Ensures at least 1 inhibitory cluster if ratio > 0
 
     @property
     def num_e_clusters(self) -> int:
-        return self._num_clusters - self.num_i_clusters
+        return self.num_clusters - self.num_i_clusters
 
     @property
     def total_neurons(self) -> int:
-        return self._num_clusters * self._neurons_per_cluster
+        return self.num_clusters * self.neurons_per_cluster
 
 
 @dataclass(frozen=True)
@@ -84,7 +46,7 @@ class SwtaNetwork:
     def _get_cluster_id(self, neuron_idx: int) -> int:
         return neuron_idx // self._config.neurons_per_cluster
 
-    def _are_clusters_neighbors(self, src_cluster: int, tgt_cluster: int):
+    def _are_clusters_neighbors(self, src_cluster: int, tgt_cluster: int) -> bool:
         return abs(src_cluster - tgt_cluster) == 1
 
     def _is_inhibitory(self, cluster_id: int) -> bool:
@@ -108,6 +70,7 @@ class SwtaNetwork:
         return prob
 
     def generate(self) -> nx.DiGraph:
+        self._graph = nx.DiGraph()
         self._graph.add_nodes_from(range(self._config.total_neurons))
 
         for src in range(self._config.total_neurons):
@@ -123,4 +86,4 @@ class SwtaNetwork:
                 if prob > 0 and (prob == 1.0 or self._rng.random() < prob):
                     self._graph.add_edge(src, tgt)
 
-        return self._graph
+        return self._graph

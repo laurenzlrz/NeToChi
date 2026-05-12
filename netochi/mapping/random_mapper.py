@@ -17,6 +17,6 @@ class RandomMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicM
     def run(self, mapping_input: MosaicMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
         """Initialize state randomly for the given fixed hardware."""
         # Use unified state helper methods to avoid code duplication and magic logic
-        state = MosaicNetworkMappingState.from_input(mapping_input)
-        state.init_random(seed=self.seed)
+        state: MosaicNetworkMappingState[Any] = MosaicNetworkMappingState.from_input(mapping_input)
+        state.init_random_assignments(seed=self.seed)
         return state

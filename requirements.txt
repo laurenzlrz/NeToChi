@@ -3,4 +3,5 @@ networkx
 scikit-learn
 pulp
 pydantic
+mypy
 # graph-tool should be installed separately via conda or system packages

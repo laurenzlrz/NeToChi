@@ -1,21 +1,20 @@
-from typing import Generic, TypeVar, Optional
+from typing import Generic, TypeVar, Optional, Any
 from pydantic import ConfigDict
 
 from netochi.pipeline.interfaces import MappingMetric
 from netochi.mapping.interfaces import MappingState
 from netochi.objectives.interfaces import MappingObjective
 
-MAPPING_STATE = TypeVar("MAPPING_STATE", bound=MappingState)
-BASELINE_STATE = TypeVar("BASELINE_STATE", bound=MappingState)
+MAPPING_STATE = TypeVar("MAPPING_STATE", bound=MappingState[Any])
+BASELINE_STATE = TypeVar("BASELINE_STATE", bound=MappingState[Any])
 
 class ObjectiveMetric(MappingMetric[MAPPING_STATE, BASELINE_STATE], Generic[MAPPING_STATE, BASELINE_STATE]):
     """
     Adapter that allows any MappingObjective to be used as a Pipeline Metric.
     Supports comparative evaluation if a baseline is provided.
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
-    
-    objective: MappingObjective[MAPPING_STATE, BASELINE_STATE]
+    def __init__(self, objective: MappingObjective[MAPPING_STATE, BASELINE_STATE]) -> None:
+        self.objective = objective
 
     def evaluate(self, state: MAPPING_STATE, baseline: Optional[BASELINE_STATE] = None) -> float:
         """

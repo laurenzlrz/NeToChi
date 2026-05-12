@@ -1,20 +1,19 @@
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar, TYPE_CHECKING, Optional
+from typing import Generic, TypeVar, TYPE_CHECKING, Optional, Any
 from pydantic import BaseModel, ConfigDict
 from netochi.mapping.interfaces import MappingState
 
 if TYPE_CHECKING:
     from netochi.pipeline.results import PipelineSummary
 
-MAPPING_STATE = TypeVar("MAPPING_STATE", bound=MappingState)
-MAPPING_STATE2 = TypeVar("MAPPING_STATE2", bound=MappingState)
+MAPPING_STATE = TypeVar("MAPPING_STATE", bound=MappingState[Any])
+MAPPING_STATE2 = TypeVar("MAPPING_STATE2", bound=MappingState[Any])
 
-class MappingMetric(BaseModel, ABC, Generic[MAPPING_STATE, MAPPING_STATE2]):
+class MappingMetric(ABC, Generic[MAPPING_STATE, MAPPING_STATE2]):
     """
     Abstract interface for mapping metrics.
     Metrics evaluate a final mapping state, potentially against a baseline.
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
     @abstractmethod
     def evaluate(self, state: MAPPING_STATE, baseline: Optional[MAPPING_STATE2] = None) -> float:
@@ -24,9 +23,8 @@ class MappingMetric(BaseModel, ABC, Generic[MAPPING_STATE, MAPPING_STATE2]):
         """
         pass
 
-    @classmethod
-    def get_name(cls) -> str:
-        return cls.__name__
+    def get_name(self) -> str:
+        return self.__class__.__name__
 
 class BasePipelineRunner(ABC):
     """

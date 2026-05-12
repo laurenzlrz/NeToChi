@@ -9,9 +9,10 @@ from netochi.objectives.interfaces import (
 from netochi.mapping.interfaces import (
     BaseMosaicMappingState, 
     NetworkAssignmentState, 
-    ANY_MAPPING_INPUT,
-    WITH_HW_INPUT
+    ANY_MAPPING_INPUT
 )
+from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput, WITH_HW_INPUT
+from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.objectives.constants import (
     LL_INVALID_PENALTY_LOG,
     LL_LAPLACIAN_SMOOTHING_NUM,
@@ -20,7 +21,7 @@ from netochi.objectives.constants import (
 from netochi.objectives.exceptions import BaselineMismatchError
 
 
-class LogLikelihoodObjective(NetworkMappingObjective[BaseMosaicMappingState[ANY_MAPPING_INPUT], NetworkAssignmentState[WITH_HW_INPUT]], LogLikelihoodObjectiveInterface[BaseMosaicMappingState[ANY_MAPPING_INPUT]], Generic[ANY_MAPPING_INPUT, WITH_HW_INPUT]):
+class LogLikelihoodObjective(NetworkMappingObjective[BaseMosaicMappingState[ANY_MAPPING_INPUT], BaseMosaicMappingState[ANY_MAPPING_INPUT]], LogLikelihoodObjectiveInterface[BaseMosaicMappingState[ANY_MAPPING_INPUT]], Generic[ANY_MAPPING_INPUT, WITH_HW_INPUT]):
     """
     SBM-based Log-Likelihood objective for neuromorphic mapping.
     """
@@ -33,7 +34,7 @@ class LogLikelihoodObjective(NetworkMappingObjective[BaseMosaicMappingState[ANY_
         """Returns Negative Log-Likelihood (Energy)."""
         return -self.log_likelihood(state)
 
-    def evaluate_against_baseline(self, state: BaseMosaicMappingState[ANY_MAPPING_INPUT], baseline: NetworkAssignmentState[WITH_HW_INPUT]) -> float:
+    def evaluate_against_baseline(self, state: BaseMosaicMappingState[ANY_MAPPING_INPUT], baseline: BaseMosaicMappingState[ANY_MAPPING_INPUT]) -> float:
         """Evaluate relative difference in energy."""
         if id(state.mapping_input.graph) != id(baseline.mapping_input.graph):
             raise BaselineMismatchError("Graph topology mismatch between state and baseline.")

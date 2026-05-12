@@ -1,8 +1,9 @@
 import time
-from typing import List, Dict, Optional, Generic, TypeVar
+from typing import List, Dict, Optional, Generic, TypeVar, Any, Union
 from pydantic import BaseModel, ConfigDict
 
 from netochi.pipeline.interfaces import BasePipelineRunner, MappingMetric
+from netochi.pipeline.metrics import ObjectiveMetric
 from netochi.pipeline.results import ExperimentResult, PipelineSummary
 from netochi.pipeline.constants import PIPELINE_LOG_FORMAT
 from netochi.mapping.interfaces import (
@@ -11,13 +12,13 @@ from netochi.mapping.interfaces import (
     ANY_MAPPING_INPUT,
     MosaicNetworkMappingState
 )
-from netochi.input_generator.interfaces import BaseInputFactory, MosaicMappingInput
+from netochi.input_generator.interfaces import BaseInputFactory, MosaicMappingInput, HWMappingInput
+
+PIPELINE_INPUT = TypeVar("PIPELINE_INPUT", bound=HWMappingInput[Any, Any])
+MAPPING_STATE = TypeVar("MAPPING_STATE", bound=MappingState[Any])
 
 
-MAPPING_STATE = TypeVar("MAPPING_STATE", bound=MappingState)
-
-
-class PipelineRunner(BaseModel, BasePipelineRunner, Generic[ANY_MAPPING_INPUT, MAPPING_STATE]):
+class PipelineRunner(BaseModel, BasePipelineRunner, Generic[PIPELINE_INPUT, MAPPING_STATE]):
     """
     Pydantic-based benchmark runner.
     Coordinates factories, mappers, and metrics to produce structured results.
@@ -25,8 +26,8 @@ class PipelineRunner(BaseModel, BasePipelineRunner, Generic[ANY_MAPPING_INPUT, M
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
-    factories: List[BaseInputFactory[ANY_MAPPING_INPUT]]
-    mappers: List[BaseMapper[MAPPING_STATE, ANY_MAPPING_INPUT]]
+    factories: List[BaseInputFactory[PIPELINE_INPUT]]
+    mappers: List[BaseMapper[MAPPING_STATE, PIPELINE_INPUT]]
     metrics: List[MappingMetric[MAPPING_STATE, MAPPING_STATE]]
     verbose: bool = True
 
@@ -95,7 +96,7 @@ class PipelineRunner(BaseModel, BasePipelineRunner, Generic[ANY_MAPPING_INPUT, M
             total_time_s=time.time() - start_time
         )
 
-    def _create_baseline_state(self, mapping_input: ANY_MAPPING_INPUT) -> Optional[MAPPING_STATE]:
+    def _create_baseline_state(self, mapping_input: PIPELINE_INPUT) -> Optional[MAPPING_STATE]:
         """Creates a baseline MappingState if the input contains pre-assignment data."""
         if isinstance(mapping_input, MosaicMappingInput) and mapping_input.pre_assignment is not None:
             # For Mosaic inputs with pre-assignments, create a MosaicNetworkMappingState
@@ -111,7 +112,7 @@ class PipelineRunner(BaseModel, BasePipelineRunner, Generic[ANY_MAPPING_INPUT, M
                     state.neuron_local_idxs_assignment[i] = i % hw.neurons_per_core
                 
                 state.neuron_slice_assignments[:] = mapping_input.pre_assignment
-                return state  # type: ignore
+                return state  # type: ignore[return-value]
             except Exception:
                 return None
         return None

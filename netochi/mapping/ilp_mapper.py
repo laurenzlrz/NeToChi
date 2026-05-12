@@ -3,7 +3,7 @@ import subprocess
 import tempfile
 import time
 from typing import Any
-import pulp
+import pulp  # type: ignore[import-untyped]
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 

@@ -1,3 +1,4 @@
+from typing import TYPE_CHECKING
 from pydantic import BaseModel, Field, computed_field, ConfigDict
 
 class MosaicHardwareConfig(BaseModel):
@@ -9,20 +10,20 @@ class MosaicHardwareConfig(BaseModel):
     router_levels: int = Field(gt=0, description="Number of levels in the router hierarchy.")
     slice_factor: int = Field(default=2, gt=0, description="Factor determining slice sizes for fan-in.")
 
-    @computed_field
     @property
     def total_cores(self) -> int:
-        return self.nodes_per_router ** self.router_levels
+        return int(self.nodes_per_router ** self.router_levels)
+    total_cores = computed_field(total_cores)
 
-    @computed_field
     @property
     def total_neurons(self) -> int:
-        return self.total_cores * self.neurons_per_core
+        return int(self.total_cores * self.neurons_per_core)
+    total_neurons = computed_field(total_neurons)
 
-    @computed_field
     @property
     def max_distance(self) -> int:
-        return self.router_levels
+        return int(self.router_levels)
+    max_distance = computed_field(max_distance)
 
     def core_distance(self, core_a: int, core_b: int) -> int:
         """Calculate the hierarchical distance between two cores."""
@@ -42,7 +43,7 @@ class MosaicHardwareConfig(BaseModel):
 
     def num_slices_at_distance(self, distance: int) -> int:
         """Number of slices a core is partitioned into at a given distance."""
-        return min(self.slice_factor ** distance, self.neurons_per_core)
+        return int(min(self.slice_factor ** distance, self.neurons_per_core))
 
     def get_slice_bounds(self, distance: int, slice_idx: int) -> tuple[int, int]:
         """Return the (start, end) local addresses for a given slice at a distance."""

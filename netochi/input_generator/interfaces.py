@@ -1,6 +1,7 @@
 from typing import Dict, Any, TypeVar, Generic, Optional
 import graph_tool.all as gt
 import numpy as np
+import numpy.typing as npt
 from pydantic.dataclasses import dataclass
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 
@@ -9,6 +10,7 @@ from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 # -----------------------------------------------------------------------------
 
 PAYLOAD = TypeVar("PAYLOAD")
+HW_CONFIG = TypeVar("HW_CONFIG")
 
 @dataclass(config=dict(arbitrary_types_allowed=True), kw_only=True)
 class MappingInput(Generic[PAYLOAD]):
@@ -18,21 +20,21 @@ class MappingInput(Generic[PAYLOAD]):
     payload: Optional[PAYLOAD] = None
 
 @dataclass(config=dict(arbitrary_types_allowed=True), kw_only=True)
-class HWMappingInput(MappingInput[PAYLOAD, HW_CONFIG], Generic[PAYLOAD, HW_CONFIG]):
+class HWMappingInput(MappingInput[PAYLOAD], Generic[PAYLOAD, HW_CONFIG]):
     """Base model for all experiment inputs, generic over payload."""
     hw_config: HW_CONFIG
 
 @dataclass(config=dict(arbitrary_types_allowed=True), kw_only=True)
 class MosaicMappingInput(HWMappingInput[PAYLOAD, MosaicHardwareConfig], Generic[PAYLOAD]):
     """Problem input with a predefined hardware configuration."""
-    pre_assignment: Optional[np.ndarray] = None
+    pre_assignment: Optional[npt.NDArray[np.int_]] = None
 
 # -----------------------------------------------------------------------------
 # Type Variables for Factory
 # -----------------------------------------------------------------------------
 
-MAPPING_INPUT = TypeVar("MAPPING_INPUT", bound=HWMappingInput[PAYLOAD, HW_CONFIG])
-WITH_HW_INPUT = TypeVar("WITH_HW_INPUT", bound=MappingInput)
+MAPPING_INPUT = TypeVar("MAPPING_INPUT", bound=HWMappingInput[Any, Any])
+WITH_HW_INPUT = TypeVar("WITH_HW_INPUT", bound=HWMappingInput[Any, Any])
 
 # -----------------------------------------------------------------------------
 # Base Interfaces

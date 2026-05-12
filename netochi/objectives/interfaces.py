@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from typing import TypeVar, Generic, List, Dict, Any, Optional
 import numpy as np
 from pydantic import BaseModel, ConfigDict
@@ -6,8 +7,8 @@ from netochi.mapping.interfaces import MappingState
 # -----------------------------------------------------------------------------
 # Type Variables for Objectives
 # -----------------------------------------------------------------------------
-MAPPING_STATE = TypeVar('MAPPING_STATE', bound=MappingState)
-MAPPING_STATE2 = TypeVar('MAPPING_STATE2', bound=MappingState)
+MAPPING_STATE = TypeVar('MAPPING_STATE', bound=MappingState[Any])
+MAPPING_STATE2 = TypeVar('MAPPING_STATE2', bound=MappingState[Any])
 
 # -----------------------------------------------------------------------------
 # Objective Interfaces
@@ -33,6 +34,7 @@ class MappingObjective(BaseModel, Generic[MAPPING_STATE, MAPPING_STATE2]):
         """
         raise NotImplementedError
 
+
 class NetworkMappingObjective(MappingObjective[MAPPING_STATE, MAPPING_STATE2], Generic[MAPPING_STATE, MAPPING_STATE2]):
     """
     Objectives that evaluate network assignments relative to a baseline mapping state.
@@ -43,10 +45,10 @@ class NetworkMappingObjective(MappingObjective[MAPPING_STATE, MAPPING_STATE2], G
 # Capability Interfaces
 # -----------------------------------------------------------------------------
 
-class LogLikelihoodObjectiveInterface(BaseModel, Generic[MAPPING_STATE]):
+class LogLikelihoodObjectiveInterface(ABC, Generic[MAPPING_STATE]):
     """Specific contract for log-likelihood based evaluation."""
-    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
     
+    @abstractmethod
     def log_likelihood(self, state: MAPPING_STATE) -> float:
         """Returns log-likelihood of state."""
-        raise NotImplementedError
+        pass
