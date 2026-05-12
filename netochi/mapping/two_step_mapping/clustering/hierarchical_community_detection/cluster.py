@@ -103,6 +103,9 @@ def add_noise_to_small_matrix(M, snr=0.001, noise_type="uniform"):
 
 
 class Hierarchy(list):
+    """
+    list of partitions (one per level)
+    """
 
     def __init__(self, partition):
         self.add_level(partition)
