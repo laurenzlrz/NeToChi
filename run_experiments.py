@@ -11,13 +11,14 @@ from netochi.input_generator.interfaces import BaseInputFactory, MosaicMappingIn
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.erdos_renyi_factory import ErdosRenyiFactory
 from netochi.input_generator.mosaic_network_factory import MosaicNetworkFactory
+from netochi.input_generator.swta_factory import SwtaFactory
 
 from netochi.mapping.random_mapper import RandomMapper
 from netochi.mapping.greedy_mapper import GreedyMapper
-from netochi.mapping.hybrid_mapper import HybridMapper
 from netochi.mapping.mcmc.mcmc_mapper import MCMCMapper
 from netochi.mapping.mcmc.joint_inference_mapper import JointInferenceMapper
 from netochi.mapping.qap_mapper import QAPMapper
+from netochi.mapping.hierarchical_community_detection.hybrid_mapper import HybridMapper
 
 from netochi.pipeline.runner import (
     PipelineRunner, 
@@ -51,6 +52,9 @@ def run_experiment() -> None:
     er_factories: List[BaseInputFactory[MosaicMappingInput[Any]]] = [
         ErdosRenyiFactory(hw_config=hw_small, n=60, probability=p, seed=42) for p in probabilities
     ]
+    swta_factories: List[BaseInputFactory[MosaicMappingInput[Any]]] = [
+        SwtaFactory(hw_config=hw_small, num_clusters=4, neurons_per_cluster=15, seed=42)
+    ]
 
     # 2. Define Evaluators
     log_likelihood_obj: LogLikelihoodObjective[MosaicMappingInput[Any], Any] = LogLikelihoodObjective()
@@ -80,11 +84,12 @@ def run_experiment() -> None:
     # 4. Define Tasks
     # We group mappers by their evaluation strategy and inputs
     mappers_std = [
+        HybridMapper(),
         RandomMapper(),
         GreedyMapper(),
         MCMCMapper(objective=log_likelihood_obj, iterations=200, verbose=False),
         QAPMapper(),
-        HybridMapper(),
+        
     ]
     
     # Use a more specific task type internally to avoid Any during creation
@@ -98,6 +103,8 @@ def run_experiment() -> None:
             task_inputs.append((f, gt_baseline))
         for f in er_factories:
             task_inputs.append((f, random_baseline))
+        for f in swta_factories:
+            task_inputs.append((f, random_baseline))
 
         mosaic_tasks.append(ExperimentTask(
             mapper=cast(BaseMapper[BaseMosaicMappingState[Any], MosaicMappingInput[Any]], mapper), 
@@ -110,6 +117,8 @@ def run_experiment() -> None:
     for f in mosaic_factories:
         inference_inputs.append((f, gt_baseline))
     for f in er_factories:
+        inference_inputs.append((f, random_baseline))
+    for f in swta_factories:
         inference_inputs.append((f, random_baseline))
 
     mosaic_tasks.append(ExperimentTask(
