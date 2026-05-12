@@ -21,8 +21,8 @@ DEFAULT_METRIC_VALUE = -1.0
 DEFAULT_REL_METRIC_VALUE = 0.0
 
 # Reporting Constants
-REPORT_DIVIDER = "=" * 100
-REPORT_SUBDIVIDER = "-" * 100
+REPORT_DIVIDER = "=" * 130
+REPORT_SUBDIVIDER = "-" * 130
 REPORT_HEADER_BASELINE = "SUMMARY REPORT: BASELINE COMPARISONS (Relative Improvement)"
 REPORT_HEADER_PURE = "SUMMARY REPORT: PURE RESULTS (Absolute Values)"
 
@@ -39,7 +39,7 @@ TABLE_COL_RAW_INC = "Raw-Incons"
 TABLE_COL_RAW_HW = "Raw-HW-Size"
 
 # Formatting Strings
-TABLE_ROW_REL_FORMAT = "{mapper:<25} | {graph_type:<20} | {rel_ll:<15.2f} | {rel_inc:<10.0f} | {rel_hw:<12.2f} | {elapsed:<10.3f}"
-TABLE_ROW_RAW_FORMAT = "{mapper:<25} | {graph_type:<20} | {raw_ll:<15.2f} | {raw_inc:<10.0f} | {raw_hw:<12.2f} | {elapsed:<10.3f}"
-TABLE_HEADER_REL_FORMAT = f"{TABLE_COL_MAPPER:<25} | {TABLE_COL_GRAPH:<20} | {TABLE_COL_REL_LL:<15} | {TABLE_COL_REL_INC:<10} | {TABLE_COL_REL_HW:<12} | {TABLE_COL_TIME:<10}"
-TABLE_HEADER_RAW_FORMAT = f"{TABLE_COL_MAPPER:<25} | {TABLE_COL_GRAPH:<20} | {TABLE_COL_RAW_LL:<15} | {TABLE_COL_RAW_INC:<10} | {TABLE_COL_RAW_HW:<12} | {TABLE_COL_TIME:<10}"
+TABLE_ROW_REL_FORMAT = "{mapper:<45} | {graph_type:<20} | {rel_ll:<15.2f} | {rel_inc:<10.0f} | {rel_hw:<12.2f} | {elapsed:<10.3f}"
+TABLE_ROW_RAW_FORMAT = "{mapper:<45} | {graph_type:<20} | {raw_ll:<15.2f} | {raw_inc:<10.0f} | {raw_hw:<12.2f} | {elapsed:<10.3f}"
+TABLE_HEADER_REL_FORMAT = f"{TABLE_COL_MAPPER:<45} | {TABLE_COL_GRAPH:<20} | {TABLE_COL_REL_LL:<15} | {TABLE_COL_REL_INC:<10} | {TABLE_COL_REL_HW:<12} | {TABLE_COL_TIME:<10}"
+TABLE_HEADER_RAW_FORMAT = f"{TABLE_COL_MAPPER:<45} | {TABLE_COL_GRAPH:<20} | {TABLE_COL_RAW_LL:<15} | {TABLE_COL_RAW_INC:<10} | {TABLE_COL_RAW_HW:<12} | {TABLE_COL_TIME:<10}"

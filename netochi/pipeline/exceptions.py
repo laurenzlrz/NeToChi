@@ -13,3 +13,7 @@ class MapperError(PipelineError):
 class MetricError(PipelineError):
     """Raised when a metric evaluation fails."""
     pass
+
+class BaselineError(PipelineError):
+    """Raised when a baseline provider fails."""
+    pass

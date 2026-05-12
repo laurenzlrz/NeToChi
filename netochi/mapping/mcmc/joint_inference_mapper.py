@@ -45,14 +45,13 @@ def log_star(n: int) -> float:
     if n <= 0: return 0.0
     res: float = math.log(RISSANEN_C0) + math.log(n)
     curr: float = math.log(n)
-    while True:
+    while curr > 1.0:
         curr = math.log(curr)
-        if curr <= 0: break
         res += curr
     return res
 
 
-class JointHardwareMCMCState(MCMCState, Generic[PAYLOAD]):  # type: ignore[misc]
+class JointHardwareMCMCState(MCMCState, Generic[PAYLOAD]):
     """
     Internal MCMC state for JOINT hardware-mapping optimization.
     """

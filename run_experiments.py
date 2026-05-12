@@ -28,7 +28,8 @@ from netochi.pipeline.runner import (
     MapperBaselineProvider,
     BaseBaselineProvider
 )
-from netochi.pipeline.metrics import ObjectiveMetric
+from netochi.pipeline.config import PipelineOutputConfig
+from netochi.pipeline.metrics import ObjectiveMetric, InconsistencyPercentageMetric
 from netochi.objectives.log_likelihood import LogLikelihoodObjective
 from netochi.objectives.inconsistency import InconsistencyObjective
 from netochi.objectives.hardware_size import MosaicHardwareSizeObjective
@@ -62,18 +63,20 @@ def run_experiment() -> None:
     hw_size_obj: MosaicHardwareSizeObjective[MosaicMappingInput[Any]] = MosaicHardwareSizeObjective()
 
 
-    standard_evaluator: Evaluator[BaseMosaicMappingState[Any], MappingState[Any]] = Evaluator(
+    standard_evaluator: Evaluator[BaseMosaicMappingState[Any], MosaicNetworkMappingState[Any]] = Evaluator(
         metrics=[
-            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], MappingState[Any]], log_likelihood_obj)),
-            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], MappingState[Any]], inconsistency_obj))
+            ObjectiveMetric(objective=log_likelihood_obj),
+            ObjectiveMetric(objective=inconsistency_obj),
+            InconsistencyPercentageMetric(objective=inconsistency_obj)
         ]
     )
 
-    hw_evaluator: Evaluator[BaseMosaicMappingState[Any], MappingState[Any]] = Evaluator(
+    hw_evaluator: Evaluator[BaseMosaicMappingState[Any], BaseMosaicMappingState[MosaicMappingInput[Any]]] = Evaluator(
         metrics=[
-            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], MappingState[Any]], log_likelihood_obj)),
-            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], MappingState[Any]], inconsistency_obj)),
-            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], MappingState[Any]], hw_size_obj))
+            ObjectiveMetric(objective=log_likelihood_obj),
+            ObjectiveMetric(objective=inconsistency_obj),
+            InconsistencyPercentageMetric(objective=inconsistency_obj),
+            ObjectiveMetric(objective=hw_size_obj)
         ]
     )
 
@@ -84,11 +87,11 @@ def run_experiment() -> None:
     # 4. Define Tasks
     # We group mappers by their evaluation strategy and inputs
     mappers_std = [
-        HybridMapper(),
+        #HybridMapper(),
         RandomMapper(),
         GreedyMapper(),
-        MCMCMapper(objective=log_likelihood_obj, iterations=200, verbose=False),
-        QAPMapper(),
+        #MCMCMapper(objective=log_likelihood_obj, iterations=200, verbose=False),
+        #QAPMapper(),
         
     ]
     
@@ -107,7 +110,7 @@ def run_experiment() -> None:
             task_inputs.append((f, random_baseline))
 
         mosaic_tasks.append(ExperimentTask(
-            mapper=cast(BaseMapper[BaseMosaicMappingState[Any], MosaicMappingInput[Any]], mapper), 
+            mapper=mapper, 
             evaluator=standard_evaluator, 
             inputs=task_inputs
         ))
@@ -121,73 +124,44 @@ def run_experiment() -> None:
     for f in swta_factories:
         inference_inputs.append((f, random_baseline))
 
-    mosaic_tasks.append(ExperimentTask(
-        mapper=cast(BaseMapper[BaseMosaicMappingState[Any], MosaicMappingInput[Any]], JointInferenceMapper(objective=log_likelihood_obj, iterations=200, verbose=False)),
-        evaluator=hw_evaluator,
-        inputs=inference_inputs
-    ))
+    #mosaic_tasks.append(ExperimentTask(
+    #    mapper=JointInferenceMapper(objective=log_likelihood_obj, iterations=200, verbose=False),
+    #    evaluator=hw_evaluator,
+    #    inputs=inference_inputs
+    #))
 
     # 5. Run Pipeline
     print("=" * 100)
     print("Neuromorphic Mapping Pipeline Execution (Task-Centric)")
     print("=" * 100)
 
+    output_config = PipelineOutputConfig(
+        base_dir="results",
+        plot_format="png"
+    )
+
+    # Pass baseline providers for explicit benchmarking
+    baseline_benchmarks = {}
+    for f in mosaic_factories:
+        baseline_benchmarks[f] = gt_baseline
+    for f in er_factories:
+        baseline_benchmarks[f] = random_baseline
+    for f in swta_factories:
+        baseline_benchmarks[f] = random_baseline
+
     # Final cast to allow the runner to accept the mosaic-specific tasks
     general_tasks = cast(List[ExperimentTask[MappingInput[Any], MappingState[Any], MappingState[Any]]], mosaic_tasks)
-    runner = PipelineRunner(tasks=general_tasks, verbose=True)
+    runner = PipelineRunner(
+        tasks=general_tasks, 
+        baselines=baseline_benchmarks,
+        output_config=output_config, 
+        verbose=True
+    )
     summary = runner.run()
 
     # 6. Summary Report
-    from netochi.pipeline.constants import (
-        REPORT_DIVIDER, REPORT_SUBDIVIDER, REPORT_HEADER_BASELINE, REPORT_HEADER_PURE,
-        TABLE_HEADER_REL_FORMAT, TABLE_HEADER_RAW_FORMAT, TABLE_ROW_REL_FORMAT, TABLE_ROW_RAW_FORMAT,
-        KEY_GRAPH_TYPE, KEY_UNKNOWN, DEFAULT_METRIC_VALUE
-    )
-    from netochi.objectives.constants import OBJ_NAME_LL, OBJ_NAME_INCONSISTENCY, OBJ_NAME_HW_SIZE
-
-    print("\n" + REPORT_DIVIDER)
-    print(REPORT_HEADER_BASELINE)
-    print(REPORT_DIVIDER)
-    print(TABLE_HEADER_REL_FORMAT)
-    print(REPORT_SUBDIVIDER)
-    
-    for res in summary.results:
-        rel_ll = res.metrics.get(OBJ_NAME_LL, DEFAULT_METRIC_VALUE)
-        rel_inc = res.metrics.get(OBJ_NAME_INCONSISTENCY, DEFAULT_METRIC_VALUE)
-        rel_hw = res.metrics.get(OBJ_NAME_HW_SIZE, DEFAULT_METRIC_VALUE)
-        graph_type = res.input_metadata.get(KEY_GRAPH_TYPE, KEY_UNKNOWN)
-        print(TABLE_ROW_REL_FORMAT.format(
-            mapper=res.mapper_name,
-            graph_type=graph_type,
-            rel_ll=rel_ll,
-            rel_inc=rel_inc,
-            rel_hw=rel_hw,
-            elapsed=res.execution_time_s
-        ))
-
-    print("\n" + REPORT_DIVIDER)
-    print(REPORT_HEADER_PURE)
-    print(REPORT_DIVIDER)
-    print(TABLE_HEADER_RAW_FORMAT)
-    print(REPORT_SUBDIVIDER)
-
-    for res in summary.results:
-        raw_ll = res.raw_metrics.get(OBJ_NAME_LL, DEFAULT_METRIC_VALUE)
-        raw_inc = res.raw_metrics.get(OBJ_NAME_INCONSISTENCY, DEFAULT_METRIC_VALUE)
-        raw_hw = res.raw_metrics.get(OBJ_NAME_HW_SIZE, DEFAULT_METRIC_VALUE)
-        graph_type = res.input_metadata.get(KEY_GRAPH_TYPE, KEY_UNKNOWN)
-        print(TABLE_ROW_RAW_FORMAT.format(
-            mapper=res.mapper_name,
-            graph_type=graph_type,
-            raw_ll=raw_ll,
-            raw_inc=raw_inc,
-            raw_hw=raw_hw,
-            elapsed=res.execution_time_s
-        ))
-    
-    print(REPORT_DIVIDER)
-    print(f"Total Experiment Time: {summary.total_time_s:.2f}s")
-    print("Experiment Complete.")
+    from netochi.pipeline.reporter import SummaryReporter
+    SummaryReporter.print_report(summary)
 
 
 if __name__ == '__main__':

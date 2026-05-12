@@ -19,6 +19,7 @@ PAYLOAD = TypeVar('PAYLOAD')
 class MappingState(BaseModel, Generic[ANY_MAPPING_INPUT]):
     """Base class for all mapping results."""
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=False)
+    mapping_input: ANY_MAPPING_INPUT
 
     def init_random_assignments(self, seed: Optional[int] = None) -> None:
         """Abstract initialization method for assignments."""
@@ -29,8 +30,7 @@ class HWNetworkMappingState(MappingState[ANY_MAPPING_INPUT], Generic[ANY_MAPPING
     Base class for states that infer hardware. 
     Does not strictly require hardware parameters in input, but provides/infers them.
     """
-    mapping_input: ANY_MAPPING_INPUT
-
+    pass
     def _init_random_hw(self, seed: Optional[int] = None) -> None:
         """Randomly initialize hardware configuration."""
         pass
@@ -40,7 +40,7 @@ class NetworkAssignmentState(HWNetworkMappingState[WITH_HW_INPUT], Generic[WITH_
     State for hardware-aware partitioning. 
     Requires specific hardware parameters in the input (WITH_HW_INPUT).
     """
-    mapping_input: WITH_HW_INPUT
+    pass
 
 # -----------------------------------------------------------------------------
 # Mosaic Specific Interfaces
