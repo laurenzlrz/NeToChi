@@ -5,11 +5,14 @@ from typing import Dict
 from dataclasses import dataclass
 
 from netochi.input_generator.interfaces import MappingInput
+from netochi.mapping.interfaces import MosaicHWMappingState
 
+import numpy as np
 
 @dataclass
 class ClusterOutput:
-    labels: Dict[int, int]      # Node ID -> Cluster ID
+    cluster_assignment: Dict[int, int]      # Node ID -> Cluster ID
+    num_clusters: int
 
 @dataclass
 class HierarchicalClusterOutput(ClusterOutput):
@@ -20,4 +23,11 @@ class Clusterer(ABC):
 
     @abstractmethod
     def cluster(self, input_data: MappingInput) -> ClusterOutput:
+        pass
+
+
+class SliceAssigner(ABC):
+
+    @abstractmethod
+    def assign_slices(self, input_data: MappingInput, clustering: ClusterOutput, core_sizes: np.array) -> MosaicHWMappingState:
         pass

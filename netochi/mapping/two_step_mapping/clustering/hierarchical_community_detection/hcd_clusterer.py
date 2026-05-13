@@ -41,7 +41,11 @@ class HcdClusterer(Clusterer):
                 cluster_parent[child_id + cluster_offset] = parent_id
             cluster_offset += nr_clusters
 
-        return HierarchicalClusterOutput(labels=labels, cluster_parent=cluster_parent)
+        if len(hierarchy) == 1:
+            num_clusters = 1
+        else:
+            num_clusters = len(hierarchy[1].pvec)
+        return HierarchicalClusterOutput(cluster_assignment=labels, cluster_parent=cluster_parent, num_clusters=num_clusters)
 
 
 
