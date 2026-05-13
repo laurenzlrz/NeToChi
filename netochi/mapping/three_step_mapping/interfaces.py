@@ -20,7 +20,7 @@ class HierarchicalClusterOutput(ClusterOutput):
     cluster_parent: Dict[int, int]      # Cluster ID -> Parent Cluster ID (-1 for root)
 
 @dataclass
-class HierarchicalClusterOutputAndHw(HierarchicalClusterOutput):
+class ClusterAndHwOutput(ClusterOutput):
     hw: MosaicHardwareConfig
 
 
@@ -38,10 +38,10 @@ class HierarchicalClusterer(ABC):
         pass
 
 
-class HierarchicalHwClusterer(HierarchicalClusterer):
+class HwClusterer(Clusterer):
 
     @abstractmethod
-    def cluster(self, input_data: MappingInput) -> HierarchicalClusterOutputAndHw:
+    def cluster(self, input_data: MappingInput) -> ClusterAndHwOutput:
         pass
 
 
@@ -54,7 +54,7 @@ class SliceAssignerFlexibleHw(ABC):
 class SliceAssigner(ABC):
 
     @abstractmethod
-    def assign_slices(self, clustering: HierarchicalClusterOutput, graph: gt.Graph, local_assignment: Dict[int, int], hw: MosaicHardwareConfig) -> Dict[int, Dict[int, int]]:
+    def assign_slices(self, clustering: ClusterAndHwOutput, graph: gt.Graph, local_assignment: Dict[int, int], hw: MosaicHardwareConfig) -> Dict[int, Dict[int, int]]:
         pass
 
 
@@ -62,7 +62,7 @@ class SliceAssigner(ABC):
 class LocalAddressAssigner(ABC):
 
     @abstractmethod
-    def assign_addresses(self, graph: gt.Graph, clustering: HierarchicalClusterOutput) -> Dict[int, int]:
+    def assign_addresses(self, graph: gt.Graph, clustering: ClusterAndHwOutput) -> Dict[int, int]:
         """
         neuron_id -> local_idx
         """
