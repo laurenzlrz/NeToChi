@@ -41,6 +41,8 @@ class HcdClusterer(HierarchicalClusterer):
                 cluster_parent[child_id + cluster_offset] = parent_id
             cluster_offset += nr_clusters
 
+        cluster_parent[cluster_offset] = -1
+
         if len(hierarchy) == 1:
             num_clusters = 1
         else:

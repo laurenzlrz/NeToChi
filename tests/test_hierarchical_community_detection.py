@@ -26,10 +26,10 @@ class TestHierarchicalOutput(unittest.TestCase):
 
         # Verify labels (Node ID -> Cluster ID from level 0)
         expected_labels = {0: 0, 1: 0, 2: 1, 3: 1}
-        self.assertEqual(output.labels, expected_labels)
+        self.assertEqual(output.cluster_assignment, expected_labels)
 
         # Verify cluster_parent mapping
-        expected_parents = {0: 2, 1: 2}
+        expected_parents = {0: 2, 1: 2, 2: -1}
         self.assertEqual(output.cluster_parent, expected_parents)
 
 
@@ -50,15 +50,16 @@ class TestHierarchicalOutput(unittest.TestCase):
         output = instance._convert_to_hierarchical_output(hierarchy)
 
         # 1. Labels (Node -> Cluster Level 0)
-        self.assertEqual(output.labels, {0: 0, 1: 1, 2: 2, 3: 3})
+        self.assertEqual(output.cluster_assignment, {0: 0, 1: 1, 2: 2, 3: 3})
 
         expected_parents = {
             0: 4, 1: 4, 2: 5, 3: 5,  # From Level 1 loop
-            4: 6, 5: 6  # From Level 2 loop (Note: IDs might overwrite if offset is 0)
+            4: 6, 5: 6, 6: -1  # From Level 2 loop (Note: IDs might overwrite if offset is 0)
         }
         # Important: If your code doesn't increment cluster_offset, keys 0 and 1 will be overwritten.
         self.assertEqual(output.cluster_parent, expected_parents)
         self.assertEqual(output.cluster_parent[0], 4)
+        self.assertEqual(output.num_clusters, 4)
 
     def test_single_cluster_pass_through(self):
         # Level 0: 2 nodes into 1 cluster
@@ -73,12 +74,13 @@ class TestHierarchicalOutput(unittest.TestCase):
         output = instance._convert_to_hierarchical_output(hierarchy)
 
         # Labels
-        self.assertEqual(output.labels, {0: 0, 1: 0})
+        self.assertEqual(output.cluster_assignment, {0: 0, 1: 0})
 
         # Parent (nr_clusters at Level 1 is 1)
         # Child 0 -> 0 + 1 = 1
-        expected_parents = {0: 1}
+        expected_parents = {0: 1, 1: -1}
         self.assertEqual(output.cluster_parent, expected_parents)
+        self.assertEqual(output.num_clusters, 1)
 
     def test_incremental_hierarchy_mapping(self):
         # Level 0: 4 nodes, 3 clusters (0, 1, 2)
@@ -103,7 +105,7 @@ class TestHierarchicalOutput(unittest.TestCase):
 
         # 1. Labels (from Level 0)
         expected_labels = {0: 0, 1: 0, 2: 1, 3: 2}
-        self.assertEqual(output.labels, expected_labels)
+        self.assertEqual(output.cluster_assignment, expected_labels)
 
 
         expected_parents = {
@@ -111,6 +113,8 @@ class TestHierarchicalOutput(unittest.TestCase):
             1: 4,
             2: 4,
             3: 5,
-            4: 5
+            4: 5,
+            5: -1
         }
         self.assertEqual(output.cluster_parent, expected_parents)
+        self.assertEqual(output.num_clusters, 3)
