@@ -1,12 +1,12 @@
 
 import math
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 
 import graph_tool as gt
 from collections import defaultdict
 
-from netochi.mapping.two_step_mapping.interfaces import ClusterOutput
+from netochi.mapping.two_step_mapping.interfaces import ClusterOutput, HierarchicalClusterOutput
 
 
 @dataclass
@@ -127,3 +127,53 @@ def compute_best_slice_assignment(num_neurons: int, core_assignment, max_distanc
 def get_slice_id(core_u, u, core_dist, core_sizes, local_assignment):
     num_slices = 2 ** core_dist
     return (local_assignment[u] * num_slices) // core_sizes[core_u]
+
+
+
+def compute_dists_between_cores(cluster_output: HierarchicalClusterOutput) -> Tuple[List[List[int]], int]:
+    """
+    Compute pairwise distances between cores.
+
+    Distance definition:
+        Number of hops upward to the lowest common ancestor (LCA).
+
+    Assumptions:
+    - All leaves are at the same depth.
+    - cluster_assignment maps:
+          core_id -> leaf_cluster_id
+    - cluster_parent maps:
+          cluster_id -> parent_cluster_id
+      with root parent == -1.
+    """
+    cluster_parent = cluster_output.cluster_parent
+    cluster_assignment = cluster_output.cluster_assignment
+    num_cores = cluster_output.num_clusters
+    dists = [[0 for _ in range(num_cores)] for _ in range(num_cores)]
+    max_dist = 0
+    for i in range(num_cores):
+        for j in range(i + 1, num_cores):
+            c_i = cluster_assignment[i]
+            c_j = cluster_assignment[j]
+            dist = 0
+            # Walk upward until common ancestor found
+            while c_i != c_j:
+                dist += 1
+                c_i = cluster_parent.get(c_i, -1)
+                c_j = cluster_parent.get(c_j, -1)
+            dists[i][j] = dist
+            dists[j][i] = dist
+            if dist > max_dist:
+                max_dist = dist
+    return dists, max_dist
+
+
+
+def compute_core_sizes(cluster_output: HierarchicalClusterOutput) -> Dict[int, int]:
+        """
+        Compute the size of each cluster.
+        Returns: cluster_id -> number of assigned nodes
+        """
+        cluster_sizes: Dict[int, int] = defaultdict(int)
+        for _, cluster_id in cluster_output.cluster_assignment.items():
+            cluster_sizes[cluster_id] += 1
+        return dict(cluster_sizes)
