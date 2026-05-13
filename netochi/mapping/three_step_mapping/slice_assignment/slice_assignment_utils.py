@@ -94,7 +94,7 @@ class DistanceCalculator:
                 dist[(i, j)] = d
                 dist[(j, i)] = d
 
-def compute_best_slice_assignment(num_neurons: int, core_assignment, max_distance, core_sizes, core_distances, graph: gt.Graph) -> Dict[int, Dict[int, int]]:
+def compute_best_slice_assignment(num_neurons: int, core_assignment, max_distance, core_sizes, core_distances, graph: gt.Graph, local_assignment: Dict[int, int]) -> Dict[int, Dict[int, int]]:
     """
     core_assignment: neuron_id -> core_id
     """
@@ -107,7 +107,7 @@ def compute_best_slice_assignment(num_neurons: int, core_assignment, max_distanc
         C_u = core_assignment[u]
         C_v = core_assignment[v]
         core_dist = core_distances[C_u][C_v]
-        slice_id = get_slice_id(C_u, u, core_dist, core_sizes)
+        slice_id = get_slice_id(C_u, u, core_dist, core_sizes, local_assignment=local_assignment)
         edge_counter[v][core_dist][slice_id] += 1
 
     slice_assignment = defaultdict(dict)  # slice_assignment[target][distance] = best_slice_id

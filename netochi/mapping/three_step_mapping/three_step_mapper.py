@@ -1,15 +1,17 @@
+from typing import Any
+
 from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterer, LocalAddressAssigner, SliceAssigner
 
 from sklearn.decomposition import PCA  # type: ignore[import-untyped]
 
 from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOutput
 
-from netochi.mapping.interfaces import MosaicHWMappingState
+from netochi.mapping.interfaces import MosaicHWMappingState, BaseMapper
 from netochi.input_generator.interfaces import MappingInput
 
 
 
-class ThreeStepMapper:
+class ThreeStepMapper(BaseMapper[MosaicHWMappingState, MappingInput]):
     """
     assumption: the hardware is flexible
     """
@@ -30,7 +32,7 @@ class ThreeStepMapper:
         neuron_local_assignment = self.address_assigner.assign_addresses(graph=graph, clustering=clustering)
 
         # --- 3. Slice assignment ---
-        neuron_slice_assignment = self.slice_assigner.assign_slices(clustering=clustering, graph=graph)
+        neuron_slice_assignment = self.slice_assigner.assign_slices(clustering=clustering, graph=graph, local_assignment=neuron_local_assignment)
 
         # todo add other attributes to Mosaic hw mapping state
         state = MosaicHWMappingState()

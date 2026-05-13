@@ -8,14 +8,14 @@ from netochi.mapping.three_step_mapping.slice_assignment.slice_assignment_utils 
 
 class OptimalSliceAssigner(SliceAssigner):
 
-    def assign_slices(self, clustering: HierarchicalClusterOutput, graph: gt.Graph) -> Dict[int, Dict[int, int]]:
+    def assign_slices(self, clustering: HierarchicalClusterOutput, graph: gt.Graph, local_assignment: Dict[int, int]) -> Dict[int, Dict[int, int]]:
         num_neurons = graph.num_vertices()
         core_distances, max_distance = compute_dists_between_cores(cluster_output=clustering)
         core_sizes = compute_core_sizes(cluster_output=clustering)
         neuron_slice_assignments = compute_best_slice_assignment(num_neurons,
                                                                  core_assignment=clustering.cluster_assignment,
                                                                  max_distance=max_distance, core_sizes=core_sizes,
-                                                                 core_distances=core_distances, graph=graph)
+                                                                 core_distances=core_distances, graph=graph, local_assignment=local_assignment)
         return neuron_slice_assignments
 
 

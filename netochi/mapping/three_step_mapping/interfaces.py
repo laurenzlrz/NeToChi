@@ -35,7 +35,7 @@ class HierarchicalClusterer(ABC):
 class SliceAssigner(ABC):
 
     @abstractmethod
-    def assign_slices(self, clustering: HierarchicalClusterOutput, graph: gt.Graph) -> Dict[int, Dict[int, int]]:
+    def assign_slices(self, clustering: HierarchicalClusterOutput, graph: gt.Graph, local_assignment: Dict[int, int]) -> Dict[int, Dict[int, int]]:
         pass
 
 
