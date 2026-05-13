@@ -7,6 +7,8 @@ from netochi.input_generator.interfaces import MappingInput
 
 import graph_tool as gt
 
+from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
+
 
 @dataclass
 class ClusterOutput:
@@ -16,6 +18,10 @@ class ClusterOutput:
 @dataclass
 class HierarchicalClusterOutput(ClusterOutput):
     cluster_parent: Dict[int, int]      # Cluster ID -> Parent Cluster ID (-1 for root)
+
+@dataclass
+class HierarchicalClusterOutputAndHw(HierarchicalClusterOutput):
+    hw: MosaicHardwareConfig
 
 
 class Clusterer(ABC):
@@ -32,10 +38,17 @@ class HierarchicalClusterer(ABC):
         pass
 
 
+class HierarchicalHwClusterer(HierarchicalClusterer):
+
+    @abstractmethod
+    def cluster(self, input_data: MappingInput) -> HierarchicalClusterOutputAndHw:
+        pass
+
+
 class SliceAssigner(ABC):
 
     @abstractmethod
-    def assign_slices(self, clustering: HierarchicalClusterOutput, graph: gt.Graph, local_assignment: Dict[int, int]) -> Dict[int, Dict[int, int]]:
+    def assign_slices(self, clustering: HierarchicalClusterOutput, graph: gt.Graph, local_assignment: Dict[int, int], hw: MosaicHardwareConfig) -> Dict[int, Dict[int, int]]:
         pass
 
 
