@@ -176,3 +176,15 @@ def compute_core_sizes(cluster_output: HierarchicalClusterOutput) -> Dict[int, i
         for _, cluster_id in cluster_output.cluster_assignment.items():
             cluster_sizes[cluster_id] += 1
         return dict(cluster_sizes)
+
+
+def compute_children_count(cluster_output: HierarchicalClusterOutput) -> Dict[int, int]:
+    cluster_parent: Dict[int, int] = cluster_output.cluster_parent
+    children_count = defaultdict(int)
+
+    for child, parent in cluster_parent.items():
+        if parent == -1:
+            continue
+        children_count[parent] += 1
+
+    return dict(children_count)
