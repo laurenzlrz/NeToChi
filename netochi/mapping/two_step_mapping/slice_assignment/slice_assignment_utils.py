@@ -94,7 +94,7 @@ class DistanceCalculator:
                 dist[(i, j)] = d
                 dist[(j, i)] = d
 
-def compute_best_slice_assignment(num_neurons: int, core_assignment, max_distance, core_sizes, core_distances, graph: gt.Graph):
+def compute_best_slice_assignment(num_neurons: int, core_assignment, max_distance, core_sizes, core_distances, graph: gt.Graph) -> Dict[int, Dict[int, int]]:
     """
     core_assignment: neuron_id -> core_id
     """
@@ -124,10 +124,10 @@ def compute_best_slice_assignment(num_neurons: int, core_assignment, max_distanc
 
     return slice_assignment
 
+
 def get_slice_id(core_u, u, core_dist, core_sizes, local_assignment):
     num_slices = 2 ** core_dist
     return (local_assignment[u] * num_slices) // core_sizes[core_u]
-
 
 
 def compute_dists_between_cores(cluster_output: HierarchicalClusterOutput) -> Tuple[List[List[int]], int]:
@@ -165,7 +165,6 @@ def compute_dists_between_cores(cluster_output: HierarchicalClusterOutput) -> Tu
             if dist > max_dist:
                 max_dist = dist
     return dists, max_dist
-
 
 
 def compute_core_sizes(cluster_output: HierarchicalClusterOutput) -> Dict[int, int]:

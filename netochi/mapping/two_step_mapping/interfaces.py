@@ -1,13 +1,12 @@
 
-
 from abc import ABC, abstractmethod
 from typing import Dict
 from dataclasses import dataclass
 
 from netochi.input_generator.interfaces import MappingInput
-from netochi.mapping.interfaces import MosaicHWMappingState
 
-import numpy as np
+import graph_tool as gt
+
 
 @dataclass
 class ClusterOutput:
@@ -26,8 +25,25 @@ class Clusterer(ABC):
         pass
 
 
+class HierarchicalClusterer(ABC):
+
+    @abstractmethod
+    def cluster(self, input_data: MappingInput) -> HierarchicalClusterOutput:
+        pass
+
+
 class SliceAssigner(ABC):
 
     @abstractmethod
-    def assign_slices(self, input_data: MappingInput, clustering: ClusterOutput, core_sizes: np.array) -> MosaicHWMappingState:
+    def assign_slices(self, clustering: HierarchicalClusterOutput, graph: gt.Graph) -> Dict[int, Dict[int, int]]:
+        pass
+
+
+class LocalAddressAssigner(ABC):
+
+    @abstractmethod
+    def assign_addresses(self, graph: gt.Graph, clustering: HierarchicalClusterOutput) -> Dict[int, int]:
+        """
+        neuron_id -> local_idx
+        """
         pass
