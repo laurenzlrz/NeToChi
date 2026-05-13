@@ -7,8 +7,8 @@ The module contains:
 
 """
 import numpy as np
-from netochi.mapping.two_step_mapping.clustering.hierarchical_community_detection.spectral_operators import BetheHessian, UniformRandomWalk
-import netochi.mapping.two_step_mapping.clustering.hierarchical_community_detection.cluster
+from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.spectral_operators import BetheHessian, UniformRandomWalk
+import netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.cluster
 from scipy import linalg
 
 from scipy import sparse

@@ -1,9 +1,9 @@
 from typing import Dict
 
-from netochi.mapping.two_step_mapping.interfaces import SliceAssigner, HierarchicalClusterOutput
+from netochi.mapping.three_step_mapping.interfaces import SliceAssigner, HierarchicalClusterOutput
 import graph_tool as gt
 
-from netochi.mapping.two_step_mapping.slice_assignment.slice_assignment_utils import compute_dists_between_cores, compute_core_sizes, compute_best_slice_assignment
+from netochi.mapping.three_step_mapping.slice_assignment.slice_assignment_utils import compute_dists_between_cores, compute_core_sizes, compute_best_slice_assignment
 
 
 class OptimalSliceAssigner(SliceAssigner):

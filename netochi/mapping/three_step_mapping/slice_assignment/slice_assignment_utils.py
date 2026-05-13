@@ -6,7 +6,7 @@ from typing import Dict, Tuple, List
 import graph_tool as gt
 from collections import defaultdict
 
-from netochi.mapping.two_step_mapping.interfaces import ClusterOutput, HierarchicalClusterOutput
+from netochi.mapping.three_step_mapping.interfaces import ClusterOutput, HierarchicalClusterOutput
 
 
 @dataclass

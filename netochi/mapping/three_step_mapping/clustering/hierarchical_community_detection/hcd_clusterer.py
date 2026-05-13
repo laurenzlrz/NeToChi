@@ -2,12 +2,12 @@ import graph_tool.all as gt
 import numpy as np
 from scipy import sparse
 from netochi.input_generator.interfaces import MappingInput
-from netochi.mapping.two_step_mapping.clustering.hierarchical_community_detection.cluster import Hierarchy, Partition
-from netochi.mapping.two_step_mapping.clustering.hierarchical_community_detection.inference import infer_hierarchy
-from netochi.mapping.two_step_mapping.interfaces import Clusterer, ClusterOutput, HierarchicalClusterOutput
+from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.cluster import Hierarchy
+from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.inference import infer_hierarchy
+from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOutput, HierarchicalClusterer
 
 
-class HcdClusterer(Clusterer):
+class HcdClusterer(HierarchicalClusterer):
 
     def cluster(self, input_data: MappingInput) -> HierarchicalClusterOutput:
 

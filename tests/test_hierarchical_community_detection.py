@@ -2,8 +2,8 @@ import unittest
 from dataclasses import dataclass
 from typing import Dict
 
-from netochi.mapping.two_step_mapping.clustering.hierarchical_community_detection.cluster import Hierarchy, Partition
-from netochi.mapping.two_step_mapping.clustering.hierarchical_community_detection.hcd_clusterer import HcdClusterer
+from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.cluster import Hierarchy, Partition
+from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.hcd_clusterer import HcdClusterer
 
 
 # Assuming these are your structures based on the code snippet
