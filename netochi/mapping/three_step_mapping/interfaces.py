@@ -54,7 +54,7 @@ class SliceAssignerFlexibleHw(ABC):
 class SliceAssigner(ABC):
 
     @abstractmethod
-    def assign_slices_with_hw_config(self, clustering: HierarchicalClusterOutput, graph: gt.Graph, local_assignment: Dict[int, int], hw: MosaicHardwareConfig) -> Dict[int, Dict[int, int]]:
+    def assign_slices(self, clustering: HierarchicalClusterOutput, graph: gt.Graph, local_assignment: Dict[int, int], hw: MosaicHardwareConfig) -> Dict[int, Dict[int, int]]:
         pass
 
 
