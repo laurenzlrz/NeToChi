@@ -12,9 +12,10 @@ from netochi.mapping.two_step_mapping.slice_assignment.slice_assignment_utils im
 
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState, MosaicHWMappingState
 from netochi.input_generator.interfaces import MosaicMappingInput, MappingInput
+from netochi.mapping.two_step_mapping.slice_assignment.slice_assignment_utils import compute_core_sizes
 
 
-class HybridMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicMappingInput[Any]]):
+class HybridMapperFlexibleHw(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicMappingInput[Any]]):
     """
     Heuristic mapper combining initial greedy clustering with random refinements.
     
@@ -28,7 +29,7 @@ class HybridMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicM
         graph = mapping_input.graph
         num_neurons = graph.num_vertices()
 
-        # 1. Run hSBM
+        # 1. Run clustering
         clusterer = HcdClusterer()
         clustering: HierarchicalClusterOutput = clusterer.cluster(input_data=mapping_input)
         neuron_core_idxs_assignment = clustering.cluster_assignment
