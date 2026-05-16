@@ -4,7 +4,7 @@ from typing import Dict
 import numpy as np
 from sklearn.decomposition import PCA
 
-from netochi.mapping.three_step_mapping.interfaces import LocalAddressAssigner, HierarchicalClusterOutput
+from netochi.mapping.three_step_mapping.interfaces import LocalAddressAssigner, ClusterAndHwOutput
 
 import graph_tool.all as gt
 
@@ -12,7 +12,7 @@ import graph_tool.all as gt
 class PcaLocalAddressAssigner(LocalAddressAssigner):
 
 
-    def assign_addresses(self, graph: gt.Graph, clustering: HierarchicalClusterOutput) -> Dict[int, int]:
+    def assign_addresses(self, graph: gt.Graph, clustering: ClusterAndHwOutput) -> Dict[int, int]:
         """
         neuron_id -> local_idx
         """

@@ -18,8 +18,9 @@ from netochi.mapping.greedy_mapper import GreedyMapper
 from netochi.mapping.mcmc.mcmc_mapper import MCMCMapper
 from netochi.mapping.mcmc.joint_inference_mapper import JointInferenceMapper
 from netochi.mapping.qap_mapper import QAPMapper
-from netochi.mapping.hierarchical_community_detection.hybrid_mapper import HybridMapper
+from netochi.mapping.three_step_mapping.hybrid_mapper_fixed_hw import HybridMapper
 
+from netochi.mapping.three_step_mapping.hcd_pca_opt_three_step_mapper import HcdPcaOptThreeStepMapper
 from netochi.pipeline.runner import (
     PipelineRunner, 
     ExperimentTask, 
@@ -84,12 +85,7 @@ def run_experiment() -> None:
     # 4. Define Tasks
     # We group mappers by their evaluation strategy and inputs
     mappers_std = [
-        HybridMapper(),
-        RandomMapper(),
-        GreedyMapper(),
-        MCMCMapper(objective=log_likelihood_obj, iterations=200, verbose=False),
-        QAPMapper(),
-        
+        HcdPcaOptThreeStepMapper()
     ]
     
     # Use a more specific task type internally to avoid Any during creation
@@ -113,19 +109,7 @@ def run_experiment() -> None:
         ))
 
     # Add Joint Inference Mapper
-    inference_inputs: List[Tuple[BaseInputFactory[MosaicMappingInput[Any]], BaseBaselineProvider[MappingState[Any], MosaicMappingInput[Any]]]] = []
-    for f in mosaic_factories:
-        inference_inputs.append((f, gt_baseline))
-    for f in er_factories:
-        inference_inputs.append((f, random_baseline))
-    for f in swta_factories:
-        inference_inputs.append((f, random_baseline))
 
-    mosaic_tasks.append(ExperimentTask(
-        mapper=cast(BaseMapper[BaseMosaicMappingState[Any], MosaicMappingInput[Any]], JointInferenceMapper(objective=log_likelihood_obj, iterations=200, verbose=False)),
-        evaluator=hw_evaluator,
-        inputs=inference_inputs
-    ))
 
     # 5. Run Pipeline
     print("=" * 100)
