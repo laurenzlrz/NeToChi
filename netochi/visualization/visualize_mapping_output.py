@@ -80,7 +80,7 @@ def plot_hardware_mapping(
         # Draw radial lines to visualize the slice boundaries
         for s in range(max_slices):
             # Boundaries are drawn from 0 to 2pi
-            angle = 2 * np.pi * (s / max_slices)
+            angle = 2 * np.pi * (s / max_slices) + np.pi/2 # neg. offset because angle = 0 is horizontal line and it wanders counter-clockwise
             dx = core_radius * np.cos(angle)
             dy = core_radius * np.sin(angle)
 
@@ -94,16 +94,7 @@ def plot_hardware_mapping(
     neuron_radius = core_radius * 0.75  # Keep nodes slightly inside boundary
 
     # Calculate the base angle between core centers to use for the offset
-    if num_cores > 0:
-        total_span = max(6.0, (num_cores - 1) * core_spacing)
-        base_core_angle = (2 * np.pi) / num_cores  # Theoretical angle in full circle
-
-        # A simple linear heuristic offset that shifts them by a substantial visual amount
-        # based on the request "1/2 angle between cores" on a linear axis
-        # Shift angle by a large fixed amount for clarity
-        base_angle_shift =  np.pi / config.neurons_per_core
-    else:
-        base_angle_shift = 0
+    base_angle_shift = - np.pi / config.neurons_per_core + np.pi / 2 # neg. offset because angle = 0 is horizontal line and it wanders counter-clockwise
 
     for v in graph.vertices():
         u = int(v)
@@ -117,7 +108,7 @@ def plot_hardware_mapping(
         neuron_slice_idx = int((loc / config.neurons_per_core) * max_slices)
 
         # 2. Calculate the base angle of that slice's starting boundary
-        slice_start_angle = 2 * np.pi * (neuron_slice_idx / max_slices)
+        slice_start_angle = - 2 * np.pi * (neuron_slice_idx / max_slices)
 
         # 3. Apply the global angular shift requested ("by 1/2 angle between cores")
         shifted_start_angle = slice_start_angle + base_angle_shift
@@ -126,9 +117,9 @@ def plot_hardware_mapping(
         # This keeps them visually confined to their slice while sorting by local index.
         normalized_loc_in_slice = (loc % (config.neurons_per_core // max_slices)) / (
                     config.neurons_per_core // max_slices)
-        angle_within_slice = normalized_loc_in_slice * slice_width_rad
+        angle_within_slice = - normalized_loc_in_slice * slice_width_rad
 
-        final_angle = shifted_start_angle + angle_within_slice +  np.pi / 2
+        final_angle = shifted_start_angle + angle_within_slice
 
         nx = cx + neuron_radius * np.cos(final_angle)
         ny = cy + neuron_radius * np.sin(final_angle)
