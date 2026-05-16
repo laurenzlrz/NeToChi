@@ -174,5 +174,4 @@ def plot_hardware_mapping(
     plt.tight_layout()
     plt.savefig(filename, bbox_inches='tight', format='pdf')
     plt.close(fig)
-    print(f"Radial validation plot successfully saved to {filename}")
 

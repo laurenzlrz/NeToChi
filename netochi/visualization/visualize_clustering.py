@@ -70,4 +70,3 @@ def plot_clustering_comparison(
         output_size=(1000, 1000),
         fit_view=True
     )
-    print(f"Plot saved to {filename}")
