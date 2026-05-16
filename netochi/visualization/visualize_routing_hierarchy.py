@@ -85,10 +85,3 @@ def plot_routing_hierarchy(hw_config: MosaicHardwareConfig, filename: str):
     plt.tight_layout()
     plt.savefig(filename, bbox_inches='tight')
 
-# ==========================================
-# Example Usage
-# ==========================================
-
-if __name__ == "__main__":
-    hw_config = MosaicHardwareConfig(nodes_per_router=4, neurons_per_core=256, router_levels=2)
-    plot_routing_hierarchy(hw_config, filename="../results/routing_hierarchy.pdf")

@@ -71,37 +71,3 @@ def plot_clustering_comparison(
         fit_view=True
     )
     print(f"Plot saved to {filename}")
-
-
-# ==========================================
-# Example Usage
-# ==========================================
-if __name__ == "__main__":
-    # A. Generate a mock graph (Stochastic Block Model)
-    num_nodes = 300
-    g = gt.Graph(directed=False)
-    g.add_vertex(num_nodes)
-
-    # B. Create Ground Truth (3 distinct clusters)
-    initial_clusters = np.repeat([0, 1, 2], 100)
-
-    # Add edges: dense inside clusters, sparse between them
-    for i in range(num_nodes):
-        for j in range(i + 1, num_nodes):
-            prob = 0.15 if initial_clusters[i] == initial_clusters[j] else 0.005
-            if np.random.rand() < prob:
-                g.add_edge(i, j)
-
-    # C. Create Inferred Clustering (simulate some mistakes)
-    inferred_clusters = initial_clusters.copy()
-    # Scramble 10% of the nodes to simulate an imperfect clustering algorithm
-    scramble_mask = np.random.rand(num_nodes) < 0.10
-    inferred_clusters[scramble_mask] = np.random.choice([0, 1, 2], size=np.sum(scramble_mask))
-
-    # D. Run visualization
-    plot_clustering_comparison(
-        g,
-        initial_assignment=initial_clusters,
-        inferred_assignment=inferred_clusters,
-        filename="../results/clustering_evaluation.pdf"
-    )

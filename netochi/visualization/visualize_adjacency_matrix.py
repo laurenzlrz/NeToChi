@@ -2,8 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import graph_tool.all as gt
 
-from dataclasses import dataclass
-
 from netochi.mapping.interfaces import BaseMosaicMappingState
 
 
@@ -22,7 +20,7 @@ def plot_sorted_adjacency(graph: gt.Graph, state: BaseMosaicMappingState, filena
     adj_sorted = adj_matrix[sorted_indices, :][:, sorted_indices]
 
     plt.figure(figsize=(8, 8))
-    plt.spy(adj_sorted, markersize=4, color='black')
+    plt.spy(adj_sorted.T, markersize=4, color='black')
 
     sorted_cores = c[sorted_indices]
     core_boundaries = np.where(np.diff(sorted_cores) != 0)[0] + 1
@@ -67,57 +65,3 @@ def plot_sorted_adjacency(graph: gt.Graph, state: BaseMosaicMappingState, filena
     plt.gca().xaxis.set_label_position('top')
     plt.tight_layout()
     plt.savefig(filename, bbox_inches='tight')
-
-
-# ==========================================
-# Example Usage
-# ==========================================
-
-# 1. Mocking the Mapping State for the example
-@dataclass
-class MockState:
-    neuron_core_idxs_assignment: np.ndarray
-    neuron_local_idxs_assignment: np.ndarray
-
-
-if __name__ == "__main__":
-    # A. Setup hardware parameters for the mock
-    num_cores = 3
-    neurons_per_core = 15
-    total_neurons = num_cores * neurons_per_core
-
-    # B. Create a graph with clear cluster structures (Stochastic Block Model approach)
-    # We want intra-core connections to be dense (70%), inter-core to be sparse (5%)
-    g = gt.Graph(directed=True)
-    g.add_vertex(total_neurons)
-
-    for i in range(total_neurons):
-        for j in range(total_neurons):
-            if i != j:
-                core_i = i // neurons_per_core
-                core_j = j // neurons_per_core
-
-                prob = 0.70 if core_i == core_j else 0.05
-                if np.random.rand() < prob:
-                    g.add_edge(i, j)
-
-    # C. Create assignments simulating a perfect mapping algorithm
-    # To prove the sorting works, we will scramble the neurons before passing them in
-    shuffled_indices = np.random.permutation(total_neurons)
-
-    core_assignments = np.zeros(total_neurons, dtype=int)
-    local_assignments = np.zeros(total_neurons, dtype=int)
-
-    for real_idx, original_idx in enumerate(shuffled_indices):
-        core_assignments[original_idx] = real_idx // neurons_per_core
-        local_assignments[original_idx] = real_idx % neurons_per_core
-
-    mock_state = MockState(
-        neuron_core_idxs_assignment=core_assignments,
-        neuron_local_idxs_assignment=local_assignments
-    )
-
-    # D. Run the visualization!
-    # Because our mock mapping matches the dense cluster generation,
-    # you should see 3 dense black squares separated by red lines.
-    plot_sorted_adjacency(g, mock_state, filename="../results/adjacency_matrix.pdf")
