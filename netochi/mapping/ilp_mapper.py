@@ -1,18 +1,17 @@
-import os
-import subprocess
-import tempfile
 import time
 from typing import Any
 import pulp  # type: ignore[import-untyped]
-import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
 from netochi.input_generator.interfaces import MosaicMappingInput
 from netochi.mapping.constants import MCMC_TIME_LIMIT_S
 
+import shutil  # Make sure this is imported at the top of your file
+
 _ILP_MAX_NEURONS = 100
 
+# todo: only fixed with Gemini, needs to be verified
 
 class ILPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicMappingInput[Any]]):
     """
@@ -118,41 +117,52 @@ class ILPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicMapp
                     cross_core_expr.append(vc)
             prob += v[(i, j)] <= same_core_expr + pulp.lpSum(cross_core_expr)
 
-        # 4. Solve
+        # 4. Solve using PuLP's native wrapper
         remaining = _budget_remaining()
         if remaining <= 1:
             state.init_random_assignments()
             return state
 
-        with tempfile.NamedTemporaryFile(suffix=".mps", delete=False) as mps_file:
-            mps_path = mps_file.name
-        sol_path = mps_path.replace(".mps", ".sol")
+        # 1. Find the absolute path to the cbc binary in your Conda env
+        cbc_path = shutil.which("cbc")
 
+        if cbc_path is None:
+            raise RuntimeError(
+                "CRITICAL: The CBC solver is not installed or not in your PATH. "
+                "Please open your terminal, activate your conda environment, and run: "
+                "conda install -c conda-forge coincbc"
+            )
+
+        # 2. Use COIN_CMD (the correct class for Conda/External installations)
+        solver = pulp.COIN_CMD(path=cbc_path, timeLimit=int(remaining), msg=False)
+
+        # 3. Solve
         try:
-            prob.writeMPS(mps_path)
-            cbc_path = pulp.PULP_CBC_CMD().path
-            subprocess.run([cbc_path, mps_path, f"sec {int(remaining)}", "solve", f"solu {sol_path}"],
-                           timeout=remaining + 2, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            if os.path.exists(sol_path):
-                prob_vars = prob.variablesDict()
-                with open(sol_path, "r") as f:
-                    for line in f:
-                        parts = line.strip().split()
-                        if len(parts) >= 3 and parts[1] in prob_vars:
-                            prob_vars[parts[1]].varValue = float(parts[2])
-        finally:
-            for path in (mps_path, sol_path):
-                if os.path.exists(path): os.unlink(path)
+            status = prob.solve(solver)
+        except pulp.apis.core.PulpSolverError as e:
+            raise RuntimeError(
+                f"COIN_CMD failed to execute the binary found at {cbc_path}. "
+                f"Verify permissions by running: chmod +x {cbc_path}"
+            ) from e
 
-        # 5. Extract
+        # If the solver failed to find ANY feasible solution, fallback to random
+        if status == pulp.LpStatusInfeasible or status == pulp.LpStatusNotSolved:
+            state.init_random_assignments()
+            return state
+
+        # 5. Extract results from variables into the state object
         for i in range(N):
             for c in range(C):
                 for x in range(X):
-                    if pulp.value(w[i, c, x]) is not None and pulp.value(w[i, c, x]) > 0.5:
+                    val = pulp.value(w[i, c, x])
+                    if val is not None and val > 0.5:
                         state.neuron_core_idxs_assignment[i] = c
                         state.neuron_local_idxs_assignment[i] = x
+
             for d in range(1, max_d + 1):
                 for sigma in range(hw.num_slices_at_distance(d)):
-                    if pulp.value(s_vars[(i, d, sigma)]) is not None and pulp.value(s_vars[(i, d, sigma)]) > 0.5:
+                    val = pulp.value(s_vars[(i, d, sigma)])
+                    if val is not None and val > 0.5:
                         state.neuron_slice_assignments[i, d] = sigma
+
         return state
