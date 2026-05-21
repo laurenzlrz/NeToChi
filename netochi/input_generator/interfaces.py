@@ -14,14 +14,14 @@ HW_CONFIG = TypeVar("HW_CONFIG")
 
 @dataclass(config=dict(arbitrary_types_allowed=True), kw_only=True)
 class MappingInput(Generic[PAYLOAD]):
-    """Base model for all experiment inputs, generic over payload."""
+    """Base model for all experiment inputs"""
     graph: gt.Graph
     descriptions: Dict[str, str]
     payload: Optional[PAYLOAD] = None
 
 @dataclass(config=dict(arbitrary_types_allowed=True), kw_only=True)
 class HWMappingInput(MappingInput[PAYLOAD], Generic[PAYLOAD, HW_CONFIG]):
-    """Base model for all experiment inputs, generic over payload."""
+    """Mapping Input with given Hardware config"""
     hw_config: HW_CONFIG
 
 @dataclass(config=dict(arbitrary_types_allowed=True), kw_only=True)
