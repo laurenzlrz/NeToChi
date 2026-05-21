@@ -8,6 +8,7 @@ from collections import defaultdict
 
 from netochi.mapping.three_step_mapping.interfaces import ClusterOutput, HierarchicalClusterOutput
 
+# TODO check what is still needed
 
 @dataclass
 class DistanceMatrix:
@@ -167,18 +168,24 @@ def compute_dists_between_cores(cluster_output: HierarchicalClusterOutput) -> Tu
     return dists, max_dist
 
 
+# ================= needed by padding adapter ===================
+
 def compute_core_sizes(cluster_output: HierarchicalClusterOutput) -> Dict[int, int]:
-        """
-        Compute the size of each cluster.
-        Returns: cluster_id -> number of assigned nodes
-        """
-        cluster_sizes: Dict[int, int] = defaultdict(int)
-        for _, cluster_id in cluster_output.cluster_assignment.items():
-            cluster_sizes[cluster_id] += 1
-        return dict(cluster_sizes)
+    """
+    Compute the size of each core (= lowest-level cluster).
+    Returns: cluster_id -> number of assigned nodes
+    """
+    cluster_sizes: Dict[int, int] = defaultdict(int)
+    for _, cluster_id in cluster_output.cluster_assignment.items():
+        cluster_sizes[cluster_id] += 1
+    return dict(cluster_sizes)
 
 
 def compute_children_count(cluster_output: HierarchicalClusterOutput) -> Dict[int, int]:
+    """
+    Computes the number of children for every cluster (on all levels)
+    Returns: cluster_id -> number of children
+    """
     cluster_parent: Dict[int, int] = cluster_output.cluster_parent
     children_count = defaultdict(int)
 
@@ -188,3 +195,50 @@ def compute_children_count(cluster_output: HierarchicalClusterOutput) -> Dict[in
         children_count[parent] += 1
 
     return dict(children_count)
+
+def compute_hierarchy_depth(cluster_output: HierarchicalClusterOutput) -> int:
+    """
+    Computes the maximum depth (number of levels) of the hierarchy.
+    The root's parent is -1. Assumes that every leaf has same depth
+    """
+    cluster_parent: Dict[int, int] = cluster_output.cluster_parent
+    node_id = 0  # 0 is always leaf, every leaf has same depth
+    nr_levels = 0
+    while cluster_parent.get(node_id, -1) != -1:
+        nr_levels += 1
+        node_id = cluster_parent.get(node_id, -1)
+    return nr_levels
+
+
+def transform_hierarchy_into_adjacency_list(clustering: HierarchicalClusterOutput) -> Tuple[Dict[int, List[int]], Dict[int, List[int]]]:
+    """
+    Transforms a parent-pointer hierarchy into a top-down adjacency list and a reverse leaf-to-neuron mapping.
+
+    Returns:
+        cluster_children: Dict[parent_cluster_id, List[child_cluster_ids]]
+        leaf_to_neurons:  Dict[leaf_cluster_id, List[neuron_ids]]
+    """
+    # --- 1. Map cluster_id -> child_ids (Adjacency List) ---
+    cluster_children_raw = defaultdict(list)
+
+    for child_id, parent_id in clustering.cluster_parent.items():
+        if parent_id != -1:  # Exclude the root's pointer to -1
+            cluster_children_raw[parent_id].append(child_id)
+
+    cluster_children = {
+        parent_id: sorted(children)
+        for parent_id, children in cluster_children_raw.items()
+    } # Sort children to ensure stable, deterministic branch indexing for padding
+
+    # --- 2. Map leaf cluster_id -> neuron_ids ---
+    leaf_to_neurons_raw = defaultdict(list)
+
+    for neuron_id, cluster_id in clustering.cluster_assignment.items():
+        leaf_to_neurons_raw[cluster_id].append(neuron_id)
+
+    leaf_to_neurons = {
+        cluster_id: sorted(neurons)
+        for cluster_id, neurons in leaf_to_neurons_raw.items()
+    }
+
+    return cluster_children, leaf_to_neurons
