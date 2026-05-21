@@ -1,22 +1,16 @@
 from typing import Dict, List
 from collections import defaultdict
-
-from netochi.input_generator.interfaces import MappingInput
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
-from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.hcd_clusterer import HcdClusterer
-from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOutput, ClusterAndHwOutput, \
-    ClusterAndHwOutput, HwClusterer
-from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.hardware_tranform_utils import compute_core_sizes, \
+from netochi.mapping.three_step_mapping.interfaces import ClusteringAdapter, HierarchicalClusterOutput, \
+    ClusterAndHwOutput
+from netochi.mapping.three_step_mapping.clustering.hardware_tranform_utils import compute_core_sizes, \
     compute_children_count
 
 
-class HcdHwClusterer(HcdClusterer, HwClusterer):
+class PaddingClusteringAdapter(ClusteringAdapter):
 
-    def cluster(self, input_data: MappingInput) -> ClusterAndHwOutput:
-        # --- 1. Get base clustering ---
-        clustering: HierarchicalClusterOutput = super().cluster(input_data=input_data)
-
-        # --- 2. Extract Constraints ---
+    def adapt_clustering(self, clustering: HierarchicalClusterOutput) -> ClusterAndHwOutput:
+        # TODO implement and think about it
         cluster_sizes = compute_core_sizes(clustering)
         neurons_per_core = max(cluster_sizes.values()) if cluster_sizes else 1
 
@@ -100,4 +94,4 @@ class HcdHwClusterer(HcdClusterer, HwClusterer):
             parent_id = cluster_parent.get(node_id, -1)
             return 1 + get_node_depth(parent_id)
 
-        return get_node_depth(0) # 0 is always leaf, every leaf has same depth
+        return get_node_depth(0)  # 0 is always leaf, every leaf has same depth

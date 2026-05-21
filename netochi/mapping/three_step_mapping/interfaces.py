@@ -54,6 +54,14 @@ class HwClusterer(Clusterer):
     def cluster(self, input_data: MappingInput) -> ClusterAndHwOutput:
         pass
 
+class ClusteringAdapter:
+    """
+    given a hierarchical clustering, it infers hardware and adapts clustering, so that it fits the hardware
+    """
+
+    @abstractmethod
+    def adapt_clustering(self, clustering: HierarchicalClusterOutput) -> ClusterAndHwOutput:
+        pass
 
 # ============== Local Address Assigner =======================
 
