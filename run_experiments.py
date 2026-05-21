@@ -18,7 +18,6 @@ from netochi.mapping.greedy_mapper import GreedyMapper
 from netochi.mapping.mcmc.mcmc_mapper import MCMCMapper
 from netochi.mapping.mcmc.joint_inference_mapper import JointInferenceMapper
 from netochi.mapping.qap_mapper import QAPMapper
-from netochi.mapping.three_step_mapping.hybrid_mapper_fixed_hw import HybridMapper
 
 from netochi.mapping.three_step_mapping.hcd_pca_opt_three_step_mapper import HcdPcaOptThreeStepMapper
 from netochi.pipeline.runner import (
