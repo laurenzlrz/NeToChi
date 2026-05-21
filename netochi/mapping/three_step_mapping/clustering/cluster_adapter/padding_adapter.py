@@ -1,3 +1,5 @@
+import numpy as np
+
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.mapping.three_step_mapping.interfaces import ClusteringAdapter, HierarchicalClusterOutput, \
     ClusterAndHwOutput
@@ -30,10 +32,10 @@ class PaddingClusteringAdapter(ClusteringAdapter):
         # when inserting dummies, then the new cluster assignment needs to be adapted
 
         adj_list_clusters, map_leaf_to_neurons = transform_hierarchy_into_adjacency_list(clustering)
-        new_cluster_assignment = [0] * len(clustering.cluster_assignment)
+        new_cluster_assignment = np.zeros(len(clustering.cluster_assignment), dtype=np.int_)
 
         # Identify the root cluster ID of the original hierarchy (where parent is -1)
-        root_id = next(cid for cid, pid in clustering.cluster_parent.items() if pid == -1)
+        root_id = int(np.where(clustering.cluster_parent == -1)[0][0])
 
         def assign_hardware_ids(current_cluster_id: int, current_hw_id: int):
             # BASE CASE: If this cluster has no children, it's a leaf node (a physical core)

@@ -3,6 +3,9 @@ from abc import ABC, abstractmethod
 from typing import Dict
 from dataclasses import dataclass
 
+import numpy as np
+import numpy.typing as npt
+
 from netochi.input_generator.interfaces import MappingInput
 
 import graph_tool as gt
@@ -14,12 +17,12 @@ from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 
 @dataclass
 class ClusterOutput:
-    cluster_assignment: Dict[int, int]      # Node ID -> Cluster ID
-    num_clusters: int                       # number of clusters on LOWEST level (= nr cores)
+    cluster_assignment: npt.NDArray[np.int_]    # Node ID -> Cluster ID
+    num_clusters: int                           # number of clusters on LOWEST level (= nr cores)
 
 @dataclass
 class HierarchicalClusterOutput(ClusterOutput):
-    cluster_parent: Dict[int, int]      # Cluster ID -> Parent Cluster ID (-1 for root)
+    cluster_parent: npt.NDArray[np.int_]        # Cluster ID -> Parent Cluster ID (-1 for root)
 
 @dataclass
 class ClusterAndHwOutput(ClusterOutput):

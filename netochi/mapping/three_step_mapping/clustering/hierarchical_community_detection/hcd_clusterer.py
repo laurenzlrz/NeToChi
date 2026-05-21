@@ -37,18 +37,19 @@ class HcdClusterer(HierarchicalClusterer):
 
         # 1. Extract Labels (Node ID -> Cluster ID): take the finest level (level 0) as the base labels
         finest_pvec = hierarchy[0].pvec
-        labels = {int(node_id): int(cluster_id) for node_id, cluster_id in enumerate(finest_pvec)}
+        labels = np.array(finest_pvec, dtype=np.int_)
 
         # 2. Extract Cluster Hierarchy (Parent Mapping)
         cluster_offset = 0
-        cluster_parent = {}
+        cluster_parent = np.array([], dtype=np.int_)
         for level_idx in range(1, len(hierarchy)): # skip level 0, because we only want the cluster hierarchy, without the neuron labels
             # for every level: for every child cluster on this level, infer parent cluster
-            nr_child_clusters = len(hierarchy[level_idx].pvec)
-            for child_id in range(nr_child_clusters):
-                # compute parent_id: add offset (represents the clusters already processed), add nr_clusters (offset between child and parent
-                parent_id = hierarchy[level_idx].pvec[child_id] + cluster_offset + nr_child_clusters
-                cluster_parent[child_id + cluster_offset] = parent_id
+            pvec = np.array(hierarchy[level_idx].pvec, dtype=np.int_)
+            nr_child_clusters = len(pvec)
+            level_parent_ids = pvec + cluster_offset + nr_child_clusters
+            # Dynamically append/resize the array to include this level's parents
+            cluster_parent = np.append(cluster_parent, level_parent_ids)
+            # Update the running offset
             cluster_offset += nr_child_clusters
 
         # check: last hierarchy has more than one: insert additional root
