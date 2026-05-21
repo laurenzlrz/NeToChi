@@ -22,7 +22,7 @@ class MappingState(BaseModel, Generic[ANY_MAPPING_INPUT]):
 
     def init_random_assignments(self, seed: Optional[int] = None) -> None:
         """Abstract initialization method for assignments.
-        baseically constructor"""
+        basically constructor"""
         pass
 
 class HWNetworkMappingState(MappingState[ANY_MAPPING_INPUT], Generic[ANY_MAPPING_INPUT]):
@@ -54,7 +54,10 @@ class BaseMosaicMappingState(MappingState[ANY_MAPPING_INPUT], Generic[ANY_MAPPIN
     """
     neuron_core_idxs_assignment: npt.NDArray[np.int_] = Field(description="[neuron_idx] -> core_idx")
     neuron_local_idxs_assignment: npt.NDArray[np.int_] = Field(description="[neuron_idx] -> local_neuron_idx")
-    neuron_slice_assignments: npt.NDArray[np.int_] = Field(description="[neuron_idx, dist] -> slice_idx")
+    neuron_slice_assignments: npt.NDArray[tuple[Any, Any], np.dtype[np.int_]] = Field(description="[neuron_idx, dist] -> slice_idx")
+
+    @property
+    def hw(self) -> MosaicHardwareConfig: raise NotImplementedError()
 
     @property
     def c(self) -> npt.NDArray[np.int_]: return self.neuron_core_idxs_assignment
@@ -63,7 +66,7 @@ class BaseMosaicMappingState(MappingState[ANY_MAPPING_INPUT], Generic[ANY_MAPPIN
     def x(self) -> npt.NDArray[np.int_]: return self.neuron_local_idxs_assignment
     
     @property
-    def s(self) -> npt.NDArray[np.int_]: return self.neuron_slice_assignments
+    def s(self) -> npt.NDArray[tuple[Any, Any], np.dtype[np.int_]]: return self.neuron_slice_assignments
 
     @model_validator(mode='after')
     def validate_mosaic_assignments(self) -> 'BaseMosaicMappingState[ANY_MAPPING_INPUT]':
@@ -84,6 +87,10 @@ class MosaicNetworkMappingState(BaseMosaicMappingState[MosaicHWMappingInput[PAYL
     State for pure partitioning/assignment mappers. 
     Input MUST contain the hardware configuration (MosaicMappingInput).
     """
+
+    @property
+    def hw(self) -> MosaicHardwareConfig:
+        return self.mapping_input.hw_config
 
     @classmethod
     def from_input(cls, mapping_input: MosaicHWMappingInput[PAYLOAD]) -> 'MosaicNetworkMappingState[PAYLOAD]':
