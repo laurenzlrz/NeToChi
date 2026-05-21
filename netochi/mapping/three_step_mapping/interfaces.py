@@ -1,6 +1,6 @@
 
 from abc import ABC, abstractmethod
-from typing import Dict
+from typing import Any
 from dataclasses import dataclass
 
 import numpy as np
@@ -74,7 +74,7 @@ class LocalAddressAssigner(ABC):
     """
 
     @abstractmethod
-    def assign_addresses(self, graph: gt.Graph, clustering: ClusterAndHwOutput) -> Dict[int, int]:
+    def assign_addresses(self, graph: gt.Graph, clustering: ClusterAndHwOutput) -> npt.NDArray[np.int_] :
         """
         neuron_id -> local_idx
         """
@@ -89,6 +89,6 @@ class SliceAssigner(ABC):
     """
 
     @abstractmethod
-    def assign_slices(self, clustering: ClusterAndHwOutput, graph: gt.Graph, local_assignment: Dict[int, int]) -> Dict[int, Dict[int, int]]:
+    def assign_slices(self, clustering: ClusterAndHwOutput, graph: gt.Graph, local_assignment: npt.NDArray[np.int_]) -> npt.NDArray[tuple[Any, Any], np.dtype[np.int_]]:
         pass
 

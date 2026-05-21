@@ -1,7 +1,9 @@
-from typing import Dict, List
+from typing import List
 
 from netochi.mapping.three_step_mapping.interfaces import SliceAssigner, ClusterAndHwOutput
 import graph_tool as gt
+import numpy as np
+import numpy.typing as npt
 
 
 
@@ -10,7 +12,7 @@ class OptimalSliceAssigner(SliceAssigner):
     infers optimal slice assignment given clustering, hw, local address assignment
     """
 
-    def assign_slices(self, clustering: ClusterAndHwOutput, graph: gt.Graph, local_assignment: Dict[int, int]) -> List[List[int]]:
+    def assign_slices(self, clustering: ClusterAndHwOutput, graph: gt.Graph, local_assignment: npt.NDArray[np.int_] ) -> List[List[int]]:
         """
         for every target neuron and every distance: goes through every possible slice and counts
         """
