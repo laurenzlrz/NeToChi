@@ -6,6 +6,7 @@ from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.mapping.greedy_mapper import GreedyMapper
 from netochi.mapping.ilp_mapper import ILPMapper
 from netochi.mapping.qap_mapper import QAPMapper
+from netochi.mapping.three_step_mapping.hcd_pca_opt_three_step_mapper import HcdPcaOptThreeStepMapper
 from netochi.visualization.visualize_clustering import plot_clustering_comparison
 from netochi.visualization.visualize_mapping_output import plot_hardware_mapping
 from tests.utils_graph_generation import create_fc_graph, create_two_fc_components, create_two_fc_with_directed_half
@@ -122,7 +123,7 @@ def slice_alignment_for_dependent_clusters(mapper, hw_config, file_path):
 
 
 def test_validate_mappers_with_given_hw():
-    mappers = {ILPMapper()}
+    mappers = {HcdPcaOptThreeStepMapper()}
     tests = {fc_component_mapped_to_single_core, two_fc_components_mapped_separately, slice_alignment_for_dependent_clusters}
     hw_config = MosaicHardwareConfig(
         nodes_per_router=2,

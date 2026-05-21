@@ -30,7 +30,7 @@ class PaddingClusteringAdapter(ClusteringAdapter):
         # when inserting dummies, then the new cluster assignment needs to be adapted
 
         adj_list_clusters, map_leaf_to_neurons = transform_hierarchy_into_adjacency_list(clustering)
-        new_cluster_assignment = {}
+        new_cluster_assignment = [0] * len(clustering.cluster_assignment)
 
         # Identify the root cluster ID of the original hierarchy (where parent is -1)
         root_id = next(cid for cid, pid in clustering.cluster_parent.items() if pid == -1)

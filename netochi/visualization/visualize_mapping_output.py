@@ -138,7 +138,7 @@ def plot_hardware_mapping(
         if dist == 0:
             is_valid = True
         else:
-            target_slice_idx = state.neuron_slice_assignments[v, dist]
+            target_slice_idx = state.neuron_slice_assignments[v][dist]
             is_valid = config.is_valid_connection(c_u, c_v, x_u, target_slice_idx)
 
         color = 'mediumseagreen' if is_valid else 'crimson'

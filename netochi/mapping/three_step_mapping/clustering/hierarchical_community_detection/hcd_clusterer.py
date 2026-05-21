@@ -51,13 +51,18 @@ class HcdClusterer(HierarchicalClusterer):
                 cluster_parent[child_id + cluster_offset] = parent_id
             cluster_offset += nr_child_clusters
 
-        cluster_parent[cluster_offset] = -1 # parent of root is -1
+        # check: last hierarchy has more than one: insert additional root
+        unique_roots = set(hierarchy[len(hierarchy) - 1].pvec)
+        if len(unique_roots) > 1:
+            root_id = cluster_offset + len(unique_roots)
+            for unique in unique_roots:
+                cluster_parent[cluster_offset + unique] = root_id
+            cluster_parent[root_id] = -1
+        else:
+            cluster_parent[cluster_offset] = -1 # parent of root is -1
 
         # 3. Computer number of clusters on the lowest level (= number of cores)
-        if len(hierarchy) == 1:
-            num_clusters = 1
-        else:
-            num_clusters = len(hierarchy[1].pvec)
+        num_clusters = len(set(hierarchy[0].pvec))
 
         return HierarchicalClusterOutput(cluster_assignment=labels, cluster_parent=cluster_parent, num_clusters=num_clusters)
 

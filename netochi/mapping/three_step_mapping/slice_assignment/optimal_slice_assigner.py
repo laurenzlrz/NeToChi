@@ -1,13 +1,8 @@
-from typing import Dict
+from typing import Dict, List
 
-from mypy.checkexpr import defaultdict
-
-from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
-from netochi.mapping.three_step_mapping.interfaces import SliceAssigner, HierarchicalClusterOutput, \
-    ClusterAndHwOutput
+from netochi.mapping.three_step_mapping.interfaces import SliceAssigner, ClusterAndHwOutput
 import graph_tool as gt
 
-from netochi.mapping.three_step_mapping.slice_assignment.slice_assignment_utils import compute_dists_between_cores, compute_core_sizes, compute_best_slice_assignment
 
 
 class OptimalSliceAssigner(SliceAssigner):
@@ -15,11 +10,16 @@ class OptimalSliceAssigner(SliceAssigner):
     infers optimal slice assignment given clustering, hw, local address assignment
     """
 
-    def assign_slices(self, clustering: ClusterAndHwOutput, graph: gt.Graph, local_assignment: Dict[int, int]) -> Dict[int, Dict[int, int]]:
+    def assign_slices(self, clustering: ClusterAndHwOutput, graph: gt.Graph, local_assignment: Dict[int, int]) -> List[List[int]]:
         """
         for every target neuron and every distance: goes through every possible slice and counts
         """
-        s_assignment = defaultdict(dict)
+        num_targets = graph.num_vertices()
+        max_dist = clustering.hw.max_distance
+
+        # Dimensions: [num_targets][max_dist + 1]
+        s_assignment = [[0] * (max_dist + 1) for _ in range(num_targets)]
+
         for tgt in range(graph.num_vertices()):
             tgt_core = clustering.cluster_assignment[tgt]
             for d in range(1, clustering.hw.max_distance + 1):
