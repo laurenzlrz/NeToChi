@@ -10,6 +10,8 @@ import graph_tool as gt
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 
 
+# =============== Cluster Output ====================
+
 @dataclass
 class ClusterOutput:
     cluster_assignment: Dict[int, int]      # Node ID -> Cluster ID
@@ -23,6 +25,7 @@ class HierarchicalClusterOutput(ClusterOutput):
 class ClusterAndHwOutput(ClusterOutput):
     hw: MosaicHardwareConfig
 
+# =============== Clusterer ========================
 
 class Clusterer(ABC):
 
@@ -32,6 +35,9 @@ class Clusterer(ABC):
 
 
 class HierarchicalClusterer(ABC):
+    """
+    infers a hierarchical clustering
+    """
 
     @abstractmethod
     def cluster(self, input_data: MappingInput) -> HierarchicalClusterOutput:
@@ -39,27 +45,21 @@ class HierarchicalClusterer(ABC):
 
 
 class HwClusterer(Clusterer):
+    """
+    infers a clustering and the corresponding hardware
+    """
 
     @abstractmethod
     def cluster(self, input_data: MappingInput) -> ClusterAndHwOutput:
         pass
 
 
-class SliceAssignerFlexibleHw(ABC):
-
-    @abstractmethod
-    def assign_slices(self, clustering: HierarchicalClusterOutput, graph: gt.Graph, local_assignment: Dict[int, int]) -> Dict[int, Dict[int, int]]:
-        pass
-
-class SliceAssigner(ABC):
-
-    @abstractmethod
-    def assign_slices(self, clustering: ClusterAndHwOutput, graph: gt.Graph, local_assignment: Dict[int, int], hw: MosaicHardwareConfig) -> Dict[int, Dict[int, int]]:
-        pass
-
-
+# ============== Local Address Assigner =======================
 
 class LocalAddressAssigner(ABC):
+    """
+    given a clustering and a hardware, assigns each neuron a local index within the core
+    """
 
     @abstractmethod
     def assign_addresses(self, graph: gt.Graph, clustering: ClusterAndHwOutput) -> Dict[int, int]:
@@ -67,3 +67,26 @@ class LocalAddressAssigner(ABC):
         neuron_id -> local_idx
         """
         pass
+
+
+# ============== Slice Assigner =======================
+
+class SliceAssignerFlexibleHw(ABC):
+    """
+    given a clustering and a local address assignment, assigns each (neuron,dist) a slice index
+    """
+    # TODO check whether needed
+
+    @abstractmethod
+    def assign_slices(self, clustering: HierarchicalClusterOutput, graph: gt.Graph, local_assignment: Dict[int, int]) -> Dict[int, Dict[int, int]]:
+        pass
+
+class SliceAssigner(ABC):
+    """
+    given a clustering, a HARDWARE, and a local address assignment, assigns each (neuron,dist) a slice index
+    """
+
+    @abstractmethod
+    def assign_slices(self, clustering: ClusterAndHwOutput, graph: gt.Graph, local_assignment: Dict[int, int]) -> Dict[int, Dict[int, int]]:
+        pass
+

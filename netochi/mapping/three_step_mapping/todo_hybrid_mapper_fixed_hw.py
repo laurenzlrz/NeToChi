@@ -6,10 +6,10 @@ from sklearn.decomposition import PCA  # type: ignore[import-untyped]
 from pydantic import BaseModel, ConfigDict, Field
 
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
-from netochi.input_generator.interfaces import MosaicMappingInput
+from netochi.input_generator.interfaces import MosaicHWMappingInput
 
 
-class HybridMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicMappingInput[Any]]):
+class HybridMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicHWMappingInput[Any]]):
     """
     Heuristic mapper combining initial greedy clustering with random refinements.
     
@@ -18,7 +18,7 @@ class HybridMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicM
     model_config = ConfigDict(frozen=True)
     greedy_iterations: int = Field(default=10)
 
-    def run(self, mapping_input: MosaicMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
+    def run(self, mapping_input: MosaicHWMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
         """Execute hybrid mapping strategy."""
         graph = mapping_input.graph
         hw = mapping_input.hw_config

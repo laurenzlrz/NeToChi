@@ -1,7 +1,7 @@
 import numpy as np
 from graph_tool.collection import descriptions
 
-from netochi.input_generator.interfaces import MosaicMappingInput
+from netochi.input_generator.interfaces import MosaicHWMappingInput
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.mapping.greedy_mapper import GreedyMapper
 from netochi.mapping.ilp_mapper import ILPMapper
@@ -29,7 +29,7 @@ def fc_component_mapped_to_single_core(mapper, hw_config, file_path):
     """
     g = create_fc_graph(hw_config.neurons_per_core)
 
-    mapping_input = MosaicMappingInput(graph=g, descriptions = {}, hw_config=hw_config)
+    mapping_input = MosaicHWMappingInput(graph=g, descriptions = {}, hw_config=hw_config)
     state = mapper.run(mapping_input)
 
     # check all neurons are assigned to the exact same core
@@ -46,7 +46,7 @@ def two_fc_components_mapped_separately(mapper, hw_config, file_path):
     N = hw_config.neurons_per_core
     g = create_two_fc_components(N)
 
-    mapping_input = MosaicMappingInput(graph=g, descriptions = {}, hw_config=hw_config)
+    mapping_input = MosaicHWMappingInput(graph=g, descriptions = {}, hw_config=hw_config)
     state = mapper.run(mapping_input)
 
     cores_A = np.unique(state.c[:N])
@@ -68,7 +68,7 @@ def slice_alignment_for_dependent_clusters(mapper, hw_config, file_path):
     N = hw_config.neurons_per_core
     g = create_two_fc_with_directed_half(N)
 
-    mapping_input = MosaicMappingInput(graph=g, descriptions = {}, hw_config=hw_config)
+    mapping_input = MosaicHWMappingInput(graph=g, descriptions = {}, hw_config=hw_config)
     state = mapper.run(mapping_input)
 
     cores_A = np.unique(state.c[:N])

@@ -3,7 +3,7 @@ from typing import Optional, Any
 import networkx as nx
 import numpy as np
 from pydantic import BaseModel, Field, ConfigDict
-from netochi.input_generator.interfaces import MosaicMappingInput, HWBaseInputFactory
+from netochi.input_generator.interfaces import MosaicHWMappingInput, HWBaseInputFactory
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.utils import nx_to_gt
 
@@ -93,7 +93,7 @@ class SwtaNetwork:
         return self._graph
 
 
-class SwtaFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput[SwtaNetworkResult]]):
+class SwtaFactory(BaseModel, HWBaseInputFactory[MosaicHWMappingInput[SwtaNetworkResult]]):
     """
     Factory generating soft Winner-Takes-All (sWTA) networks.
     """
@@ -111,7 +111,7 @@ class SwtaFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput[SwtaNetworkRe
     p_i_to_e: float = 0.8
     seed: int = 42
 
-    def generate(self) -> MosaicMappingInput[SwtaNetworkResult]:
+    def generate(self) -> MosaicHWMappingInput[SwtaNetworkResult]:
         """Generate a single MosaicMappingInput with an sWTA graph."""
         config = SwtaGeneratorConfig(
             num_clusters=self.num_clusters,
@@ -134,7 +134,7 @@ class SwtaFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput[SwtaNetworkRe
             "edges": str(gt_graph.num_edges())
         }
         
-        return MosaicMappingInput(
+        return MosaicHWMappingInput(
             graph=gt_graph,
             descriptions=descriptions,
             hw_config=self.hw_config,

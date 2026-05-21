@@ -3,12 +3,12 @@ import graph_tool.all as gt
 import networkx as nx
 import numpy as np
 from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
-from netochi.input_generator.interfaces import BaseInputFactory, MosaicMappingInput, HWBaseInputFactory
+from netochi.input_generator.interfaces import BaseInputFactory, MosaicHWMappingInput, HWBaseInputFactory
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.utils import nx_to_gt
 import numpy.typing as npt
 
-class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput[Any]]):
+class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicHWMappingInput[Any]]):
     """Factory generating synthetic networks for a fixed hardware configuration."""
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -23,7 +23,7 @@ class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput[Any]
     _graph: Optional[nx.DiGraph] = PrivateAttr(default=None)
     _rng: Optional[np.random.Generator] = PrivateAttr(default=None)
 
-    def generate(self) -> MosaicMappingInput[Any]:
+    def generate(self) -> MosaicHWMappingInput[Any]:
         """Generate a single MosaicMappingInput."""
         # Use object.__setattr__ because the model is frozen
         object.__setattr__(self, '_rng', np.random.default_rng(self.seed))
@@ -39,7 +39,7 @@ class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput[Any]
             "edges": str(gt_graph.num_edges())
         }
         
-        return MosaicMappingInput(
+        return MosaicHWMappingInput(
             graph=gt_graph,
             descriptions=descriptions,
             hw_config=self.hw_config,

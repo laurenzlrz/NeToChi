@@ -25,7 +25,7 @@ class HWMappingInput(MappingInput[PAYLOAD], Generic[PAYLOAD, HW_CONFIG]):
     hw_config: HW_CONFIG
 
 @dataclass(config=dict(arbitrary_types_allowed=True), kw_only=True)
-class MosaicMappingInput(HWMappingInput[PAYLOAD, MosaicHardwareConfig], Generic[PAYLOAD]):
+class MosaicHWMappingInput(HWMappingInput[PAYLOAD, MosaicHardwareConfig], Generic[PAYLOAD]):
     """Problem input with a predefined hardware configuration."""
     pre_assignment: Optional[npt.NDArray[np.int_]] = None
 

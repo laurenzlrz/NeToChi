@@ -1,12 +1,12 @@
 from typing import Any
 import numpy as np
 from pydantic import BaseModel, ConfigDict
-from netochi.input_generator.interfaces import MosaicMappingInput
+from netochi.input_generator.interfaces import MosaicHWMappingInput
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
 from netochi.mapping.exceptions import HardwareConstraintError
 from netochi.mapping.constants import HARDWARE_CAPACITY_EXCEEDED
 
-class GreedyMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicMappingInput[Any]]):
+class GreedyMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicHWMappingInput[Any]]):
     """
     Mapper implementing a pure greedy heuristic based on node degrees and local clustering.
     
@@ -14,7 +14,7 @@ class GreedyMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicM
     """
     model_config = ConfigDict(frozen=True)
 
-    def run(self, mapping_input: MosaicMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
+    def run(self, mapping_input: MosaicHWMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
         """
         Execute the greedy mapping algorithm.
         """

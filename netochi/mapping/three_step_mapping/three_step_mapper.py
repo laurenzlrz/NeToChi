@@ -14,28 +14,28 @@ from netochi.input_generator.interfaces import MappingInput
 
 class ThreeStepMapper(BaseMapper[MosaicHWMappingState, MappingInput]):
     """
-    assumption: the hardware is flexible
+    Given mapping input, infers mapping + hardware
     """
 
     def __init__(self, clusterer: HwClusterer, address_assigner: LocalAddressAssigner, slice_assigner: SliceAssigner):
-        self.clusterer = clusterer
-        self.address_assigner = address_assigner
-        self.slice_assigner = slice_assigner
+        self._clusterer = clusterer
+        self._address_assigner = address_assigner
+        self._slice_assigner = slice_assigner
 
 
     def run(self, mapping_input: MappingInput) -> MosaicHWMappingState:
         graph = mapping_input.graph
 
-        # --- 1. clustering ---
-        clustering: ClusterAndHwOutput = self.clusterer.cluster(input_data=mapping_input)
+        # --- 1. Clustering ---
+        clustering: ClusterAndHwOutput = self._clusterer.cluster(input_data=mapping_input)
 
         # --- 2. Local address assignment ---
-        neuron_local_assignment = self.address_assigner.assign_addresses(graph=graph, clustering=clustering)
+        neuron_local_assignment = self._address_assigner.assign_addresses(graph=graph, clustering=clustering)
 
         # --- 3. Slice assignment ---
-        neuron_slice_assignment = self.slice_assigner.assign_slices(clustering=clustering, graph=graph, local_assignment=neuron_local_assignment, hw=clustering.hw)
+        neuron_slice_assignment = self._slice_assigner.assign_slices(clustering=clustering, graph=graph, local_assignment=neuron_local_assignment)
 
-        # todo create hw config
+        # --- 4. Create Mapping State ---
         state = MosaicHWMappingState.create_uninitialized_state(mapping_input=mapping_input, initial_hw_guess=clustering.hw)
         state.neuron_slice_assignments = neuron_slice_assignment
         state.neuron_local_idxs_assignment = neuron_local_assignment

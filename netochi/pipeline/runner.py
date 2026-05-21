@@ -4,7 +4,7 @@ from typing import List, Dict, Optional, Generic, TypeVar, Any, Tuple
 from pydantic import BaseModel, ConfigDict
 
 from netochi.mapping.interfaces import MosaicNetworkMappingState
-from netochi.input_generator.interfaces import MosaicMappingInput
+from netochi.input_generator.interfaces import MosaicHWMappingInput
 
 from netochi.pipeline.interfaces import MappingMetric, BasePipelineRunner
 from netochi.pipeline.results import ExperimentResult, PipelineSummary
@@ -66,7 +66,7 @@ class MosaicGroundTruthBaselineProvider(BaseBaselineProvider[MappingState[Any], 
     
     def get_baseline(self, mapping_input: MappingInput[Any]) -> Optional[MappingState[Any]]:
             
-        if not isinstance(mapping_input, MosaicMappingInput):
+        if not isinstance(mapping_input, MosaicHWMappingInput):
             return None
             
         try:

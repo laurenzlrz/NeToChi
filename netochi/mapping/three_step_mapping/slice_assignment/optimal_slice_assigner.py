@@ -12,21 +12,21 @@ from netochi.mapping.three_step_mapping.slice_assignment.slice_assignment_utils 
 
 class OptimalSliceAssigner(SliceAssigner):
 
-    def assign_slices(self, clustering: ClusterAndHwOutput, graph: gt.Graph, local_assignment: Dict[int, int], hw: MosaicHardwareConfig) -> Dict[int, Dict[int, int]]:
+    def assign_slices(self, clustering: ClusterAndHwOutput, graph: gt.Graph, local_assignment: Dict[int, int]) -> Dict[int, Dict[int, int]]:
         s_assignment = defaultdict(dict)
         for tgt in range(graph.num_vertices()):
             tgt_core = clustering.cluster_assignment[tgt]
-            for d in range(1, hw.max_distance + 1):
+            for d in range(1, clustering.hw.max_distance + 1):
                 best_slice = 0
                 max_sources = -1
-                n_slices = hw.num_slices_at_distance(d)
+                n_slices = clustering.hw.num_slices_at_distance(d)
 
                 for s_idx in range(n_slices):
                     count = 0
-                    start, end = hw.get_slice_bounds(d, s_idx)
+                    start, end = clustering.hw.get_slice_bounds(d, s_idx)
                     for src in graph.get_in_neighbors(tgt):
                         src_core = clustering.cluster_assignment[src]
-                        if hw.core_distance(tgt_core, src_core) == d:
+                        if clustering.hw.core_distance(tgt_core, src_core) == d:
                             if start <= local_assignment[src] < end:
                                 count += 1
                     if count > max_sources:

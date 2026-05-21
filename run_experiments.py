@@ -6,7 +6,7 @@ from netochi.mapping.interfaces import (
     MosaicHWMappingState,
     BaseMapper
 )
-from netochi.input_generator.interfaces import BaseInputFactory, MosaicMappingInput, MappingInput
+from netochi.input_generator.interfaces import BaseInputFactory, MosaicHWMappingInput, MappingInput
 
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.erdos_renyi_factory import ErdosRenyiFactory
@@ -47,20 +47,20 @@ def run_experiment() -> None:
 
     # 1. Define the inputs (Factories)
     probabilities = [0.1, 0.5]
-    mosaic_factories: List[BaseInputFactory[MosaicMappingInput[Any]]] = [
+    mosaic_factories: List[BaseInputFactory[MosaicHWMappingInput[Any]]] = [
         MosaicNetworkFactory(hw_config=hw_small, probability=p, seed=42) for p in probabilities
     ]
-    er_factories: List[BaseInputFactory[MosaicMappingInput[Any]]] = [
+    er_factories: List[BaseInputFactory[MosaicHWMappingInput[Any]]] = [
         ErdosRenyiFactory(hw_config=hw_small, n=60, probability=p, seed=42) for p in probabilities
     ]
-    swta_factories: List[BaseInputFactory[MosaicMappingInput[Any]]] = [
+    swta_factories: List[BaseInputFactory[MosaicHWMappingInput[Any]]] = [
         SwtaFactory(hw_config=hw_small, num_clusters=4, neurons_per_cluster=15, seed=42)
     ]
 
     # 2. Define Evaluators
-    log_likelihood_obj: LogLikelihoodObjective[MosaicMappingInput[Any], Any] = LogLikelihoodObjective()
-    inconsistency_obj: InconsistencyObjective[MosaicMappingInput[Any], Any] = InconsistencyObjective()
-    hw_size_obj: MosaicHardwareSizeObjective[MosaicMappingInput[Any]] = MosaicHardwareSizeObjective()
+    log_likelihood_obj: LogLikelihoodObjective[MosaicHWMappingInput[Any], Any] = LogLikelihoodObjective()
+    inconsistency_obj: InconsistencyObjective[MosaicHWMappingInput[Any], Any] = InconsistencyObjective()
+    hw_size_obj: MosaicHardwareSizeObjective[MosaicHWMappingInput[Any]] = MosaicHardwareSizeObjective()
 
 
     standard_evaluator: Evaluator[BaseMosaicMappingState[Any], MappingState[Any]] = Evaluator(
@@ -89,12 +89,12 @@ def run_experiment() -> None:
     ]
     
     # Use a more specific task type internally to avoid Any during creation
-    mosaic_tasks: List[ExperimentTask[MosaicMappingInput[Any], BaseMosaicMappingState[Any], MappingState[Any]]] = []
+    mosaic_tasks: List[ExperimentTask[MosaicHWMappingInput[Any], BaseMosaicMappingState[Any], MappingState[Any]]] = []
 
     # Add Standard Mappers
     for mapper in mappers_std:
         # Each factory is paired with its appropriate baseline provider
-        task_inputs: List[Tuple[BaseInputFactory[MosaicMappingInput[Any]], BaseBaselineProvider[MappingState[Any], MosaicMappingInput[Any]]]] = []
+        task_inputs: List[Tuple[BaseInputFactory[MosaicHWMappingInput[Any]], BaseBaselineProvider[MappingState[Any], MosaicHWMappingInput[Any]]]] = []
         for f in mosaic_factories:
             task_inputs.append((f, gt_baseline))
         for f in er_factories:
@@ -103,7 +103,7 @@ def run_experiment() -> None:
             task_inputs.append((f, random_baseline))
 
         mosaic_tasks.append(ExperimentTask(
-            mapper=cast(BaseMapper[BaseMosaicMappingState[Any], MosaicMappingInput[Any]], mapper), 
+            mapper=cast(BaseMapper[BaseMosaicMappingState[Any], MosaicHWMappingInput[Any]], mapper),
             evaluator=standard_evaluator, 
             inputs=task_inputs
         ))

@@ -2,11 +2,11 @@ from typing import Dict, Any, Optional
 import networkx as nx
 import graph_tool.all as gt
 from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
-from netochi.input_generator.interfaces import BaseInputFactory, MosaicMappingInput, HWBaseInputFactory
+from netochi.input_generator.interfaces import BaseInputFactory, MosaicHWMappingInput, HWBaseInputFactory
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.utils import nx_to_gt
 
-class ErdosRenyiFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput[Any]]):
+class ErdosRenyiFactory(BaseModel, HWBaseInputFactory[MosaicHWMappingInput[Any]]):
     """Factory generating Erdős-Rényi networks for a fixed hardware configuration."""
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -20,7 +20,7 @@ class ErdosRenyiFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput[Any]]):
     
     _graph: Optional[nx.DiGraph] = PrivateAttr(default=None)
 
-    def generate(self) -> MosaicMappingInput[Any]:
+    def generate(self) -> MosaicHWMappingInput[Any]:
         """Generate a single MosaicMappingInput with an Erdős-Rényi graph."""
         graph = nx.fast_gnp_random_graph(self.n, self.probability, seed=self.seed, directed=True)
         object.__setattr__(self, '_graph', graph)
@@ -35,7 +35,7 @@ class ErdosRenyiFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput[Any]]):
             "edges": str(gt_graph.num_edges())
         }
         
-        return MosaicMappingInput(
+        return MosaicHWMappingInput(
             graph=gt_graph,
             descriptions=descriptions,
             hw_config=self.hw_config,

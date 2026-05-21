@@ -2,10 +2,10 @@ from typing import Any, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
-from netochi.input_generator.interfaces import MosaicMappingInput
+from netochi.input_generator.interfaces import MosaicHWMappingInput
 
 
-class RandomMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicMappingInput[Any]]):
+class RandomMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicHWMappingInput[Any]]):
     """
     Mapper that assigns nodes to cores and addresses randomly.
     
@@ -14,7 +14,7 @@ class RandomMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicM
     model_config = ConfigDict(frozen=True)
     seed: Optional[int] = Field(default=None)
 
-    def run(self, mapping_input: MosaicMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
+    def run(self, mapping_input: MosaicHWMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
         """Initialize state randomly for the given fixed hardware."""
         # Use unified state helper methods to avoid code duplication and magic logic
         state: MosaicNetworkMappingState[Any] = MosaicNetworkMappingState.from_input(mapping_input)

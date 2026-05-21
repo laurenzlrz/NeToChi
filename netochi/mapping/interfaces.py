@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import numpy.typing as npt
 from pydantic import BaseModel, Field, ConfigDict, model_validator
-from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput, WITH_HW_INPUT
+from netochi.input_generator.interfaces import MappingInput, MosaicHWMappingInput, WITH_HW_INPUT
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 
 # -----------------------------------------------------------------------------
@@ -79,14 +79,14 @@ class BaseMosaicMappingState(MappingState[ANY_MAPPING_INPUT], Generic[ANY_MAPPIN
             raise ValueError("Core assignment must be 1D")
         return self
 
-class MosaicNetworkMappingState(BaseMosaicMappingState[MosaicMappingInput[PAYLOAD]], NetworkAssignmentState[MosaicMappingInput[PAYLOAD]], Generic[PAYLOAD]):
+class MosaicNetworkMappingState(BaseMosaicMappingState[MosaicHWMappingInput[PAYLOAD]], NetworkAssignmentState[MosaicHWMappingInput[PAYLOAD]], Generic[PAYLOAD]):
     """
     State for pure partitioning/assignment mappers. 
     Input MUST contain the hardware configuration (MosaicMappingInput).
     """
 
     @classmethod
-    def from_input(cls, mapping_input: MosaicMappingInput[PAYLOAD]) -> 'MosaicNetworkMappingState[PAYLOAD]':
+    def from_input(cls, mapping_input: MosaicHWMappingInput[PAYLOAD]) -> 'MosaicNetworkMappingState[PAYLOAD]':
         hw = mapping_input.hw_config
         N: int = mapping_input.graph.num_vertices()
         return cls(

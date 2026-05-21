@@ -4,7 +4,7 @@ import pulp  # type: ignore[import-untyped]
 from pydantic import BaseModel, ConfigDict, Field
 
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
-from netochi.input_generator.interfaces import MosaicMappingInput
+from netochi.input_generator.interfaces import MosaicHWMappingInput
 from netochi.mapping.constants import MCMC_TIME_LIMIT_S
 
 import shutil  # Make sure this is imported at the top of your file
@@ -13,7 +13,7 @@ _ILP_MAX_NEURONS = 100
 
 # todo: only fixed with Gemini, needs to be verified
 
-class ILPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicMappingInput[Any]]):
+class ILPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicHWMappingInput[Any]]):
     """
     Mapper formulating the problem as a Mixed Integer Linear Program (MILP).
     """
@@ -21,7 +21,7 @@ class ILPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicMapp
     time_limit_s: float = Field(default=MCMC_TIME_LIMIT_S)
     max_neurons: int = Field(default=_ILP_MAX_NEURONS)
 
-    def run(self, mapping_input: MosaicMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
+    def run(self, mapping_input: MosaicHWMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
         """Solve for optimal mapping using the PuLP MILP solver."""
         graph = mapping_input.graph
         hw = mapping_input.hw_config
