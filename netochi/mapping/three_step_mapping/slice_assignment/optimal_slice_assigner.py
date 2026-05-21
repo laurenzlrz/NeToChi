@@ -11,8 +11,14 @@ from netochi.mapping.three_step_mapping.slice_assignment.slice_assignment_utils 
 
 
 class OptimalSliceAssigner(SliceAssigner):
+    """
+    infers optimal slice assignment given clustering, hw, local address assignment
+    """
 
     def assign_slices(self, clustering: ClusterAndHwOutput, graph: gt.Graph, local_assignment: Dict[int, int]) -> Dict[int, Dict[int, int]]:
+        """
+        for every target neuron and every distance: goes through every possible slice and counts
+        """
         s_assignment = defaultdict(dict)
         for tgt in range(graph.num_vertices()):
             tgt_core = clustering.cluster_assignment[tgt]
@@ -25,6 +31,7 @@ class OptimalSliceAssigner(SliceAssigner):
                     count = 0
                     start, end = clustering.hw.get_slice_bounds(d, s_idx)
                     for src in graph.get_in_neighbors(tgt):
+                        # for every source neuron: checks whether core distance = d and whether its local assignment is in current slice
                         src_core = clustering.cluster_assignment[src]
                         if clustering.hw.core_distance(tgt_core, src_core) == d:
                             if start <= local_assignment[src] < end:

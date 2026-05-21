@@ -1,14 +1,12 @@
 from typing import Dict, List
 from collections import defaultdict
 
-from mypy.solve import compute_dependencies
-
 from netochi.input_generator.interfaces import MappingInput
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.hcd_clusterer import HcdClusterer
 from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOutput, ClusterAndHwOutput, \
     ClusterAndHwOutput, HwClusterer
-from netochi.mapping.three_step_mapping.slice_assignment.slice_assignment_utils import compute_core_sizes, \
+from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.hardware_tranform_utils import compute_core_sizes, \
     compute_children_count
 
 

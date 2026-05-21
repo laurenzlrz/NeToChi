@@ -2,7 +2,7 @@ import unittest
 from dataclasses import dataclass
 from typing import Dict
 
-from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.cluster import Hierarchy, Partition
+from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.utils_from_paper.cluster import Hierarchy, Partition
 from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.hcd_clusterer import HcdClusterer
 
 

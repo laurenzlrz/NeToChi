@@ -15,7 +15,7 @@ from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 @dataclass
 class ClusterOutput:
     cluster_assignment: Dict[int, int]      # Node ID -> Cluster ID
-    num_clusters: int
+    num_clusters: int                       # number of clusters on LOWEST level (= nr cores)
 
 @dataclass
 class HierarchicalClusterOutput(ClusterOutput):
@@ -47,6 +47,7 @@ class HierarchicalClusterer(ABC):
 class HwClusterer(Clusterer):
     """
     infers a clustering and the corresponding hardware
+    Clustering needs to fit on the outputted hardware!!!
     """
 
     @abstractmethod
@@ -71,19 +72,9 @@ class LocalAddressAssigner(ABC):
 
 # ============== Slice Assigner =======================
 
-class SliceAssignerFlexibleHw(ABC):
-    """
-    given a clustering and a local address assignment, assigns each (neuron,dist) a slice index
-    """
-    # TODO check whether needed
-
-    @abstractmethod
-    def assign_slices(self, clustering: HierarchicalClusterOutput, graph: gt.Graph, local_assignment: Dict[int, int]) -> Dict[int, Dict[int, int]]:
-        pass
-
 class SliceAssigner(ABC):
     """
-    given a clustering, a HARDWARE, and a local address assignment, assigns each (neuron,dist) a slice index
+    given a clustering, a hardware, and a local address assignment, assigns each (neuron,dist) a slice index
     """
 
     @abstractmethod

@@ -24,6 +24,12 @@ class ThreeStepMapper(BaseMapper[MosaicHWMappingState, MappingInput]):
 
 
     def run(self, mapping_input: MappingInput) -> MosaicHWMappingState:
+        """
+        the mapping runs in three stages:
+            1. clustering: it outputs a clustering AND a hardware config. The clustering must match the hardware
+            2. Local address assignment: assigns each neuron a local address within its core
+            3. Slice assignment: assigns each (neuron, distance) a slice it listens to
+        """
         graph = mapping_input.graph
 
         # --- 1. Clustering ---

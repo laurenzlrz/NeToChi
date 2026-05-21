@@ -14,7 +14,7 @@ class PcaLocalAddressAssigner(LocalAddressAssigner):
 
     def assign_addresses(self, graph: gt.Graph, clustering: ClusterAndHwOutput) -> Dict[int, int]:
         """
-        neuron_id -> local_idx
+        infer neuron_id -> local_idx using PCA
         """
         num_neurons = graph.num_vertices()
         adj = gt.adjacency(graph).toarray()

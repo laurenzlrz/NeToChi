@@ -2,8 +2,8 @@ import graph_tool.all as gt
 import numpy as np
 from scipy import sparse
 from netochi.input_generator.interfaces import MappingInput
-from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.cluster import Hierarchy
-from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.inference import infer_hierarchy
+from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.utils_from_paper.cluster import Hierarchy
+from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.utils_from_paper.inference import infer_hierarchy
 from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOutput, HierarchicalClusterer
 
 
@@ -21,32 +21,44 @@ class HcdClusterer(HierarchicalClusterer):
         print("Starting Hierarchical Community Detection...")
         hierarchy = infer_hierarchy(A_sparse)
 
-        # --- Convert to ClusterOutput
+        # --- Convert to ClusterOutput ---
         return self._convert_to_hierarchical_output(hierarchy)
 
     def _convert_to_hierarchical_output(self, hierarchy: Hierarchy) -> HierarchicalClusterOutput:
-        hierarchy.expand_partitions_to_full_graph() # for every level: list neuron_id -> cluster_id
+        """
+        The layout ouf the Hierarchy is as follows:
+        - for every level l: hierarchy[l].pvec[id] -> parent cluster id
+        - for level l=0: hierarchy[0].pvec[neuron_id] = cluster_id = core_id
+        - len(hierarchy[l].pvec) = nr clusters on level l
+        - hierarchy[l].pvec_expanded: only difference is that len(hierarchy[l].pvec_expanded) = nr_neurons (i.e. maps neuron_id -> cluster on level l)
+
+        Therefore, we want to transform it into our HierarchicalCluster layout (which maps cluster_id -> parent_cluster_id)
+        """
 
         # 1. Extract Labels (Node ID -> Cluster ID): take the finest level (level 0) as the base labels
-        finest_pvec = hierarchy[0].pvec_expanded
+        finest_pvec = hierarchy[0].pvec
         labels = {int(node_id): int(cluster_id) for node_id, cluster_id in enumerate(finest_pvec)}
 
         # 2. Extract Cluster Hierarchy (Parent Mapping)
         cluster_offset = 0
         cluster_parent = {}
-        for level_idx in range(1, len(hierarchy)):
-            nr_clusters = len(hierarchy[level_idx].pvec)
-            for child_id in range(nr_clusters):
-                parent_id = hierarchy[level_idx].pvec[child_id] + cluster_offset + nr_clusters
+        for level_idx in range(1, len(hierarchy)): # skip level 0, because we only want the cluster hierarchy, without the neuron labels
+            # for every level: for every child cluster on this level, infer parent cluster
+            nr_child_clusters = len(hierarchy[level_idx].pvec)
+            for child_id in range(nr_child_clusters):
+                # compute parent_id: add offset (represents the clusters already processed), add nr_clusters (offset between child and parent
+                parent_id = hierarchy[level_idx].pvec[child_id] + cluster_offset + nr_child_clusters
                 cluster_parent[child_id + cluster_offset] = parent_id
-            cluster_offset += nr_clusters
+            cluster_offset += nr_child_clusters
 
-        cluster_parent[cluster_offset] = -1
+        cluster_parent[cluster_offset] = -1 # parent of root is -1
 
+        # 3. Computer number of clusters on the lowest level (= number of cores)
         if len(hierarchy) == 1:
             num_clusters = 1
         else:
             num_clusters = len(hierarchy[1].pvec)
+
         return HierarchicalClusterOutput(cluster_assignment=labels, cluster_parent=cluster_parent, num_clusters=num_clusters)
 
 

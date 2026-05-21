@@ -4,10 +4,10 @@ import numpy as np
 import networkx as nx
 from networkx import DiGraph
 
-from netochi.network_generator.swta_generator import SwtaNetwork, SwtaGeneratorConfig
+from netochi.input_generator.swta_factory import SwtaNetwork, SwtaGeneratorConfig
 from scipy import sparse
 
-from inference import infer_hierarchy
+from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.utils_from_paper.inference import infer_hierarchy
 
 
 def run_swn_community_detection(nx_digraph: DiGraph):
