@@ -142,7 +142,7 @@ def cluster_with_BetheHessian(A, num_groups=-1, regularizer='BHa',
         if num_groups == 0:
             print("no indication for grouping -- return all in one partition")
             partition_vector = np.zeros(A.shape[0], dtype='int')
-            return partition_vector
+            return partition_vector # return Partition(pvec=partition_vector) if error is thrown
 
     else:
         # TODO: note that we combine the eigenvectors of pos/negative BH and
