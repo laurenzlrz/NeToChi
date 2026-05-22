@@ -186,13 +186,20 @@ def compute_children_count(cluster_output: HierarchicalClusterOutput) -> npt.NDA
     Computes the number of children for every cluster (on all levels)
     Returns: cluster_id -> number of children
     """
-    cluster_parent: npt.NDArray[np.int_] = cluster_output.cluster_parent
+    valid_parents = cluster_output.cluster_parent[cluster_output.cluster_parent != -1]
+    counts = np.bincount(valid_parents)
+    return counts
 
-    valid_parents = cluster_parent[cluster_parent != -1]
-    # Count occurrences of each parent ID
-    children_count = np.bincount(valid_parents)
-
-    return children_count
+def compute_avg_non_leaf_children_count(cluster_output: HierarchicalClusterOutput) -> float:
+    """
+    Computes the number of children for every cluster (on all levels)
+    Returns: cluster_id -> number of children
+    """
+    counts = compute_children_count(cluster_output)
+    non_leaf_counts = counts[counts > 0]
+    if non_leaf_counts.size == 0:
+        return 0.0
+    return float(non_leaf_counts.mean())
 
 def compute_hierarchy_depth(cluster_output: HierarchicalClusterOutput) -> int:
     """
