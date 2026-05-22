@@ -66,6 +66,15 @@ class ClusteringAdapter:
     def adapt_clustering(self, clustering: HierarchicalClusterOutput) -> ClusterAndHwOutput:
         pass
 
+class HwClusteringAdapter:
+    """
+    given a hierarchical clustering, it infers hardware and adapts clustering, so that it fits the hardware
+    """
+
+    @abstractmethod
+    def adapt_clustering(self, clustering: HierarchicalClusterOutput, hw_config: MosaicHardwareConfig) -> ClusterAndHwOutput:
+        pass
+
 # ============== Local Address Assigner =======================
 
 class LocalAddressAssigner(ABC):
