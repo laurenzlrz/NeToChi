@@ -23,7 +23,6 @@ def setup_parameters():
 
 
 def infer_hierarchy(A, n_groups=None, parameters=setup_parameters()):
-    print('START')
     # get parameters
     reps = parameters['reps']
     Lnorm = parameters['Lnorm']
@@ -60,7 +59,6 @@ def infer_hierarchy(A, n_groups=None, parameters=setup_parameters()):
     Aagg = Eagg / Nagg
     selected = np.inf
     while selected > 1:
-        print([p.k for p in hierarchy])
         _, part_list = identify_partitions_and_errors(Aagg, n_groups,
                                                       [], 'Fnew',
                                                       norm=Lnorm)
@@ -139,7 +137,7 @@ def cluster_with_BetheHessian(A, num_groups=-1, regularizer='BHa',
         combined_evecs = np.hstack([BH_pos.evecs, BH_neg.evecs])
 
         num_groups = Kpos + Kneg
-        print(f'number of groups = {num_groups}')
+        print(f'HCD: number of groups = {num_groups}')
 
         if num_groups == 0:
             print("no indication for grouping -- return all in one partition")
@@ -215,7 +213,6 @@ def find_relevant_minima(errors, n_groups):
     while k_new > 1:
         total_err = np.empty(len(errors))
         # cum_mean_error = np.empty(len(errors))
-        # print('old_diff', old_diff)
         for ki, k in enumerate(n_groups):
             # consider partition into k groups as a candidate level
             levels_i = levels + [k]
@@ -227,8 +224,6 @@ def find_relevant_minima(errors, n_groups):
             # calculate cumulative and total error difference
             # cum_mean_error[ki] = linalg.norm(diff[:k], 2)/k
             # total_err[ki] = linalg.norm(diff, 2)
-            # print(f'{k}, {total_err[ki]: .3f}, {sigma: .2f}',
-            #       f'{1-total_err[ki]/old_diff: .2f}')
 
         # eliminate levels already included
         total_err[np.array(levels)-1] = np.inf
@@ -252,7 +247,6 @@ def find_relevant_minima(errors, n_groups):
             # add levels to candidates
             candidates.append(k_new)
             # improvement.append(improved_by)
-        # print('new k', k_new)  # , improved_by, n_groups[np.argmin(cum_mean_error)])
     # return the candidate level that offers best improvement
     # return candidates[np.argmax(improvement)]
     return np.max(candidates)
@@ -266,7 +260,6 @@ def match_curves(curve1, curve2, delta=1, log=True):
                         - np.log(ii*curve2 + delta), 2), ii)
                         for ii in np.linspace(0, 1, 101)])
     # else:
-    #     print('no log')
     #     error, sigma = min([(linalg.norm(curve1 - ii*curve2, 2), ii)
     #                         for ii in np.linspace(0, 1, 101)])
     return error, sigma

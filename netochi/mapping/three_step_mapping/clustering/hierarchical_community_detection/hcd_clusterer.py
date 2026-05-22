@@ -18,7 +18,6 @@ class HcdClusterer(HierarchicalClusterer):
         A_sparse = sparse.csr_matrix(A_symmetric)
 
         # --- Run Hierarchical Inference ---
-        print("Starting Hierarchical Community Detection...")
         hierarchy = infer_hierarchy(A_sparse)
 
         # --- Convert to ClusterOutput ---

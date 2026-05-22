@@ -16,7 +16,7 @@ class SpectralOperator(object):
     def find_k_eigenvectors(self, K, which='SA'):
         M = self.operator
         if M.shape[0] == 1:
-            print('WARNING: Matrix is a single element')
+            #print('WARNING: Matrix is a single element')
             evals = np.array([1])
             evecs = np.array([[1]])
         elif K < M.shape[0]:
