@@ -54,7 +54,7 @@ class BaseMosaicMappingState(MappingState[ANY_MAPPING_INPUT], Generic[ANY_MAPPIN
     """
     neuron_core_idxs_assignment: npt.NDArray[np.int_] = Field(description="[neuron_idx] -> core_idx")
     neuron_local_idxs_assignment: npt.NDArray[np.int_] = Field(description="[neuron_idx] -> local_neuron_idx")
-    neuron_slice_assignments: npt.NDArray[tuple[Any, Any], np.dtype[np.int_]] = Field(description="[neuron_idx, dist] -> slice_idx")
+    neuron_slice_assignments: np.ndarray[tuple[Any, Any], np.dtype[np.int_]] = Field(description="[neuron_idx, dist] -> slice_idx")
 
     @property
     def hw(self) -> MosaicHardwareConfig: raise NotImplementedError()
@@ -66,7 +66,7 @@ class BaseMosaicMappingState(MappingState[ANY_MAPPING_INPUT], Generic[ANY_MAPPIN
     def x(self) -> npt.NDArray[np.int_]: return self.neuron_local_idxs_assignment
     
     @property
-    def s(self) -> npt.NDArray[tuple[Any, Any], np.dtype[np.int_]]: return self.neuron_slice_assignments
+    def s(self) -> np.ndarray[tuple[Any, Any], np.dtype[np.int_]]: return self.neuron_slice_assignments
 
     @model_validator(mode='after')
     def validate_mosaic_assignments(self) -> 'BaseMosaicMappingState[ANY_MAPPING_INPUT]':
@@ -165,7 +165,7 @@ class MosaicHWMappingState(BaseMosaicMappingState[ANY_MAPPING_INPUT], HWNetworkM
 # Mapper Interface
 # -----------------------------------------------------------------------------
 
-MAPPING_STATE = TypeVar('MAPPING_STATE', bound=MappingState[Any])
+MAPPING_STATE = TypeVar('MAPPING_STATE', bound=BaseMosaicMappingState[Any])
 
 class BaseMapper(ABC, Generic[MAPPING_STATE, ANY_MAPPING_INPUT]):
     """Structural interface for mapping algorithms."""

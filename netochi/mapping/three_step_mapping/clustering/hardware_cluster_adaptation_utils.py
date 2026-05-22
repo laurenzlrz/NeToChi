@@ -6,6 +6,9 @@ from typing import Dict, Tuple, List
 import graph_tool as gt
 from collections import defaultdict
 
+import numpy as np
+import numpy.typing as npt
+
 from netochi.mapping.three_step_mapping.interfaces import ClusterOutput, HierarchicalClusterOutput
 
 # TODO check what is still needed
@@ -159,8 +162,8 @@ def compute_dists_between_cores(cluster_output: HierarchicalClusterOutput) -> Tu
             # Walk upward until common ancestor found
             while c_i != c_j:
                 dist += 1
-                c_i = cluster_parent.get(c_i, -1)
-                c_j = cluster_parent.get(c_j, -1)
+                c_i = cluster_parent[c_i]
+                c_j = cluster_parent[c_j]
             dists[i][j] = dist
             dists[j][i] = dist
             if dist > max_dist:
@@ -175,38 +178,33 @@ def compute_core_sizes(cluster_output: HierarchicalClusterOutput) -> Dict[int, i
     Compute the size of each core (= lowest-level cluster).
     Returns: cluster_id -> number of assigned nodes
     """
-    cluster_sizes: Dict[int, int] = defaultdict(int)
-    for _, cluster_id in cluster_output.cluster_assignment.items():
-        cluster_sizes[cluster_id] += 1
-    return dict(cluster_sizes)
+    cluster_ids, counts = np.unique(cluster_output.cluster_assignment, return_counts=True)
+    return dict(zip(cluster_ids.astype(int), counts.astype(int)))
 
-
-def compute_children_count(cluster_output: HierarchicalClusterOutput) -> Dict[int, int]:
+def compute_children_count(cluster_output: HierarchicalClusterOutput) -> npt.NDArray[np.int_]:
     """
     Computes the number of children for every cluster (on all levels)
     Returns: cluster_id -> number of children
     """
-    cluster_parent: Dict[int, int] = cluster_output.cluster_parent
-    children_count = defaultdict(int)
+    cluster_parent: npt.NDArray[np.int_] = cluster_output.cluster_parent
 
-    for child, parent in cluster_parent.items():
-        if parent == -1:
-            continue
-        children_count[parent] += 1
+    valid_parents = cluster_parent[cluster_parent != -1]
+    # Count occurrences of each parent ID
+    children_count = np.bincount(valid_parents)
 
-    return dict(children_count)
+    return children_count
 
 def compute_hierarchy_depth(cluster_output: HierarchicalClusterOutput) -> int:
     """
     Computes the maximum depth (number of levels) of the hierarchy.
     The root's parent is -1. Assumes that every leaf has same depth
     """
-    cluster_parent: Dict[int, int] = cluster_output.cluster_parent
+    cluster_parent: npt.NDArray[np.int_] = cluster_output.cluster_parent
     node_id = 0  # 0 is always leaf, every leaf has same depth
     nr_levels = 0
-    while cluster_parent.get(node_id, -1) != -1:
+    while cluster_parent[node_id] != -1:
         nr_levels += 1
-        node_id = cluster_parent.get(node_id, -1)
+        node_id = cluster_parent[node_id]
     return nr_levels
 
 
@@ -221,9 +219,9 @@ def transform_hierarchy_into_adjacency_list(clustering: HierarchicalClusterOutpu
     # --- 1. Map cluster_id -> child_ids (Adjacency List) ---
     cluster_children_raw = defaultdict(list)
 
-    for child_id, parent_id in clustering.cluster_parent.items():
+    for child_id, parent_id in enumerate(clustering.cluster_parent):
         if parent_id != -1:  # Exclude the root's pointer to -1
-            cluster_children_raw[parent_id].append(child_id)
+            cluster_children_raw[int(parent_id)].append(child_id)
 
     cluster_children = {
         parent_id: sorted(children)
@@ -233,7 +231,7 @@ def transform_hierarchy_into_adjacency_list(clustering: HierarchicalClusterOutpu
     # --- 2. Map leaf cluster_id -> neuron_ids ---
     leaf_to_neurons_raw = defaultdict(list)
 
-    for neuron_id, cluster_id in clustering.cluster_assignment.items():
+    for neuron_id, cluster_id in enumerate(clustering.cluster_assignment):
         leaf_to_neurons_raw[cluster_id].append(neuron_id)
 
     leaf_to_neurons = {

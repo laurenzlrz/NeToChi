@@ -56,11 +56,15 @@ class HcdClusterer(HierarchicalClusterer):
         unique_roots = set(hierarchy[len(hierarchy) - 1].pvec)
         if len(unique_roots) > 1:
             root_id = cluster_offset + len(unique_roots)
+            extension_size = len(unique_roots) + 1  # elements for unique roots + 1 for the ultra-root
+            cluster_parent = np.append(cluster_parent, np.full(extension_size, -1, dtype=np.int_))
+
             for unique in unique_roots:
                 cluster_parent[cluster_offset + unique] = root_id
+
             cluster_parent[root_id] = -1
         else:
-            cluster_parent[cluster_offset] = -1 # parent of root is -1
+            cluster_parent = np.append(cluster_parent, -1)
 
         # 3. Computer number of clusters on the lowest level (= number of cores)
         num_clusters = len(set(hierarchy[0].pvec))

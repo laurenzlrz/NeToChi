@@ -89,6 +89,6 @@ class SliceAssigner(ABC):
     """
 
     @abstractmethod
-    def assign_slices(self, clustering: ClusterAndHwOutput, graph: gt.Graph, local_assignment: npt.NDArray[np.int_]) -> npt.NDArray[tuple[Any, Any], np.dtype[np.int_]]:
+    def assign_slices(self, clustering: ClusterAndHwOutput, graph: gt.Graph, local_assignment: npt.NDArray[np.int_]) -> np.ndarray[tuple[Any, Any], np.dtype[np.int_]]:
         pass
 

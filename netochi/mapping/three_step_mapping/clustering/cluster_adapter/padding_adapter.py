@@ -16,7 +16,7 @@ class PaddingClusteringAdapter(ClusteringAdapter):
         neurons_per_core = max(cluster_sizes.values()) if cluster_sizes else 1
 
         children_counts = compute_children_count(clustering)
-        nodes_per_router = max(children_counts.values()) if children_counts else 1
+        nodes_per_router = max(children_counts) if len(children_counts) > 0 else 1
 
         router_levels = compute_hierarchy_depth(clustering)
 
