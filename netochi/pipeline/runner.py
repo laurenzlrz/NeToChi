@@ -21,6 +21,7 @@ from netochi.pipeline.constants import (
 )
 from netochi.mapping.interfaces import BaseMapper, MappingState
 from netochi.input_generator.interfaces import BaseInputFactory, MappingInput
+from tests.utils_mapping_output_validation import validate_mosaic_mapping
 
 PIPELINE_INPUT = TypeVar("PIPELINE_INPUT", bound=MappingInput[Any])
 PIPELINE_INPUT_CONTRA = TypeVar("PIPELINE_INPUT_CONTRA", bound=MappingInput[Any], contravariant=True)
@@ -159,6 +160,8 @@ class PipelineRunner(BaseModel, BasePipelineRunner):
                 raw_metric_values: Dict[str, float] = {}
                 rel_metric_values: Dict[str, float] = {}
                 if state:
+                    if validate_mosaic_mapping(config=state.hw, state=state):
+                        print("Output validated. \n")
                     raw_metric_values, rel_metric_values = task.evaluator.evaluate_all(state, baseline)
                 else: 
                     print(MSG_MAPPER_FAILED)
