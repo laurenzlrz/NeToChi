@@ -21,7 +21,7 @@ def validate_mosaic_mapping(
 
     # 1. Validate 'neuron_core_idxs_assignment' (Must be a 1D Integer Array)
     if not isinstance(state.neuron_core_idxs_assignment, np.ndarray):
-        raise TypeError("neuron_core_idxs_assignment must be a numpy ndarray")
+        raise TypeError(f"neuron_core_idxs_assignment must be a numpy ndarray, got {type(state.neuron_core_idxs_assignment).__name__}")
     if not np.issubdtype(state.neuron_core_idxs_assignment.dtype, np.integer):
         raise TypeError(
             f"neuron_core_idxs_assignment must contain integers, got {state.neuron_core_idxs_assignment.dtype}")
@@ -30,7 +30,7 @@ def validate_mosaic_mapping(
 
     # 2. Validate 'neuron_local_idxs_assignment' (Must be a 1D Integer Array)
     if not isinstance(state.neuron_local_idxs_assignment, np.ndarray):
-        raise TypeError("neuron_local_idxs_assignment must be a numpy ndarray")
+        raise TypeError(f"neuron_local_idxs_assignment must be a numpy ndarray, got {type(state.neuron_local_idxs_assignment).__name__}")
     if not np.issubdtype(state.neuron_local_idxs_assignment.dtype, np.integer):
         raise TypeError(
             f"neuron_local_idxs_assignment must contain integers, got {state.neuron_local_idxs_assignment.dtype}")
@@ -39,7 +39,7 @@ def validate_mosaic_mapping(
 
     # 3. Validate 'neuron_slice_assignments' (Must be a 2D Integer Matrix)
     if not isinstance(state.neuron_slice_assignments, np.ndarray):
-        raise TypeError("neuron_slice_assignments must be a numpy ndarray")
+        raise TypeError(f"neuron_slice_assignments must be a numpy ndarray, got {type(state.neuron_slice_assignments).__name__}")
     if not np.issubdtype(state.neuron_slice_assignments.dtype, np.integer):
         raise TypeError(f"neuron_slice_assignments must contain integers, got {state.neuron_slice_assignments.dtype}")
     if state.neuron_slice_assignments.ndim != 2:
