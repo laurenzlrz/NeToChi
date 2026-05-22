@@ -64,7 +64,7 @@ def plot_clustering_comparison(
         vertex_fill_color=v_color,
         vertex_color="black",  # Border color for nodes
         vertex_size=8,
-        edge_pen_width=0.8,
+        edge_pen_width=2.5,
         edge_color=[0.5, 0.5, 0.5, 0.2],  # Semi-transparent gray edges to reduce visual clutter
         output=filename,
         output_size=(1000, 1000),
