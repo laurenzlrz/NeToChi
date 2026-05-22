@@ -1,9 +1,9 @@
 import unittest
 import numpy as np
 
-from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.utils_from_paper.cluster import \
+from netochi.mapping.three_step_mapping.clustering.clusterer.utils_from_hierarchical_community_detection_paper.cluster import \
     Hierarchy, Partition
-from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.hcd_clusterer import HcdClusterer
+from netochi.mapping.three_step_mapping.clustering.clusterer.hcd_clusterer import HcdClusterer
 
 
 class TestHierarchicalOutput(unittest.TestCase):

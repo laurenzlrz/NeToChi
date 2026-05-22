@@ -1,6 +1,6 @@
 from netochi.input_generator.interfaces import MappingInput
 from netochi.mapping.three_step_mapping.clustering.cluster_adapter.padding_adapter import PaddingClusteringAdapter
-from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.hcd_clusterer import HcdClusterer
+from netochi.mapping.three_step_mapping.clustering.clusterer.hcd_clusterer import HcdClusterer
 from netochi.mapping.three_step_mapping.clustering.hw_clusterer_adapter import HwClustererAdapter
 from netochi.mapping.three_step_mapping.interfaces import HwClusterer, ClusterAndHwOutput
 

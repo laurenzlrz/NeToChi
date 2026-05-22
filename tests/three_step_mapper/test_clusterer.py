@@ -3,7 +3,7 @@ import numpy as np
 import os
 
 from netochi.input_generator.interfaces import MappingInput
-from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.hcd_clusterer import HcdClusterer
+from netochi.mapping.three_step_mapping.clustering.clusterer.hcd_clusterer import HcdClusterer
 from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOutput
 from netochi.visualization.visualize_clustering import plot_clustering_comparison
 

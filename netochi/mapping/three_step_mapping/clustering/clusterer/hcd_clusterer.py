@@ -2,8 +2,8 @@ import graph_tool.all as gt
 import numpy as np
 from scipy import sparse
 from netochi.input_generator.interfaces import MappingInput
-from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.utils_from_paper.cluster import Hierarchy
-from netochi.mapping.three_step_mapping.clustering.hierarchical_community_detection.utils_from_paper.inference import infer_hierarchy
+from netochi.mapping.three_step_mapping.clustering.clusterer.utils_from_hierarchical_community_detection_paper.cluster import Hierarchy
+from netochi.mapping.three_step_mapping.clustering.clusterer.utils_from_hierarchical_community_detection_paper.inference import infer_hierarchy
 from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOutput, HierarchicalClusterer
 
 
@@ -51,7 +51,7 @@ class HcdClusterer(HierarchicalClusterer):
             # Update the running offset
             cluster_offset += nr_child_clusters
 
-        # check: last hierarchy has more than one: insert additional root
+        # 3. Add root entry. check: if last hierarchy has more than one clusters, add additional root cluster
         unique_roots = set(hierarchy[len(hierarchy) - 1].pvec)
         if len(unique_roots) > 1:
             root_id = cluster_offset + len(unique_roots)
