@@ -15,14 +15,14 @@ class PipelinePlotter(BaseModel):
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
     config: PipelineOutputConfig
 
-    def plot_all(self, summary: PipelineSummary, output_dir: Path) -> None:
+    def plot_all(self, summary: PipelineSummary, output_dir: Path, plot_subfolder: str = "plots") -> None:
         """
         Generates all configured plots (raw and relative) and saves them.
         """
         if not summary.results:
             return
             
-        plot_dir = output_dir / "plots"
+        plot_dir = output_dir / plot_subfolder
         plot_dir.mkdir(parents=True, exist_ok=True)
         
         # Identify all available relative metrics
@@ -42,6 +42,9 @@ class PipelinePlotter(BaseModel):
             
         # Generate execution time comparison
         self._plot_execution_times(summary, plot_dir)
+        
+        # Generate per-network individual plots
+        self._plot_individual_networks(summary, plot_dir)
 
     def _plot_metric_comparison(self, summary: PipelineSummary, metric: str, plot_dir: Path, is_raw: bool = False) -> None:
         # Organize data: graph_type -> mapper -> value
@@ -120,3 +123,50 @@ class PipelinePlotter(BaseModel):
         plt.tight_layout()
         plt.savefig(plot_dir / f"execution_times.{self.config.plot_format}", dpi=150)
         plt.close()
+
+    def _plot_individual_networks(self, summary: PipelineSummary, plot_dir: Path) -> None:
+        """
+        Generates a separate plot for every unique network configuration.
+        """
+        # Group by unique metadata string
+        network_data: Dict[str, List[ExperimentResult]] = {}
+        for res in summary.results:
+            # Create a stable identifier from metadata excluding dynamic values if any
+            meta = res.input_metadata
+            ident = " | ".join([f"{k}:{v}" for k, v in sorted(meta.items())])
+            if ident not in network_data:
+                network_data[ident] = []
+            network_data[ident].append(res)
+            
+        individual_dir = plot_dir / "individual"
+        individual_dir.mkdir(parents=True, exist_ok=True)
+        
+        for ident, results in network_data.items():
+            # For each metric, plot mappers for this specific network
+            all_metrics: Set[str] = set()
+            for r in results:
+                all_metrics.update(r.raw_metrics.keys())
+            
+            for metric in all_metrics:
+                mappers = [r.mapper_name for r in results]
+                values = [r.raw_metrics.get(metric, 0.0) for r in results]
+                
+                if not values: continue
+                
+                fig, ax = plt.subplots(figsize=(10, 6))
+                bars = ax.bar(mappers, values, color=self.config.palette[:len(mappers)])
+                
+                ax.set_ylabel(metric)
+                ax.set_title(f"Network: {ident}\nMetric: {metric}", fontsize=10)
+                plt.xticks(rotation=45, ha='right')
+                
+                # Add value labels
+                for bar in bars:
+                    height = bar.get_height()
+                    ax.text(bar.get_x() + bar.get_width()/2., height, f'{height:.2f}', ha='center', va='bottom')
+                
+                plt.tight_layout()
+                safe_ident = ident.replace(" ", "_").replace(":", "-").replace("|", "_")[:50]
+                filename = f"net_{safe_ident}_{metric}.{self.config.plot_format}"
+                plt.savefig(individual_dir / filename, dpi=150)
+                plt.close()

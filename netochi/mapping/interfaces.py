@@ -3,7 +3,8 @@ from abc import ABC, abstractmethod
 import numpy as np
 import numpy.typing as npt
 from pydantic import BaseModel, Field, ConfigDict, model_validator
-from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput, WITH_HW_INPUT
+from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput
+from netochi.input_generator.generics import WITH_HW_INPUT
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 
 # -----------------------------------------------------------------------------
@@ -130,6 +131,18 @@ class MosaicHWMappingState(BaseMosaicMappingState[ANY_MAPPING_INPUT], HWNetworkM
     @property
     def hw(self) -> MosaicHardwareConfig:
         return self.hw_config
+
+    @classmethod
+    def from_input(cls, mapping_input: MosaicMappingInput[PAYLOAD]) -> 'MosaicHWMappingState[MosaicMappingInput[PAYLOAD], PAYLOAD]':
+        hw = mapping_input.hw_config
+        N: int = mapping_input.graph.num_vertices()
+        return cls(
+            mapping_input=mapping_input,
+            hw_config=hw,
+            neuron_core_idxs_assignment=np.zeros(N, dtype=int),
+            neuron_local_idxs_assignment=np.zeros(N, dtype=int),
+            neuron_slice_assignments=np.zeros((N, hw.max_distance + 1), dtype=int)
+        )
 
     @classmethod
     def create_uninitialized_state(cls, mapping_input: ANY_MAPPING_INPUT, initial_hw_guess: MosaicHardwareConfig) -> 'MosaicHWMappingState[ANY_MAPPING_INPUT, PAYLOAD]':

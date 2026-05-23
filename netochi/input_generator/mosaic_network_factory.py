@@ -1,90 +1,95 @@
-from typing import Dict, Any, Optional
-import graph_tool.all as gt
+from typing import Any, Tuple, Optional
+
 import networkx as nx
 import numpy as np
-from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
-from netochi.input_generator.interfaces import BaseInputFactory, MosaicMappingInput, HWBaseInputFactory
+import numpy.typing as npt
+from pydantic import BaseModel, Field, ConfigDict, validate_call, model_validator, PrivateAttr
+
+from netochi.input_generator.interfaces import MosaicMappingInput, HWBaseInputFactory, MosaicAssignment
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.utils import nx_to_gt
-import numpy.typing as npt
 
-class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput[Any]]):
+
+class MosaicNetworkFactory[PAYLOAD](BaseModel, HWBaseInputFactory[MosaicMappingInput[PAYLOAD]]):
     """Factory generating synthetic networks for a fixed hardware configuration."""
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
-        frozen=True
+        frozen=True,
+        strict=True
     )
 
     hw_config: MosaicHardwareConfig
     probability: float = Field(..., gt=0, le=1)
     seed: int = 42
-    
-    _assignment: Optional[npt.NDArray[np.int64]] = PrivateAttr(default=None)
-    _graph: Optional[nx.DiGraph] = PrivateAttr(default=None)
-    _rng: Optional[np.random.Generator] = PrivateAttr(default=None)
+    _rng: np.random.Generator = PrivateAttr()
 
-    def generate(self) -> MosaicMappingInput[Any]:
+    @model_validator(mode="after")
+    def initialize_rng(self) -> "MosaicNetworkFactory[PAYLOAD]":
+        object.__setattr__(self, "_rng", np.random.default_rng(self.seed))
+        return self
+
+    def get_name(self) -> str:
+        """Returns a concise name reflecting size and probability."""
+        return f"Mosaic_{self.hw_config.total_neurons}n_p{self.probability}"
+
+    @validate_call
+    def generate(self) -> MosaicMappingInput[PAYLOAD]:
         """Generate a single MosaicMappingInput."""
-        # Use object.__setattr__ because the model is frozen
-        object.__setattr__(self, '_rng', np.random.default_rng(self.seed))
-        self._generate_network()
-        
-        # Convert networkx to graph-tool
-        gt_graph = nx_to_gt(self._graph)
+        graph, assignment = self._generate_network()
+        gt_graph = nx_to_gt(graph)
         
         descriptions = {
-            "graph_type": "MosaicRandomNetwork",
+            "graph_type": self.get_name(),
             "edge_prob": str(self.probability),
             "nodes": str(gt_graph.num_vertices()),
             "edges": str(gt_graph.num_edges())
         }
-        
+
+
         return MosaicMappingInput(
             graph=gt_graph,
             descriptions=descriptions,
-            hw_config=self.hw_config,
             payload=None,
-            pre_assignment=self._assignment
+            hw_config=self.hw_config,
+            assignment=assignment
         )
 
-    def _sample_slice_assignment(self) -> None:
+    @validate_call
+    def _sample_slice_assignment(self) -> npt.NDArray[np.int64]:
         """Randomly assign fan-in slices to each target neuron at each router level."""
         total_neurons: int = self.hw_config.total_neurons
         router_levels: int = self.hw_config.router_levels
-        assignment: npt.NDArray[np.int64] = np.zeros((total_neurons, router_levels + 1), dtype=np.int64)
+        assignment: npt.NDArray[np.int64] = np.zeros(
+            (total_neurons, router_levels + 1),
+            dtype=np.int64
+        ).astype(np.int64)
 
-        assert self._rng is not None
         for distance in range(0, router_levels + 1):
             slices: int = self.hw_config.num_slices_at_distance(distance)
             assignment[:, distance] = self._rng.integers(0, slices, size=total_neurons)
-            
-        object.__setattr__(self, '_assignment', assignment)
 
-    def _generate_network(self) -> None:
+        return assignment
+
+    def _generate_network(self) -> Tuple[nx.DiGraph[Any], MosaicAssignment]:
         """Perform the actual network generation using the Fan-In constraint."""
-        self._sample_slice_assignment()
-        graph = nx.DiGraph()
+        slice_assignment = self._sample_slice_assignment()
+        graph: nx.DiGraph[Any] = nx.DiGraph()
         graph.add_nodes_from(range(self.hw_config.total_neurons))
 
         total_neurons: int = self.hw_config.total_neurons
         neurons_per_core: int = self.hw_config.neurons_per_core
         total_cores: int = self.hw_config.total_cores
 
-        assert self._assignment is not None
-        assert self._rng is not None
         for target_neuron in range(total_neurons):
             target_core: int = target_neuron // neurons_per_core
 
             for source_core in range(total_cores):
                 distance: int = self.hw_config.core_distance(source_core, target_core)
 
-                # Get the slice this target neuron is listening to for this source core
-                chosen_slice: int = int(self._assignment[target_neuron, distance])
+                chosen_slice: int = int(slice_assignment[target_neuron, distance])
                 local_start, local_end = self.hw_config.get_slice_bounds(distance, chosen_slice)
 
-                if local_end <= local_start:
-                    continue
-
+                #neuron idxs
                 source_candidates = np.arange(
                     source_core * neurons_per_core + local_start,
                     source_core * neurons_per_core + local_end,
@@ -102,5 +107,10 @@ class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput[Any]
                 sampled = self._rng.random(source_candidates.size) < self.probability
                 selected_sources = source_candidates[sampled]
                 graph.add_edges_from((int(src), target_neuron) for src in selected_sources)
-        
-        object.__setattr__(self, '_graph', graph)
+
+        assignment: MosaicAssignment = MosaicAssignment(
+            neuron_core_pre_assignment=np.arange(total_neurons) // neurons_per_core,
+            neuron_idx_pre_assignment=np.arange(total_neurons) % neurons_per_core,
+            neuron_slice_assignment=slice_assignment
+        )
+        return graph, assignment

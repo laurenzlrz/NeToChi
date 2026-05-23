@@ -11,7 +11,8 @@ from netochi.mapping.interfaces import (
     NetworkAssignmentState, 
     ANY_MAPPING_INPUT
 )
-from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput, WITH_HW_INPUT
+from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput
+from netochi.input_generator.generics import WITH_HW_INPUT
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.objectives.constants import (
     LL_INVALID_PENALTY_LOG,

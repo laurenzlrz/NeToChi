@@ -30,6 +30,18 @@ class ResultManager(BaseModel):
         
         return run_dir
 
+    def load(self, run_dir: Path) -> PipelineSummary:
+        """
+        Loads a PipelineSummary from a run directory.
+        """
+        json_path = run_dir / self.config.json_filename
+        if not json_path.exists():
+            raise FileNotFoundError(f"Result file not found: {json_path}")
+            
+        with open(json_path, "r") as f:
+            data = json.load(f)
+            return PipelineSummary.model_validate(data)
+
     def _save_to_csv(self, summary: PipelineSummary, path: Path) -> None:
         """
         Flattens results into a CSV file.

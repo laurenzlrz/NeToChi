@@ -7,7 +7,7 @@ from netochi.mapping.interfaces import (
     NetworkAssignmentState,
     ANY_MAPPING_INPUT
 )
-from netochi.input_generator.interfaces import WITH_HW_INPUT
+from netochi.input_generator.generics import WITH_HW_INPUT
 from netochi.objectives.exceptions import BaselineMismatchError
 
 

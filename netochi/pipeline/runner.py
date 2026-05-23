@@ -1,3 +1,4 @@
+from netochi.input_generator import mosaic_hardware_config
 from netochi.pipeline.exceptions import BaselineError
 import time
 from abc import ABC, abstractmethod
@@ -65,26 +66,47 @@ class BaseBaselineProvider(ABC, Generic[BASELINE_STATE_CO, PIPELINE_INPUT_CONTRA
         """Abstract baseline generation."""
         pass
 
+    def get_name(self) -> str:
+        """Returns a descriptive name for the baseline provider."""
+        return self.__class__.__name__
+
 
 class MosaicGroundTruthBaselineProvider(BaseBaselineProvider[BaseMosaicMappingState[MosaicMappingInput[Any]], MosaicMappingInput[Any]]):
-    """Extracts ground truth from MosaicMappingInput if available."""
+    """Extracts ground truth from MosaicMappingInput or uses mapper to generate it"""
     
-    def get_baseline(self, mapping_input: MosaicMappingInput[Any]) -> BaseMosaicMappingState[MosaicMappingInput[Any]]:
+    def __init__(self, mapper: Optional[BaseMapper[BaseMosaicMappingState[Any], MosaicMappingInput[Any]]] = None) -> None:
+        self.mapper = mapper
+
+    def get_baseline(self, mapping_input: MosaicMappingInput[Any]) -> MosaicHWMappingState[MosaicMappingInput[Any], Any]:
         N = mapping_input.graph.num_vertices()
         hw = mapping_input.hw_config
         
-        if mapping_input.pre_assignment is None:
-            raise BaselineError("No pre-assignment available for ground truth baseline.")
-
-        # Create a new state from input
-        state = MosaicNetworkMappingState.from_input(mapping_input)
-        
-        for i in range(N):
-            state.neuron_core_idxs_assignment[i] = i // hw.neurons_per_core
-            state.neuron_local_idxs_assignment[i] = i % hw.neurons_per_core
-        state.neuron_slice_assignments[:] = mapping_input.pre_assignment
-        
+        if mapping_input.neuron_core_pre_assignment is None:
+            if self.mapper is None:
+                raise BaselineError("No pre-assignment available for ground truth baseline and no mapper provided.")
+            temp_state = self.mapper.run(mapping_input)
+            # Ensure it's a HW state for the evaluator
+            
+            state = MosaicHWMappingState(
+                mapping_input=mapping_input,
+                hw_config=hw,
+                neuron_core_idxs_assignment=temp_state.neuron_core_idxs_assignment,
+                neuron_local_idxs_assignment=temp_state.neuron_local_idxs_assignment,
+                neuron_slice_assignments=temp_state.neuron_slice_assignments
+            )
+        else:
+            state = MosaicHWMappingState.from_input(mapping_input)
+            for i in range(N):
+                state.neuron_core_idxs_assignment[i] = i // hw.neurons_per_core
+                state.neuron_local_idxs_assignment[i] = i % hw.neurons_per_core
+            state.neuron_slice_assignments[:] = mapping_input.neuron_core_pre_assignment
+            
         return state
+
+    def get_name(self) -> str:
+        if self.mapper is not None:
+            return f"{self.mapper.get_name()}_MosaicGT"
+        return "MosaicGT"
 
 
 class MapperBaselineProvider(BaseBaselineProvider[MAPPING_STATE_CO, PIPELINE_INPUT_CONTRA], Generic[MAPPING_STATE_CO, PIPELINE_INPUT_CONTRA]):
@@ -95,6 +117,9 @@ class MapperBaselineProvider(BaseBaselineProvider[MAPPING_STATE_CO, PIPELINE_INP
 
     def get_baseline(self, mapping_input: PIPELINE_INPUT_CONTRA) -> MAPPING_STATE_CO:
         return self.mapper.run(mapping_input)
+
+    def get_name(self) -> str:
+        return f"Baseline: {self.mapper.get_name()}"
 
 
 class ExperimentTask(BaseModel, Generic[PIPELINE_INPUT, MAPPING_STATE, BASELINE_STATE]):
@@ -117,7 +142,7 @@ class PipelineRunner(BaseModel, BasePipelineRunner):
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
     
     tasks: List[ExperimentTask[MappingInput[Any], MappingState[Any], MappingState[Any]]]
-    baselines: Dict[BaseInputFactory[Any], BaseBaselineProvider[Any, Any]] = Field(default_factory=dict)
+    baselines: Dict[BaseInputFactory[Any], Tuple[BaseBaselineProvider[Any, Any], Evaluator[Any, Any]]] = Field(default_factory=dict)
     output_config: Optional[PipelineOutputConfig] = None
     verbose: bool = True
 
@@ -229,29 +254,25 @@ class PipelineRunner(BaseModel, BasePipelineRunner):
             print("Running Baseline Benchmarks")
             print("=" * 30)
             
-        for factory, provider in self.baselines.items():
+        for factory, (provider, evaluator) in self.baselines.items():
             mapping_input = factory.generate()
             meta = mapping_input.descriptions
             
             try:
                 baseline_state = provider.get_baseline(mapping_input)
                 if baseline_state:
-                    # Find a suitable evaluator
-                    suitable_evaluator = self._find_evaluator_for_factory(factory)
-                    
-                    if suitable_evaluator:
-                        raw_metrics, rel_metrics = suitable_evaluator.evaluate_all(baseline_state, baseline_state)
+                    raw_metrics, rel_metrics = evaluator.evaluate_all(baseline_state, baseline_state)
                         
-                        results.append(ExperimentResult(
-                            mapper_name=f"Baseline: {type(provider).__name__}",
-                            input_metadata=meta,
-                            metrics=rel_metrics,
-                            raw_metrics=raw_metrics,
-                            execution_time_s=0.0,
-                            error=None
-                        ))
-                        if self.verbose:
-                            print(f"  [Baseline] {meta.get(KEY_GRAPH_TYPE, KEY_UNKNOWN):<15} | Evaluated")
+                    results.append(ExperimentResult(
+                        mapper_name=provider.get_name(),
+                        input_metadata=meta,
+                        metrics=rel_metrics,
+                        raw_metrics=raw_metrics,
+                        execution_time_s=0.0,
+                        error=None
+                    ))
+                    if self.verbose:
+                        print(f"  [Baseline] {meta.get(KEY_GRAPH_TYPE, KEY_UNKNOWN):<15} | Evaluated")
             except Exception as e:
                 if self.verbose:
                     print(f"  [Baseline] {meta.get(KEY_GRAPH_TYPE, KEY_UNKNOWN):<15} | FAILED: {e}")

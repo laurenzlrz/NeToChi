@@ -60,6 +60,13 @@ class SummaryReporter:
         return sorted(list(metrics))
 
     @staticmethod
+    def _truncate(text: str, width: int) -> str:
+        """Truncates text with ellipsis if it exceeds width."""
+        if len(text) > width:
+            return text[:width-3] + "..."
+        return text
+
+    @staticmethod
     def _print_table(results: List[ExperimentResult], metric_names: List[str], use_raw: bool) -> None:
         """
         Prints a formatted table for a given set of metrics.
@@ -73,8 +80,7 @@ class SummaryReporter:
         # Format Header
         header = f"{'Mapper':<{mapper_width}} | {'Graph':<{graph_width}}"
         for name in metric_names:
-            # Shorten name if too long for column
-            display_name = (name[:metric_width-3] + '..') if len(name) > metric_width else name
+            display_name = SummaryReporter._truncate(name, metric_width)
             header += f" | {display_name:<{metric_width}}"
         header += f" | {'Time (s)':<{time_width}}"
         
@@ -88,17 +94,17 @@ class SummaryReporter:
         )
 
         for res in sorted_results:
-            row = f"{res.mapper_name:<{mapper_width}} | {res.input_metadata.get(KEY_GRAPH_TYPE, KEY_UNKNOWN):<{graph_width}}"
+            mapper_display = SummaryReporter._truncate(res.mapper_name, mapper_width)
+            graph_display = SummaryReporter._truncate(res.input_metadata.get(KEY_GRAPH_TYPE, KEY_UNKNOWN), graph_width)
+            
+            row = f"{mapper_display:<{mapper_width}} | {graph_display:<{graph_width}}"
             
             metrics_dict = res.raw_metrics if use_raw else res.metrics
             
             for name in metric_names:
                 val = metrics_dict.get(name, -1.0)
                 # Format based on value type or name (heuristic)
-                if "Percentage" in name or "Incons" in name:
-                    row += f" | {val:<{metric_width}.2f}"
-                else:
-                    row += f" | {val:<{metric_width}.2f}"
+                row += f" | {val:<{metric_width}.2f}"
             
             row += f" | {res.execution_time_s:<{time_width}.3f}"
             print(row)

@@ -16,7 +16,7 @@ from netochi.input_generator.swta_factory import SwtaFactory
 from netochi.mapping.random_mapper import RandomMapper
 from netochi.mapping.greedy_mapper import GreedyMapper
 from netochi.mapping.mcmc.mcmc_mapper import MCMCMapper
-from netochi.mapping.mcmc.joint_inference_mapper import JointInferenceMapper
+from netochi.mapping.mcmc.joint_inference_mapper import JointInferenceMapper, MosaicHardwareMapper
 from netochi.mapping.qap_mapper import QAPMapper
 from netochi.mapping.hierarchical_community_detection.hybrid_mapper import HybridMapper
 
@@ -44,17 +44,35 @@ def run_experiment() -> None:
         router_levels=2,
         slice_factor=2
     )
+    
+    hw_large = MosaicHardwareConfig(
+        nodes_per_router=4,
+        neurons_per_core=50,
+        router_levels=2, # 16 cores max
+        slice_factor=2
+    )
 
     # 1. Define the inputs (Factories)
-    probabilities = [0.1, 0.5]
+    probabilities = [0.5]
     mosaic_factories: List[BaseInputFactory[MosaicMappingInput[Any]]] = [
         MosaicNetworkFactory(hw_config=hw_small, probability=p, seed=42) for p in probabilities
     ]
     er_factories: List[BaseInputFactory[MosaicMappingInput[Any]]] = [
-        ErdosRenyiFactory(hw_config=hw_small, n=60, probability=p, seed=42) for p in probabilities
+        #ErdosRenyiFactory(hw_config=hw_small, n=60, probability=p, seed=42) for p in probabilities
     ]
     swta_factories: List[BaseInputFactory[MosaicMappingInput[Any]]] = [
-        SwtaFactory(hw_config=hw_small, num_clusters=4, neurons_per_cluster=15, seed=42)
+        #SwtaFactory(hw_config=hw_small, num_clusters=4, neurons_per_cluster=15, seed=42)
+    ]
+
+    # --- Larger 600-neuron network tests ---
+    mosaic_600_factories: List[BaseInputFactory[MosaicMappingInput[Any]]] = [
+        #MosaicNetworkFactory(hw_config=hw_large, probability=p, seed=42) for p in probabilities
+    ]
+    er_600_factories: List[BaseInputFactory[MosaicMappingInput[Any]]] = [
+        #ErdosRenyiFactory(hw_config=hw_large, n=600, probability=p, seed=42) for p in probabilities
+    ]
+    swta_600_factories: List[BaseInputFactory[MosaicMappingInput[Any]]] = [
+        #SwtaFactory(hw_config=hw_large, num_clusters=16, neurons_per_cluster=40, seed=42)
     ]
 
     # 2. Define Evaluators
@@ -63,15 +81,15 @@ def run_experiment() -> None:
     hw_size_obj: MosaicHardwareSizeObjective[MosaicMappingInput[Any]] = MosaicHardwareSizeObjective()
 
 
-    standard_evaluator: Evaluator[BaseMosaicMappingState[Any], MosaicNetworkMappingState[Any]] = Evaluator(
+    standard_evaluator: Evaluator[BaseMosaicMappingState[MosaicMappingInput[Any]], BaseMosaicMappingState[MosaicMappingInput[Any]]] = Evaluator(
         metrics=[
             ObjectiveMetric(objective=log_likelihood_obj),
             ObjectiveMetric(objective=inconsistency_obj),
-            InconsistencyPercentageMetric(objective=inconsistency_obj)
+            InconsistencyPercentageMetric(objective=inconsistency_obj),
         ]
     )
 
-    hw_evaluator: Evaluator[BaseMosaicMappingState[Any], BaseMosaicMappingState[MosaicMappingInput[Any]]] = Evaluator(
+    hw_evaluator: Evaluator[MosaicHWMappingState[MosaicMappingInput[Any], Any], MosaicHWMappingState[MosaicMappingInput[Any], Any]] = Evaluator(
         metrics=[
             ObjectiveMetric(objective=log_likelihood_obj),
             ObjectiveMetric(objective=inconsistency_obj),
@@ -81,18 +99,16 @@ def run_experiment() -> None:
     )
 
     # 3. Define Baseline Providers
-    gt_baseline = MosaicGroundTruthBaselineProvider()
-    random_baseline = MapperBaselineProvider(mapper=RandomMapper(seed=42))
+    gt_baseline = MosaicGroundTruthBaselineProvider(mapper=RandomMapper(seed=42))
 
     # 4. Define Tasks
     # We group mappers by their evaluation strategy and inputs
     mappers_std = [
-        #HybridMapper(),
+        HybridMapper(),
         RandomMapper(),
         GreedyMapper(),
-        #MCMCMapper(objective=log_likelihood_obj, iterations=200, verbose=False),
+        MCMCMapper(objective=log_likelihood_obj, iterations=200, verbose=False),
         #QAPMapper(),
-        
     ]
     
     # Use a more specific task type internally to avoid Any during creation
@@ -105,9 +121,13 @@ def run_experiment() -> None:
         for f in mosaic_factories:
             task_inputs.append((f, gt_baseline))
         for f in er_factories:
-            task_inputs.append((f, random_baseline))
+            task_inputs.append((f, gt_baseline))
         for f in swta_factories:
-            task_inputs.append((f, random_baseline))
+            task_inputs.append((f, gt_baseline))
+        for f in mosaic_600_factories:
+            task_inputs.append((f, gt_baseline))
+        for f in er_600_factories:
+            task_inputs.append((f, gt_baseline))
 
         mosaic_tasks.append(ExperimentTask(
             mapper=mapper, 
@@ -120,15 +140,21 @@ def run_experiment() -> None:
     for f in mosaic_factories:
         inference_inputs.append((f, gt_baseline))
     for f in er_factories:
-        inference_inputs.append((f, random_baseline))
+        inference_inputs.append((f, gt_baseline))
     for f in swta_factories:
-        inference_inputs.append((f, random_baseline))
+        inference_inputs.append((f, gt_baseline))
+    for f in mosaic_600_factories:
+        inference_inputs.append((f, gt_baseline))
+    for f in er_600_factories:
+        inference_inputs.append((f, gt_baseline))
+    for f in swta_600_factories:
+        inference_inputs.append((f, gt_baseline))
 
-    #mosaic_tasks.append(ExperimentTask(
-    #    mapper=JointInferenceMapper(objective=log_likelihood_obj, iterations=200, verbose=False),
-    #    evaluator=hw_evaluator,
-    #    inputs=inference_inputs
-    #))
+    mosaic_tasks.append(ExperimentTask(
+        mapper=JointInferenceMapper(objective=log_likelihood_obj, iterations=200, verbose=True),
+        evaluator=hw_evaluator,
+        inputs=inference_inputs
+    ))
 
     # 5. Run Pipeline
     print("=" * 100)
@@ -143,11 +169,17 @@ def run_experiment() -> None:
     # Pass baseline providers for explicit benchmarking
     baseline_benchmarks = {}
     for f in mosaic_factories:
-        baseline_benchmarks[f] = gt_baseline
+        baseline_benchmarks[f] = (gt_baseline, hw_evaluator)
     for f in er_factories:
-        baseline_benchmarks[f] = random_baseline
+        baseline_benchmarks[f] = (gt_baseline, hw_evaluator)
     for f in swta_factories:
-        baseline_benchmarks[f] = random_baseline
+        baseline_benchmarks[f] = (gt_baseline, hw_evaluator)
+    for f in mosaic_600_factories:
+        baseline_benchmarks[f] = (gt_baseline, hw_evaluator)
+    for f in er_600_factories:
+        baseline_benchmarks[f] = (gt_baseline, hw_evaluator)
+    for f in swta_600_factories:
+        baseline_benchmarks[f] = (gt_baseline, hw_evaluator)
 
     # Final cast to allow the runner to accept the mosaic-specific tasks
     general_tasks = cast(List[ExperimentTask[MappingInput[Any], MappingState[Any], MappingState[Any]]], mosaic_tasks)

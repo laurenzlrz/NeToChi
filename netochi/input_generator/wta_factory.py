@@ -62,5 +62,5 @@ class WTAFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput[Any]]):
             descriptions=descriptions,
             hw_config=self.hw_config,
             payload=None,
-            pre_assignment=None
+            assignment=None
         )
