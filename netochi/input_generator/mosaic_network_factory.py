@@ -70,10 +70,10 @@ class MosaicNetworkFactory[PAYLOAD](BaseModel, HWBaseInputFactory[MosaicMappingI
 
         return assignment
 
-    def _generate_network(self) -> Tuple[nx.DiGraph[Any], MosaicAssignment]:
+    def _generate_network(self) -> Tuple[nx.DiGraph, MosaicAssignment]:
         """Perform the actual network generation using the Fan-In constraint."""
         slice_assignment = self._sample_slice_assignment()
-        graph: nx.DiGraph[Any] = nx.DiGraph()
+        graph: nx.DiGraph = nx.DiGraph()
         graph.add_nodes_from(range(self.hw_config.total_neurons))
 
         total_neurons: int = self.hw_config.total_neurons
