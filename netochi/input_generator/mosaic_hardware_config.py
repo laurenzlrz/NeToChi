@@ -60,3 +60,10 @@ class MosaicHardwareConfig(BaseModel):
         
         start, end = self.get_slice_bounds(dist, target_slice_idx)
         return start <= source_local_addr < end
+
+    def get_slice_idx(self, dist, src_local_address):
+        for s_idx in range(self.num_slices_at_distance(dist)):
+            start, end = self.get_slice_bounds(dist, s_idx)
+            if start <= src_local_address < end:
+                return s_idx
+        return -1
