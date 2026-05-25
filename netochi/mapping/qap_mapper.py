@@ -5,10 +5,10 @@ from scipy.optimize import quadratic_assignment
 from pydantic import BaseModel, ConfigDict
 
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
-from netochi.input_generator.interfaces import MosaicMappingInput
+from netochi.input_generator.interfaces import MosaicHWMappingInput
 
 
-class QAPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicMappingInput[Any]]):
+class QAPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicHWMappingInput[Any]]):
     """
     Mapper based on the Quadratic Assignment Problem (QAP).
     
@@ -16,7 +16,7 @@ class QAPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicMapp
     """
     model_config = ConfigDict(frozen=True)
 
-    def run(self, mapping_input: MosaicMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
+    def run(self, mapping_input: MosaicHWMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
         """Find core and address allocations using QAP FAQ heuristic."""
         graph = mapping_input.graph
         hw = mapping_input.hw_config

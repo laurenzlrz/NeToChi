@@ -3,8 +3,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import numpy.typing as npt
 from pydantic import BaseModel, Field, ConfigDict, model_validator
-from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput
-from netochi.input_generator.generics import WITH_HW_INPUT
+from netochi.input_generator.interfaces import MappingInput, MosaicHWMappingInput, WITH_HW_INPUT
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 
 # -----------------------------------------------------------------------------
@@ -19,11 +18,11 @@ PAYLOAD = TypeVar('PAYLOAD')
 
 class MappingState(BaseModel, Generic[ANY_MAPPING_INPUT]):
     """Base class for all mapping results."""
-    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=False)
-    mapping_input: ANY_MAPPING_INPUT
+    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=False) # only for pydantic
 
     def init_random_assignments(self, seed: Optional[int] = None) -> None:
-        """Abstract initialization method for assignments."""
+        """Abstract initialization method for assignments.
+        basically constructor"""
         pass
 
 class HWNetworkMappingState(MappingState[ANY_MAPPING_INPUT], Generic[ANY_MAPPING_INPUT]):
@@ -31,30 +30,34 @@ class HWNetworkMappingState(MappingState[ANY_MAPPING_INPUT], Generic[ANY_MAPPING
     Base class for states that infer hardware. 
     Does not strictly require hardware parameters in input, but provides/infers them.
     """
-    pass
+    mapping_input: ANY_MAPPING_INPUT
+
     def _init_random_hw(self, seed: Optional[int] = None) -> None:
         """Randomly initialize hardware configuration."""
         pass
 
-class NetworkAssignmentState(HWNetworkMappingState[WITH_HW_INPUT], Generic[WITH_HW_INPUT]):
+class NetworkAssignmentState(MappingState[WITH_HW_INPUT], Generic[WITH_HW_INPUT]):
     """
     State for hardware-aware partitioning. 
     Requires specific hardware parameters in the input (WITH_HW_INPUT).
     """
-    pass
+    mapping_input: WITH_HW_INPUT
 
 # -----------------------------------------------------------------------------
 # Mosaic Specific Interfaces
 # -----------------------------------------------------------------------------
 
-class BaseMosaicMappingState(HWNetworkMappingState[ANY_MAPPING_INPUT], Generic[ANY_MAPPING_INPUT]):
+class BaseMosaicMappingState(MappingState[ANY_MAPPING_INPUT], Generic[ANY_MAPPING_INPUT]):
     """
-    Abstract base state for all Mosaic mappers. 
+    Abstract base state for all Mosaic mappers.  Infers HW
     Contains the assignment arrays and uses HWNetworkMappingState to ensure mapping_input exists.
     """
     neuron_core_idxs_assignment: npt.NDArray[np.int_] = Field(description="[neuron_idx] -> core_idx")
     neuron_local_idxs_assignment: npt.NDArray[np.int_] = Field(description="[neuron_idx] -> local_neuron_idx")
-    neuron_slice_assignments: npt.NDArray[np.int_] = Field(description="[neuron_idx, dist] -> slice_idx")
+    neuron_slice_assignments: np.ndarray[tuple[Any, Any], np.dtype[np.int_]] = Field(description="[neuron_idx, dist] -> slice_idx")
+
+    @property
+    def hw(self) -> MosaicHardwareConfig: raise NotImplementedError()
 
     @property
     def c(self) -> npt.NDArray[np.int_]: return self.neuron_core_idxs_assignment
@@ -63,12 +66,7 @@ class BaseMosaicMappingState(HWNetworkMappingState[ANY_MAPPING_INPUT], Generic[A
     def x(self) -> npt.NDArray[np.int_]: return self.neuron_local_idxs_assignment
     
     @property
-    def s(self) -> npt.NDArray[np.int_]: return self.neuron_slice_assignments
-
-    @property
-    def hw(self) -> MosaicHardwareConfig:
-        """Abstract property to retrieve hardware config."""
-        raise NotImplementedError
+    def s(self) -> np.ndarray[tuple[Any, Any], np.dtype[np.int_]]: return self.neuron_slice_assignments
 
     @model_validator(mode='after')
     def validate_mosaic_assignments(self) -> 'BaseMosaicMappingState[ANY_MAPPING_INPUT]':
@@ -84,7 +82,7 @@ class BaseMosaicMappingState(HWNetworkMappingState[ANY_MAPPING_INPUT], Generic[A
             raise ValueError("Core assignment must be 1D")
         return self
 
-class MosaicNetworkMappingState(BaseMosaicMappingState[MosaicMappingInput[PAYLOAD]], NetworkAssignmentState[MosaicMappingInput[PAYLOAD]], Generic[PAYLOAD]):
+class MosaicNetworkMappingState(BaseMosaicMappingState[MosaicHWMappingInput[PAYLOAD]], NetworkAssignmentState[MosaicHWMappingInput[PAYLOAD]], Generic[PAYLOAD]):
     """
     State for pure partitioning/assignment mappers. 
     Input MUST contain the hardware configuration (MosaicMappingInput).
@@ -95,7 +93,7 @@ class MosaicNetworkMappingState(BaseMosaicMappingState[MosaicMappingInput[PAYLOA
         return self.mapping_input.hw_config
 
     @classmethod
-    def from_input(cls, mapping_input: MosaicMappingInput[PAYLOAD]) -> 'MosaicNetworkMappingState[PAYLOAD]':
+    def from_input(cls, mapping_input: MosaicHWMappingInput[PAYLOAD]) -> 'MosaicNetworkMappingState[PAYLOAD]':
         hw = mapping_input.hw_config
         N: int = mapping_input.graph.num_vertices()
         return cls(
@@ -179,7 +177,7 @@ class MosaicHWMappingState(BaseMosaicMappingState[ANY_MAPPING_INPUT], HWNetworkM
 # Mapper Interface
 # -----------------------------------------------------------------------------
 
-MAPPING_STATE = TypeVar('MAPPING_STATE', bound=MappingState[Any])
+MAPPING_STATE = TypeVar('MAPPING_STATE', bound=BaseMosaicMappingState[Any])
 
 class BaseMapper(ABC, Generic[MAPPING_STATE, ANY_MAPPING_INPUT]):
     """Structural interface for mapping algorithms."""

@@ -7,6 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from netochi.mapping.interfaces import MosaicNetworkMappingState, MosaicHWMappingState, BaseMosaicMappingState
 from netochi.input_generator.interfaces import MosaicMappingInput
+from netochi.mapping.interfaces import MosaicNetworkMappingState
+from netochi.input_generator.interfaces import MosaicHWMappingInput
 
 from netochi.pipeline.interfaces import MappingMetric, BasePipelineRunner
 from netochi.pipeline.results import ExperimentResult, PipelineSummary
@@ -27,6 +29,8 @@ from netochi.input_generator.interfaces import BaseInputFactory, MappingInput
 from netochi.pipeline.config import PipelineOutputConfig
 from netochi.pipeline.storage import ResultManager
 from netochi.pipeline.plotter import PipelinePlotter
+from tests.utils_mapping_output_validation import validate_mosaic_mapping
+
 
 PIPELINE_INPUT = TypeVar("PIPELINE_INPUT", bound=MappingInput[Any])
 PIPELINE_INPUT_CONTRA = TypeVar("PIPELINE_INPUT_CONTRA", bound=MappingInput[Any], contravariant=True)
@@ -73,14 +77,14 @@ class BaseBaselineProvider(ABC, Generic[BASELINE_STATE_CO, PIPELINE_INPUT_CONTRA
 
 class MosaicGroundTruthBaselineProvider(BaseBaselineProvider[BaseMosaicMappingState[MosaicMappingInput[Any]], MosaicMappingInput[Any]]):
     """Extracts ground truth from MosaicMappingInput or uses mapper to generate it"""
-    
+
     def __init__(self, mapper: Optional[BaseMapper[BaseMosaicMappingState[Any], MosaicMappingInput[Any]]] = None) -> None:
         self.mapper = mapper
 
     def get_baseline(self, mapping_input: MosaicMappingInput[Any]) -> MosaicHWMappingState[MosaicMappingInput[Any], Any]:
         N = mapping_input.graph.num_vertices()
         hw = mapping_input.hw_config
-        
+
         if mapping_input.neuron_core_pre_assignment is None:
             if self.mapper is None:
                 raise BaselineError("No pre-assignment available for ground truth baseline and no mapper provided.")
@@ -100,7 +104,7 @@ class MosaicGroundTruthBaselineProvider(BaseBaselineProvider[BaseMosaicMappingSt
                 state.neuron_core_idxs_assignment[i] = i // hw.neurons_per_core
                 state.neuron_local_idxs_assignment[i] = i % hw.neurons_per_core
             state.neuron_slice_assignments[:] = mapping_input.neuron_core_pre_assignment
-            
+
         return state
 
     def get_name(self) -> str:
@@ -149,10 +153,10 @@ class PipelineRunner(BaseModel, BasePipelineRunner):
     def run(self) -> PipelineSummary:
         """Execute the pipeline across all configured tasks."""
         start_time = time.time()
-        
+
         # 1. Run all tasks (Mappers)
         results = self._run_tasks()
-        
+
         print("\n" + REPORT_DIVIDER)
         print("Running explicit baseline benchmarks...")
         print(REPORT_DIVIDER)
@@ -176,11 +180,11 @@ class PipelineRunner(BaseModel, BasePipelineRunner):
         # 3. Handle persistence and plotting
         if self.output_config:
             self._save_and_plot(summary)
-        
+
         print(REPORT_DIVIDER)
         print("Execution completed successfully!")
         print(REPORT_DIVIDER)
-        
+
         return summary
 
     def _run_tasks(self) -> List[ExperimentResult]:
@@ -220,6 +224,8 @@ class PipelineRunner(BaseModel, BasePipelineRunner):
                 raw_metric_values: Dict[str, float] = {}
                 rel_metric_values: Dict[str, float] = {}
                 if state:
+                    if validate_mosaic_mapping(config=state.hw, state=state):
+                        print("Output validated. \n")
                     raw_metric_values, rel_metric_values = task.evaluator.evaluate_all(state, baseline)
                 else: 
                     print(MSG_MAPPER_FAILED)
@@ -253,16 +259,16 @@ class PipelineRunner(BaseModel, BasePipelineRunner):
             print("\n" + "=" * 30)
             print("Running Baseline Benchmarks")
             print("=" * 30)
-            
+
         for factory, (provider, evaluator) in self.baselines.items():
             mapping_input = factory.generate()
             meta = mapping_input.descriptions
-            
+
             try:
                 baseline_state = provider.get_baseline(mapping_input)
                 if baseline_state:
                     raw_metrics, rel_metrics = evaluator.evaluate_all(baseline_state, baseline_state)
-                        
+
                     results.append(ExperimentResult(
                         mapper_name=provider.get_name(),
                         input_metadata=meta,
@@ -292,16 +298,16 @@ class PipelineRunner(BaseModel, BasePipelineRunner):
         """Saves results and generates plots."""
         if not self.output_config:
             return
-            
+
         manager = ResultManager(config=self.output_config)
         run_dir = manager.save(summary)
-        
+
         print(REPORT_DIVIDER)
         print("Saved results, Plotting results...")
         print(REPORT_DIVIDER)
 
         plotter = PipelinePlotter(config=self.output_config)
         plotter.plot_all(summary, run_dir)
-        
+
         if self.verbose:
             print(f"\n[Storage] Results and plots saved to: {run_dir}")

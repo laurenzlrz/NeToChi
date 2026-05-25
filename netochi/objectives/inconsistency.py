@@ -55,6 +55,6 @@ class InconsistencyObjective(NetworkMappingObjective[BaseMosaicMappingState[ANY_
                 if dist == 0:
                     e_valid += 1
                 else:
-                    if hw.get_slice_bounds(dist, s[tgt, dist])[0] <= x[src] < hw.get_slice_bounds(dist, s[tgt, dist])[1]:
+                    if hw.get_slice_bounds(dist, s[tgt][dist])[0] <= x[src] < hw.get_slice_bounds(dist, s[tgt][dist])[1]:
                         e_valid += 1
         return e_valid

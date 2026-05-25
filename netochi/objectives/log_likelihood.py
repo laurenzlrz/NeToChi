@@ -11,8 +11,7 @@ from netochi.mapping.interfaces import (
     NetworkAssignmentState, 
     ANY_MAPPING_INPUT
 )
-from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput
-from netochi.input_generator.generics import WITH_HW_INPUT
+from netochi.input_generator.interfaces import MappingInput, MosaicHWMappingInput, WITH_HW_INPUT
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.objectives.constants import (
     LL_INVALID_PENALTY_LOG,
@@ -77,6 +76,6 @@ class LogLikelihoodObjective(NetworkMappingObjective[BaseMosaicMappingState[ANY_
                 if dist == 0:
                     e_valid += 1
                 else:
-                    if hw.get_slice_bounds(dist, s[tgt, dist])[0] <= x[src] < hw.get_slice_bounds(dist, s[tgt, dist])[1]:
+                    if hw.get_slice_bounds(dist, s[tgt][dist])[0] <= x[src] < hw.get_slice_bounds(dist, s[tgt][dist])[1]:
                         e_valid += 1
         return e_valid

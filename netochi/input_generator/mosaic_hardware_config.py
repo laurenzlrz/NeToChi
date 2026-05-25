@@ -9,7 +9,7 @@ class MosaicHardwareConfig(BaseModel):
 
     nodes_per_router: int = Field(gt=0, description="Number of nodes connected to each router.")
     neurons_per_core: int = Field(gt=0, description="Number of neurons in each core.")
-    router_levels: int = Field(gt=0, description="Number of levels in the router hierarchy.")
+    router_levels: int = Field(ge=0, description="Number of levels in the router hierarchy.")
     slice_factor: int = Field(default=2, gt=0, description="Factor determining slice sizes for fan-in.")
 
     @model_validator(mode="after")
@@ -65,3 +65,10 @@ class MosaicHardwareConfig(BaseModel):
         dist = self.core_distance(target_core, source_core)
         start, end = self.get_slice_bounds(dist, target_slice_idx)
         return start <= source_local_addr < end
+
+    def get_slice_idx(self, dist, src_local_address):
+        for s_idx in range(self.num_slices_at_distance(dist)):
+            start, end = self.get_slice_bounds(dist, s_idx)
+            if start <= src_local_address < end:
+                return s_idx
+        return -1

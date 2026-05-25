@@ -103,6 +103,9 @@ def add_noise_to_small_matrix(M, snr=0.001, noise_type="uniform"):
 
 
 class Hierarchy(list):
+    """
+    list of partitions (one per level)
+    """
 
     def __init__(self, partition):
         self.add_level(partition)
@@ -136,17 +139,13 @@ class Hierarchy(list):
         """
         if partition_idx == -1:
             partition_idx = len(self)-1
-        # print('A', A.shape)
         partition = self[partition_idx]
         H = partition.H
         lastH = self[0].H
-        # print(lastH.shape, H.shape, partition_idx)
         for partition in self[1:partition_idx+1]:
-            # print('loop', lastH.shape, partition.H.shape, H.shape)
             lastH = lastH @ partition.H
         # lastH = lastH @ H
         nodes_per_group = np.ravel(lastH.sum(0))
-        # print(lastH.shape, partition.H.shape, H.shape)
 
         # each block counts the number of half links / directed links
         try:
@@ -262,7 +261,6 @@ class Partition(object):
         NOTE: This function should only be used if A is the full adjacency
         matrix, otherwise possible_links will be calculated incorrectly.
         """
-        # print('WARNING: This message should only appear once')
         H = self.H
 
         # each block counts the number of half links / directed links
