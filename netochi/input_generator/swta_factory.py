@@ -34,7 +34,7 @@ class SwtaGeneratorConfig:
 
 
 
-class SwtaFactory[PAYLOAD](BaseModel, HWBaseInputFactory[MosaicMappingInput[PAYLOAD]]):
+class SwtaFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
     """
     Factory generating soft Winner-Takes-All (sWTA) networks.
     """
@@ -54,7 +54,7 @@ class SwtaFactory[PAYLOAD](BaseModel, HWBaseInputFactory[MosaicMappingInput[PAYL
         return f"sWTA_{total_n}n_c{self.config.num_clusters}_npc{self.config.neurons_per_cluster}"
 
     @model_validator(mode="after")
-    def initalize_rng(self) -> 'SwtaFactory[PAYLOAD]':
+    def initalize_rng(self) -> 'SwtaFactory':
         """Initialize the private random number generator after Pydantic validates inputs."""
         self.__setattr__("_rng", np.random.default_rng(self.config.seed))
         return self
@@ -102,7 +102,7 @@ class SwtaFactory[PAYLOAD](BaseModel, HWBaseInputFactory[MosaicMappingInput[PAYL
 
         return graph
 
-    def generate(self) -> MosaicMappingInput[PAYLOAD]:
+    def generate(self) -> MosaicMappingInput:
         """Generate a single MosaicMappingInput with an sWTA graph."""
 
         nx_graph = self.generate_network()
@@ -120,6 +120,5 @@ class SwtaFactory[PAYLOAD](BaseModel, HWBaseInputFactory[MosaicMappingInput[PAYL
             graph=gt_graph,
             descriptions=descriptions,
             hw_config=self.hw_config,
-            payload=None,
             assignment=None
         )

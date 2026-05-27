@@ -37,7 +37,7 @@ class ThreeStepMapper(BaseMapper[MosaicHWMappingState, MappingInput]):
         neuron_slice_assignment = self._slice_assigner.assign_slices(clustering=clustering, graph=graph, local_assignment=neuron_local_assignment)
 
         # --- 4. Create Mapping State ---
-        state = MosaicHWMappingState.create_uninitialized_state(mapping_input=mapping_input, initial_hw_guess=clustering.hw)
+        state = MosaicHWMappingState.create_from_guess(mapping_input=mapping_input, initial_hw_guess=clustering.hw)
         state.neuron_slice_assignments = neuron_slice_assignment
         state.neuron_local_idxs_assignment = neuron_local_assignment
         state.neuron_core_idxs_assignment = clustering.cluster_assignment

@@ -6,7 +6,7 @@ from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.utils import nx_to_gt
 
 
-class ErdosRenyiFactory[PAYLOAD](BaseModel, HWBaseInputFactory[MosaicMappingInput[PAYLOAD]]):
+class ErdosRenyiFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
     """Factory generating Erdős-Rényi networks for a fixed hardware configuration."""
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -24,7 +24,7 @@ class ErdosRenyiFactory[PAYLOAD](BaseModel, HWBaseInputFactory[MosaicMappingInpu
         return f"ER_{self.n}n_p{self.probability}"
 
     @validate_call
-    def generate(self) -> MosaicMappingInput[PAYLOAD]:
+    def generate(self) -> MosaicMappingInput:
         """Generate a single MosaicMappingInput with an Erdős-Rényi graph."""
         graph = nx.fast_gnp_random_graph(self.n, self.probability, seed=self.seed, directed=True)
         gt_graph = nx_to_gt(graph)
@@ -40,7 +40,6 @@ class ErdosRenyiFactory[PAYLOAD](BaseModel, HWBaseInputFactory[MosaicMappingInpu
         return MosaicMappingInput(
             graph=gt_graph,
             descriptions=descriptions,
-            payload=None,
             hw_config=self.hw_config,
             assignment=None
         )

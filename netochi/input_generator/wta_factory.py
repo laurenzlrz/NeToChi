@@ -3,11 +3,11 @@ import networkx as nx
 import numpy as np
 import graph_tool.all as gt
 from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
-from netochi.input_generator.interfaces import BaseInputFactory, MosaicHWMappingInput, HWBaseInputFactory
+from netochi.input_generator.interfaces import BaseInputFactory, MosaicMappingInput, HWBaseInputFactory
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.utils import nx_to_gt
 
-class WTAFactory(BaseModel, HWBaseInputFactory[MosaicHWMappingInput[Any]]):
+class WTAFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
     """
     Factory generating Winner-Takes-All (WTA) networks using a hub-and-spoke skeleton.
     - Excitatory Pool: n-1 nodes.
@@ -61,6 +61,5 @@ class WTAFactory(BaseModel, HWBaseInputFactory[MosaicHWMappingInput[Any]]):
             graph=gt_graph,
             descriptions=descriptions,
             hw_config=self.hw_config,
-            payload=None,
             assignment=None
         )

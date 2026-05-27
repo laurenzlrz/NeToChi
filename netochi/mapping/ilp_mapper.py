@@ -24,7 +24,7 @@ class ILPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicHWMa
     def run(self, mapping_input: MosaicHWMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
         """Solve for optimal mapping using the PuLP MILP solver."""
         graph = mapping_input.graph
-        hw = mapping_input.hw_config
+        hw = mapping_input.hw_config_inferred
         t_start = time.monotonic()
 
         N = graph.num_vertices()

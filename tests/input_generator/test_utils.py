@@ -21,7 +21,7 @@ class TestNxToGt(unittest.TestCase):
         self.assertEqual(gt_graph.num_edges(), 2)
 
     def test_converts_undirected_graph(self) -> None:
-        nx_graph = nx.Graph()
+        nx_graph = nx.DiGraph()
         nx_graph.add_edge(0, 1)
 
         gt_graph = nx_to_gt(nx_graph)

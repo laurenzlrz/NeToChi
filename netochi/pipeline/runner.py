@@ -93,7 +93,7 @@ class MosaicGroundTruthBaselineProvider(BaseBaselineProvider[BaseMosaicMappingSt
             
             state = MosaicHWMappingState(
                 mapping_input=mapping_input,
-                hw_config=hw,
+                hw_config_inferred=hw,
                 neuron_core_idxs_assignment=temp_state.neuron_core_idxs_assignment,
                 neuron_local_idxs_assignment=temp_state.neuron_local_idxs_assignment,
                 neuron_slice_assignments=temp_state.neuron_slice_assignments

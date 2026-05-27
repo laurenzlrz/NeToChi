@@ -19,7 +19,7 @@ class GreedyMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicH
         Execute the greedy mapping algorithm.
         """
         graph = mapping_input.graph
-        hw = mapping_input.hw_config
+        hw = mapping_input.hw_config_inferred
         num_neurons = graph.num_vertices()
         
         # 1. Initialize result arrays

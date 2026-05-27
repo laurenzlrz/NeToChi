@@ -10,7 +10,7 @@ from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.utils import nx_to_gt
 
 
-class MosaicNetworkFactory[PAYLOAD](BaseModel, HWBaseInputFactory[MosaicMappingInput[PAYLOAD]]):
+class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
     """Factory generating synthetic networks for a fixed hardware configuration."""
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -24,7 +24,7 @@ class MosaicNetworkFactory[PAYLOAD](BaseModel, HWBaseInputFactory[MosaicMappingI
     _rng: np.random.Generator = PrivateAttr()
 
     @model_validator(mode="after")
-    def initialize_rng(self) -> "MosaicNetworkFactory[PAYLOAD]":
+    def initialize_rng(self) -> "MosaicNetworkFactory":
         object.__setattr__(self, "_rng", np.random.default_rng(self.seed))
         return self
 
@@ -33,7 +33,7 @@ class MosaicNetworkFactory[PAYLOAD](BaseModel, HWBaseInputFactory[MosaicMappingI
         return f"Mosaic_{self.hw_config.total_neurons}n_p{self.probability}"
 
     @validate_call
-    def generate(self) -> MosaicMappingInput[PAYLOAD]:
+    def generate(self) -> MosaicMappingInput:
         """Generate a single MosaicMappingInput."""
         graph, assignment = self._generate_network()
         gt_graph = nx_to_gt(graph)
@@ -49,7 +49,6 @@ class MosaicNetworkFactory[PAYLOAD](BaseModel, HWBaseInputFactory[MosaicMappingI
         return MosaicMappingInput(
             graph=gt_graph,
             descriptions=descriptions,
-            payload=None,
             hw_config=self.hw_config,
             assignment=assignment
         )

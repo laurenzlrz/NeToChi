@@ -5,7 +5,7 @@ from typing import Dict, Optional, Any
 import graph_tool.all as gt
 import numpy as np
 import numpy.typing as npt
-from pydantic import ConfigDict, model_validator, BaseModel
+from pydantic import ConfigDict, model_validator, BaseModel, Field
 
 from netochi.definitions.exceptions import DimensionError, InvalidAssignmentError
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
@@ -15,25 +15,24 @@ from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 # Base HW Config Dataclasses
 # -----------------------------------------------------------------------------
 
-class MappingInput[PAYLOAD](BaseModel):
+class MappingInput(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, strict=True, frozen=True)
 
-    graph: gt.Graph
-    descriptions: Dict[str, str]
-    payload: Optional[PAYLOAD] = None
+    graph: gt.Graph = Field(description="The input graph to be mapped onto hardware.")
+    descriptions: Dict[str, str] = Field(description="Metadata describing the graph and mapping context.")
 
-class HWMappingInput[PAYLOAD, HW_CONFIG](MappingInput[PAYLOAD]):
+class HWMappingInput[HW_CONFIG](MappingInput):
     model_config = ConfigDict(arbitrary_types_allowed=True, strict=True, frozen=True)
 
-    hw_config: HW_CONFIG
+    hw_config: HW_CONFIG = Field(description="Hardware configuration parameters relevant to the mapping process.")
 
 
 class MosaicAssignment(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, strict=True, frozen=True)
 
-    neuron_core_pre_assignment: npt.NDArray[np.int64]
-    neuron_idx_pre_assignment: npt.NDArray[np.int64]
-    neuron_slice_assignment: npt.NDArray[np.int64]
+    neuron_core_pre_assignment: npt.NDArray[np.int64] = Field(description="1D array mapping each neuron to a core index.")
+    neuron_idx_pre_assignment: npt.NDArray[np.int64] = Field(description="1D array mapping each neuron to a local index within its assigned core.")
+    neuron_slice_assignment: npt.NDArray[np.int64] = Field(description="2D array where each row corresponds to a neuron and each column corresponds to a router level, indicating the fan-in slice assignment for that neuron at that level.")
     #TODO: neuron_target_assignment: npt.NDArray[np.int64]
 
     @model_validator(mode="after")
@@ -53,65 +52,15 @@ class MosaicAssignment(BaseModel):
         return self
 
 
-class MosaicMappingInput[PAYLOAD](HWMappingInput[PAYLOAD, MosaicHardwareConfig]):
+class MosaicMappingInput(HWMappingInput[MosaicHardwareConfig]):
     model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
-    assignment: Optional[MosaicAssignment] = None
+    assignment: Optional[MosaicAssignment] = Field(default=None, description="Optional pre-assignment of neurons to cores and slices.")
 
     @model_validator(mode="after")
-    def validate_pre_assignment(self) -> "MosaicMappingInput[PAYLOAD]":
+    def validate_pre_assignment(self) -> "MosaicMappingInput":
         if self.assignment is not None:
-            self.verify_assignment(self.assignment)
+            self.hw_config.verify_assignment(self.assignment)
         return self
-
-    def verify_assignment(self, assignment: MosaicAssignment) -> None:
-
-        # Validation against hardware
-        if assignment.neuron_core_pre_assignment.size != self.hw_config.total_neurons:
-            raise DimensionError(
-                f"Length of neuron_core_pre_assignment ({assignment.neuron_core_pre_assignment.size}) "
-                f"must match total neurons in hardware config ({self.hw_config.total_neurons})."
-            )
-
-        invalid_cores = (assignment.neuron_core_pre_assignment < 0) | (
-                    assignment.neuron_core_pre_assignment >= self.hw_config.total_cores)
-        invalid_indices = (assignment.neuron_idx_pre_assignment < 0) | (
-                    assignment.neuron_idx_pre_assignment >= self.hw_config.neurons_per_core)
-
-        if np.any(invalid_cores) or np.any(invalid_indices):
-            failed_idx = np.where(invalid_cores | invalid_indices)[0][0]
-            core_val = assignment.neuron_core_pre_assignment[failed_idx]
-            local_val = assignment.neuron_idx_pre_assignment[failed_idx]
-
-            raise InvalidAssignmentError(
-                f"Neuron {failed_idx} assigned to core {core_val} "
-                f"with local idx {local_val} exceeds hardware limits."
-            )
-
-        if assignment.neuron_slice_assignment.shape[1] != self.hw_config.router_levels + 1:
-            raise DimensionError(
-                f"neuron_slice_assignment must have {self.hw_config.router_levels + 1} columns "
-                f"to match router levels in hardware config."
-            )
-
-        slice_indices = np.arange(self.hw_config.router_levels + 1)
-        max_allowed = np.minimum(self.hw_config.slice_factor ** slice_indices - 1, self.hw_config.total_neurons - 1)
-        invalid_slices = (assignment.neuron_slice_assignment < 0) | (assignment.neuron_slice_assignment > max_allowed)
-
-        if np.any(invalid_slices):
-            failed_neuron_idxs, failed_slice_idxs = np.where(invalid_slices)
-
-            failed_neuron = failed_neuron_idxs[0]
-            failed_slice = failed_slice_idxs[0]
-            invalid_val = assignment.neuron_slice_assignment[failed_neuron, failed_slice]
-            allowed_limit = max_allowed[failed_slice]
-
-            raise InvalidAssignmentError(
-                f"Neuron {failed_neuron} at slice index {failed_slice} "
-                f"has invalid assignment {invalid_val}. "
-                f"Maximum allowed for this slice is {allowed_limit} "
-                f"({self.hw_config.slice_factor}^{failed_slice} - 1)."
-            )
-
 
 
 # -----------------------------------------------------------------------------

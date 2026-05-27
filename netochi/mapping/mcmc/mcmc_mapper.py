@@ -123,7 +123,7 @@ class HardwareMCMCState(MCMCState, Generic[PAYLOAD]):  # type: ignore[misc]
 
             else:
                 # --- Slice Mutation ---
-                hw = self.mapping_state.mapping_input.hw_config
+                hw = self.mapping_state.mapping_input.hw_config_inferred
                 d = int(self._rng.integers(1, hw.max_distance + 1))
                 n_slices: int = hw.num_slices_at_distance(d)
 

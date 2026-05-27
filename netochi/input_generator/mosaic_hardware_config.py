@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field, computed_field, ConfigDict, model_validator
+import numpy as np
 
-from netochi.definitions.exceptions import InvalidConfigError
+from interfaces import MosaicAssignment
+from netochi.definitions.exceptions import InvalidConfigError, DimensionError, InvalidAssignmentError
 
 
 class MosaicHardwareConfig(BaseModel):
@@ -13,7 +15,7 @@ class MosaicHardwareConfig(BaseModel):
     slice_factor: int = Field(default=2, gt=0, description="Factor determining slice sizes for fan-in.")
 
     @model_validator(mode="after")
-    def validate_config(self) -> "MosaicHardwareConfig[BaseModel]":
+    def validate_config(self) -> "MosaicHardwareConfig":
         if self.slice_factor > self.neurons_per_core:
             raise InvalidConfigError("slice_factor cannot be greater than neurons_per_core.")
         return self
@@ -72,3 +74,52 @@ class MosaicHardwareConfig(BaseModel):
             if start <= src_local_address < end:
                 return s_idx
         return -1
+
+    def verify_assignment(self, assignment: MosaicAssignment) -> None:
+
+        # Validation against hardware
+        if assignment.neuron_core_pre_assignment.size != self.total_neurons:
+            raise DimensionError(
+                f"Length of neuron_core_pre_assignment ({assignment.neuron_core_pre_assignment.size}) "
+                f"must match total neurons in hardware config ({self.total_neurons})."
+            )
+
+        invalid_cores = (assignment.neuron_core_pre_assignment < 0) | (
+                    assignment.neuron_core_pre_assignment >= self.total_cores)
+        invalid_indices = (assignment.neuron_idx_pre_assignment < 0) | (
+                    assignment.neuron_idx_pre_assignment >= self.neurons_per_core)
+
+        if np.any(invalid_cores) or np.any(invalid_indices):
+            failed_idx = np.where(invalid_cores | invalid_indices)[0][0]
+            core_val = assignment.neuron_core_pre_assignment[failed_idx]
+            local_val = assignment.neuron_idx_pre_assignment[failed_idx]
+
+            raise InvalidAssignmentError(
+                f"Neuron {failed_idx} assigned to core {core_val} "
+                f"with local idx {local_val} exceeds hardware limits."
+            )
+
+        if assignment.neuron_slice_assignment.shape[1] != self.router_levels + 1:
+            raise DimensionError(
+                f"neuron_slice_assignment must have {self.router_levels + 1} columns "
+                f"to match router levels in hardware config."
+            )
+
+        slice_indices = np.arange(self.router_levels + 1)
+        max_allowed = np.minimum(self.slice_factor ** slice_indices - 1, self.total_neurons - 1)
+        invalid_slices = (assignment.neuron_slice_assignment < 0) | (assignment.neuron_slice_assignment > max_allowed)
+
+        if np.any(invalid_slices):
+            failed_neuron_idxs, failed_slice_idxs = np.where(invalid_slices)
+
+            failed_neuron = failed_neuron_idxs[0]
+            failed_slice = failed_slice_idxs[0]
+            invalid_val = assignment.neuron_slice_assignment[failed_neuron, failed_slice]
+            allowed_limit = max_allowed[failed_slice]
+
+            raise InvalidAssignmentError(
+                f"Neuron {failed_neuron} at slice index {failed_slice} "
+                f"has invalid assignment {invalid_val}. "
+                f"Maximum allowed for this slice is {allowed_limit} "
+                f"({self.slice_factor}^{failed_slice} - 1)."
+            )

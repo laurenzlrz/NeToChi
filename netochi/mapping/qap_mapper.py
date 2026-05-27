@@ -19,7 +19,7 @@ class QAPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicHWMa
     def run(self, mapping_input: MosaicHWMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
         """Find core and address allocations using QAP FAQ heuristic."""
         graph = mapping_input.graph
-        hw = mapping_input.hw_config
+        hw = mapping_input.hw_config_inferred
         N_graph = graph.num_vertices()
         
         # Initialize result state

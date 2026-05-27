@@ -31,7 +31,7 @@ class SimAnnealingMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], M
     """
 
     def run(self, mapping_input: MosaicHWMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
-        best_state, best_energy = self._simulated_annealing(mapping_input.graph, mapping_input.hw_config)
+        best_state, best_energy = self._simulated_annealing(mapping_input.graph, mapping_input.hw_config_inferred)
         clustering: ClusterAndHwOutput = ClusterAndHwOutput(hw=best_state.hw_config, num_clusters=best_state.hw_config.total_cores, cluster_assignment=best_state.core_assignment)
         slice_assignment = OptimalSliceAssigner().assign_slices(clustering=clustering, graph=mapping_input.graph, local_assignment=best_state.local_assignment)
         return MosaicNetworkMappingState(mapping_input=mapping_input, neuron_local_idxs_assignment=best_state.local_assignment, neuron_core_idxs_assignment=best_state.core_assignment, neuron_slice_assignments=slice_assignment)
