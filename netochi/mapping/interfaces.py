@@ -160,8 +160,6 @@ class MosaicHWMappingState[ANY_MAPPING_INPUT: MappingInput](BaseMosaicMappingSta
 # Mapper Interface
 # -----------------------------------------------------------------------------
 
-MAPPING_STATE = TypeVar('MAPPING_STATE', bound=BaseMosaicMappingState[Any])
-
 class BaseMapper[MAPPING_STATE, ANY_MAPPING_INPUT](ABC):
     """Structural interface for mapping algorithms."""
     
