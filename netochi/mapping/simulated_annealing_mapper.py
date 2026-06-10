@@ -45,7 +45,7 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState[Any], MosaicHWMapp
 
     def run(self, mapping_input: MosaicHWMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
         # --- 1. initialize ---
-        self.state = SAState(mapping_input.graph.num_vertices(), mapping_input.hw_config)
+        self.state = SAState(mapping_input)
         self.opt_slice_assigner = DeltaOptimalSliceAssigner(hw_config=mapping_input.hw_config, graph=mapping_input.graph,
                                                             cluster_assignment=self.state.core_assignment, local_assignment=self.state.local_assignment)
         self.graph = mapping_input.graph

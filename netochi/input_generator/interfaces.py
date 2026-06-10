@@ -28,6 +28,7 @@ class HWMappingInput(MappingInput[PAYLOAD], Generic[PAYLOAD, HW_CONFIG]):
 class MosaicHWMappingInput(HWMappingInput[PAYLOAD, MosaicHardwareConfig], Generic[PAYLOAD]):
     """Problem input with a predefined hardware configuration."""
     pre_assignment: Optional[npt.NDArray[np.int_]] = None
+    core_assignment_initialization: Optional[npt.NDArray[np.int_]] = None
 
 # -----------------------------------------------------------------------------
 # Type Variables for Factory
