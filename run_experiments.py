@@ -34,11 +34,20 @@ from netochi.objectives.log_likelihood import LogLikelihoodObjective
 from netochi.objectives.inconsistency import InconsistencyObjective
 from netochi.objectives.hardware_size import MosaicHardwareSizeObjective
 from netochi.objectives.interfaces import MappingObjective
+from netochi.pipeline.constants import (
+    REPORT_DIVIDER, REPORT_SUBDIVIDER, REPORT_HEADER_BASELINE, REPORT_HEADER_PURE,
+    TABLE_HEADER_REL_FORMAT, TABLE_HEADER_RAW_FORMAT, TABLE_ROW_REL_FORMAT, TABLE_ROW_RAW_FORMAT,
+    KEY_GRAPH_TYPE, KEY_UNKNOWN, DEFAULT_METRIC_VALUE
+)
+from netochi.objectives.constants import OBJ_NAME_LL, OBJ_NAME_INCONSISTENCY, OBJ_NAME_HW_SIZE
 
 
-def run_experiment() -> None:
-    # --- Hardware Configuration: Small (4 cores × 15 = 60 neurons) ---
-    hw_small = MosaicHardwareConfig(
+# --- Hardware Configuration: Small (4 cores × 15 = 60 neurons) ---
+
+
+def define_task_inputs():
+
+    HW_SMALL = MosaicHardwareConfig(
         nodes_per_router=2,
         neurons_per_core=15,
         router_levels=2,
@@ -48,70 +57,64 @@ def run_experiment() -> None:
     # 1. Define the inputs (Factories)
     probabilities = [0.1, 0.5]
     mosaic_factories: List[BaseInputFactory[MosaicHWMappingInput[Any]]] = [
-        MosaicNetworkFactory(hw_config=hw_small, probability=p, seed=42) for p in probabilities
+        MosaicNetworkFactory(hw_config=HW_SMALL, probability=p, seed=42) for p in probabilities
     ]
     er_factories: List[BaseInputFactory[MosaicHWMappingInput[Any]]] = [
-        ErdosRenyiFactory(hw_config=hw_small, n=60, probability=p, seed=42) for p in probabilities
+        ErdosRenyiFactory(hw_config=HW_SMALL, n=60, probability=p, seed=42) for p in probabilities
     ]
     swta_factories: List[BaseInputFactory[MosaicHWMappingInput[Any]]] = [
-        SwtaFactory(hw_config=hw_small, num_clusters=4, neurons_per_cluster=15, seed=42)
+        SwtaFactory(hw_config=HW_SMALL, num_clusters=4, neurons_per_cluster=15, seed=42)
     ]
 
-    # 2. Define Evaluators
-    log_likelihood_obj: LogLikelihoodObjective[MosaicHWMappingInput[Any], Any] = LogLikelihoodObjective()
-    inconsistency_obj: InconsistencyObjective[MosaicHWMappingInput[Any], Any] = InconsistencyObjective()
-    hw_size_obj: MosaicHardwareSizeObjective[MosaicHWMappingInput[Any]] = MosaicHardwareSizeObjective()
-
-
-    standard_evaluator: Evaluator[BaseMosaicMappingState[Any], MappingState[Any]] = Evaluator(
-        metrics=[
-            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], MappingState[Any]], log_likelihood_obj)),
-            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], MappingState[Any]], inconsistency_obj))
-        ]
-    )
-
-    hw_evaluator: Evaluator[BaseMosaicMappingState[Any], MappingState[Any]] = Evaluator(
-        metrics=[
-            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], MappingState[Any]], log_likelihood_obj)),
-            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], MappingState[Any]], inconsistency_obj)),
-            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], MappingState[Any]], hw_size_obj))
-        ]
-    )
-
-    # 3. Define Baseline Providers
+    # 2. Define Baseline Providers
     gt_baseline = MosaicGroundTruthBaselineProvider()
     random_baseline = MapperBaselineProvider(mapper=RandomMapper(seed=42))
 
-    # 4. Define Tasks
-    # We group mappers by their evaluation strategy and inputs
+    # 3. generate task inputs
+    task_inputs: List[Tuple[BaseInputFactory[MosaicHWMappingInput[Any]], BaseBaselineProvider[
+        MappingState[Any], MosaicHWMappingInput[Any]]]] = []
+    for f in mosaic_factories:
+        task_inputs.append((f, gt_baseline))
+    for f in er_factories:
+        task_inputs.append((f, random_baseline))
+    for f in swta_factories:
+        task_inputs.append((f, random_baseline))
+    return task_inputs
+
+
+def define_evaluators():
+    inconsistency_obj: InconsistencyObjective[MosaicHWMappingInput[Any], Any] = InconsistencyObjective()
+    hw_size_obj: MosaicHardwareSizeObjective[MosaicHWMappingInput[Any]] = MosaicHardwareSizeObjective()
+    log_likelihood_obj: LogLikelihoodObjective[MosaicHWMappingInput[Any], Any] = LogLikelihoodObjective()
+
+    standard_evaluator: Evaluator[BaseMosaicMappingState[Any], MappingState[Any]] = Evaluator(
+        metrics=[
+            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], MappingState[Any]], inconsistency_obj)),
+            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], MappingState[Any]], hw_size_obj)),
+            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], MappingState[Any]], log_likelihood_obj)),
+        ]
+    )
+    return standard_evaluator
+
+
+def run_experiment() -> None:
+
+    # === 1. define mosaic tasks ===
+    standard_evaluator = define_evaluators()
     mappers_std = [
         SimAnnealingMapper()
     ]
-    
-    # Use a more specific task type internally to avoid Any during creation
+    task_inputs = define_task_inputs()
+
     mosaic_tasks: List[ExperimentTask[MosaicHWMappingInput[Any], BaseMosaicMappingState[Any], MappingState[Any]]] = []
-
-    # Add Standard Mappers
     for mapper in mappers_std:
-        # Each factory is paired with its appropriate baseline provider
-        task_inputs: List[Tuple[BaseInputFactory[MosaicHWMappingInput[Any]], BaseBaselineProvider[MappingState[Any], MosaicHWMappingInput[Any]]]] = []
-        for f in mosaic_factories:
-            task_inputs.append((f, gt_baseline))
-        for f in er_factories:
-            task_inputs.append((f, random_baseline))
-        for f in swta_factories:
-            task_inputs.append((f, random_baseline))
-
         mosaic_tasks.append(ExperimentTask(
             mapper=cast(BaseMapper[BaseMosaicMappingState[Any], MosaicHWMappingInput[Any]], mapper),
             evaluator=standard_evaluator, 
             inputs=task_inputs
         ))
 
-    # Add Joint Inference Mapper
-
-
-    # 5. Run Pipeline
+    # === 2. Run Pipeline ===
     print("=" * 100)
     print("Neuromorphic Mapping Pipeline Execution (Task-Centric)")
     print("=" * 100)
@@ -121,14 +124,7 @@ def run_experiment() -> None:
     runner = PipelineRunner(tasks=general_tasks, verbose=True)
     summary = runner.run()
 
-    # 6. Summary Report
-    from netochi.pipeline.constants import (
-        REPORT_DIVIDER, REPORT_SUBDIVIDER, REPORT_HEADER_BASELINE, REPORT_HEADER_PURE,
-        TABLE_HEADER_REL_FORMAT, TABLE_HEADER_RAW_FORMAT, TABLE_ROW_REL_FORMAT, TABLE_ROW_RAW_FORMAT,
-        KEY_GRAPH_TYPE, KEY_UNKNOWN, DEFAULT_METRIC_VALUE
-    )
-    from netochi.objectives.constants import OBJ_NAME_LL, OBJ_NAME_INCONSISTENCY, OBJ_NAME_HW_SIZE
-
+    # === 3. Summary Report ===
     print("\n" + REPORT_DIVIDER)
     print(REPORT_HEADER_BASELINE)
     print(REPORT_DIVIDER)

@@ -18,6 +18,7 @@ class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicHWMappingInput[An
     hw_config: MosaicHardwareConfig
     probability: float = Field(..., gt=0, le=1)
     seed: int = 42
+    # core assignment and local address assignment only depends on neuron id
     
     _assignment: Optional[npt.NDArray[np.int64]] = PrivateAttr(default=None)
     _graph: Optional[nx.DiGraph] = PrivateAttr(default=None)
@@ -44,7 +45,7 @@ class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicHWMappingInput[An
             descriptions=descriptions,
             hw_config=self.hw_config,
             payload=None,
-            pre_assignment=self._assignment
+            pre_assignment=self._assignment # fully defines the ground truth (because core and local address assignment only depend on neuron id)
         )
 
     def _sample_slice_assignment(self) -> None:
