@@ -17,7 +17,7 @@ class DeltaOptimalSliceAssigner:
     """
 
     def __init__(self, hw_config: MosaicHardwareConfig, graph: gt.Graph, cluster_assignment: np.ndarray[int], local_assignment: np.ndarray[int]):
-        num_nodes = hw_config.total_neurons
+        num_nodes = graph.num_vertices()
         max_dist = hw_config.max_distance
         max_slices = max(hw_config.num_slices_at_distance(d) for d in range(1, max_dist + 1))
 
@@ -34,7 +34,7 @@ class DeltaOptimalSliceAssigner:
                 dist = hw_config.core_distance(src_core, tgt_core)
                 if dist > 0: # We only track slices for dist > 0, because for dist=0, the slice is fix
                     s_idx = hw_config.get_slice_idx(dist, local_assignment[src])
-                    self.connection_counts[tgt, dist, s_idx] += 1
+                    self.connection_counts[tgt, dist, s_idx] += 1 # TODO
 
         # 2. Compute the optimal slice assignment using argmax
         for tgt in range(graph.num_vertices()):
