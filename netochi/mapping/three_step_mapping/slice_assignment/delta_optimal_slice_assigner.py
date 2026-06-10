@@ -1,11 +1,9 @@
 from typing import List, Any
 
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
-from netochi.mapping.simulated_annealing_mapper import SAState
-from netochi.mapping.three_step_mapping.interfaces import SliceAssigner, ClusterAndHwOutput
+from netochi.mapping.simulated_annealing_fix_hw.sa_state import SAState
 import graph_tool as gt
 import numpy as np
-import numpy.typing as npt
 
 
 
@@ -18,7 +16,7 @@ class DeltaOptimalSliceAssigner:
      - previous opt. assignment + delta (swapped nodes)
     """
 
-    def __init__(self, hw_config: MosaicHardwareConfig, graph: gt.Graph, cluster_assignment: npt.NDArray[np.int_], local_assignment: npt.NDArray[np.int_]):
+    def __init__(self, hw_config: MosaicHardwareConfig, graph: gt.Graph, cluster_assignment: np.ndarray[int], local_assignment: np.ndarray[int]):
         num_nodes = hw_config.total_neurons
         max_dist = hw_config.max_distance
         max_slices = max(hw_config.num_slices_at_distance(d) for d in range(1, max_dist + 1))
