@@ -3,8 +3,6 @@ from typing import Any
 import numpy as np
 
 from netochi.input_generator.interfaces import MosaicHWMappingInput
-from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
-from tests.test_validate_mappers_general import hw_config
 
 
 class SAState:

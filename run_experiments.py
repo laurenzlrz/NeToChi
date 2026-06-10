@@ -2,8 +2,6 @@ from typing import List, Any, Tuple, cast
 from netochi.mapping.interfaces import (
     MappingState, 
     BaseMosaicMappingState, 
-    MosaicNetworkMappingState, 
-    MosaicHWMappingState,
     BaseMapper
 )
 from netochi.input_generator.interfaces import BaseInputFactory, MosaicHWMappingInput, MappingInput
@@ -42,11 +40,11 @@ from netochi.pipeline.constants import (
 from netochi.objectives.constants import OBJ_NAME_LL, OBJ_NAME_INCONSISTENCY, OBJ_NAME_HW_SIZE
 
 
-# --- Hardware Configuration: Small (4 cores × 15 = 60 neurons) ---
 
 
 def define_task_inputs():
 
+    # --- Hardware Configuration: Small (4 cores × 15 = 60 neurons) ---
     HW_SMALL = MosaicHardwareConfig(
         nodes_per_router=2,
         neurons_per_core=15,
@@ -116,7 +114,7 @@ def run_experiment() -> None:
 
     # === 2. Run Pipeline ===
     print("=" * 100)
-    print("Neuromorphic Mapping Pipeline Execution (Task-Centric)")
+    print("Neuromorphic Mapping Pipeline Execution")
     print("=" * 100)
 
     # Final cast to allow the runner to accept the mosaic-specific tasks

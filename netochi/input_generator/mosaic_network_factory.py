@@ -34,7 +34,7 @@ class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicHWMappingInput[An
         gt_graph = nx_to_gt(self._graph)
         
         descriptions = {
-            "graph_type": "MosaicRandomNetwork",
+            "graph_type": "FeasibleMosaicNetwork",
             "edge_prob": str(self.probability),
             "nodes": str(gt_graph.num_vertices()),
             "edges": str(gt_graph.num_edges())
