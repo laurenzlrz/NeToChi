@@ -4,7 +4,7 @@ from typing import List, Dict, Optional, Generic, TypeVar, Any, Tuple
 from pydantic import BaseModel, ConfigDict
 
 from netochi.mapping.interfaces import MosaicNetworkMappingState, BaseMosaicMappingState
-from netochi.input_generator.interfaces import MosaicHWMappingInput
+from netochi.input_generator.interfaces import MosaicHWMappingInput, HWBaseInputFactory
 
 from netochi.pipeline.interfaces import MappingMetric, BasePipelineRunner
 from netochi.pipeline.results import ExperimentResult, PipelineSummary
@@ -20,7 +20,7 @@ from netochi.pipeline.constants import (
     DEFAULT_METRIC_VALUE
 )
 from netochi.mapping.interfaces import BaseMapper
-from netochi.input_generator.interfaces import BaseInputFactory, MappingInput
+from netochi.input_generator.interfaces import MappingInput
 from tests.utils_mapping_output_validation import validate_mosaic_mapping
 
 PIPELINE_INPUT = TypeVar("PIPELINE_INPUT", bound=BaseMosaicMappingState[Any])
@@ -107,7 +107,7 @@ class ExperimentTask(BaseModel, Generic[PIPELINE_INPUT, MAPPING_STATE, BASELINE_
     
     # Each input factory is paired with a specific baseline provider
     inputs: List[Tuple[
-        BaseInputFactory[PIPELINE_INPUT], 
+        HWBaseInputFactory[PIPELINE_INPUT],
         BaseBaselineProvider[BASELINE_STATE, PIPELINE_INPUT]
     ]]
 

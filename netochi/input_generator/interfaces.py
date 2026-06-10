@@ -43,15 +43,7 @@ WITH_HW_INPUT_CO = TypeVar("WITH_HW_INPUT_CO", bound=HWMappingInput[Any, Any], c
 # Base Interfaces
 # -----------------------------------------------------------------------------
 
-class BaseInputFactory(Generic[MAPPING_INPUT_CO]):
-    """Abstract base class for factories that generate MappingInputs."""
-    def generate(self) -> MAPPING_INPUT_CO:
-        """
-        Returns a MappingInput object.
-        """
-        raise NotImplementedError
-
-class HWBaseInputFactory(BaseInputFactory[WITH_HW_INPUT_CO], Generic[WITH_HW_INPUT_CO]):
+class HWBaseInputFactory(Generic[WITH_HW_INPUT_CO]):
     """Abstract base class for factories that generate MappingInputs."""
     def generate(self) -> WITH_HW_INPUT_CO:
         """

@@ -1,9 +1,8 @@
-from typing import Dict, Any, Optional
-import graph_tool.all as gt
+from typing import Any, Optional
 import networkx as nx
 import numpy as np
 from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
-from netochi.input_generator.interfaces import BaseInputFactory, MosaicHWMappingInput, HWBaseInputFactory
+from netochi.input_generator.interfaces import MosaicHWMappingInput, HWBaseInputFactory
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.utils import nx_to_gt
 import numpy.typing as npt

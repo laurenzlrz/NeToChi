@@ -27,6 +27,9 @@ class BaseMosaicMappingState(Generic[ANY_MAPPING_INPUT]):
     def hw(self) -> MosaicHardwareConfig: raise NotImplementedError()
 
     @property
+    def mapping_input(self) -> ANY_MAPPING_INPUT: raise NotImplementedError()
+
+    @property
     def c(self) -> npt.NDArray[np.int_]: return self.neuron_core_idxs_assignment
     
     @property
@@ -59,6 +62,10 @@ class MosaicNetworkMappingState(BaseMosaicMappingState[MosaicHWMappingInput[PAYL
     @property
     def hw(self) -> MosaicHardwareConfig:
         return self.mapping_input.hw_config
+
+    @property
+    def mapping_input(self) -> WITH_HW_INPUT:
+        return self.mapping_input
 
     @classmethod
     def from_input(cls, mapping_input: MosaicHWMappingInput[PAYLOAD]) -> 'MosaicNetworkMappingState[PAYLOAD]':
@@ -99,6 +106,10 @@ class MosaicHWMappingState(BaseMosaicMappingState[ANY_MAPPING_INPUT], Generic[AN
     @property
     def hw(self) -> MosaicHardwareConfig:
         return self.hw_config
+
+    @property
+    def mapping_input(self) -> ANY_MAPPING_INPUT:
+        return self.mapping_input
 
     @classmethod
     def create_uninitialized_state(cls, mapping_input: ANY_MAPPING_INPUT, initial_hw_guess: MosaicHardwareConfig) -> 'MosaicHWMappingState[ANY_MAPPING_INPUT, PAYLOAD]':

@@ -3,7 +3,7 @@ from netochi.mapping.interfaces import (
     BaseMosaicMappingState,
     BaseMapper
 )
-from netochi.input_generator.interfaces import BaseInputFactory, MosaicHWMappingInput, MappingInput
+from netochi.input_generator.interfaces import MosaicHWMappingInput, MappingInput, HWBaseInputFactory
 
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.erdos_renyi_factory import ErdosRenyiFactory
@@ -53,13 +53,13 @@ def define_task_inputs():
 
     # 1. Define the inputs (Factories)
     probabilities = [0.1, 0.5]
-    mosaic_factories: List[BaseInputFactory[MosaicHWMappingInput[Any]]] = [
+    mosaic_factories: List[HWBaseInputFactory[MosaicHWMappingInput[Any]]] = [
         MosaicNetworkFactory(hw_config=HW_SMALL, probability=p, seed=42) for p in probabilities
     ]
-    er_factories: List[BaseInputFactory[MosaicHWMappingInput[Any]]] = [
+    er_factories: List[HWBaseInputFactory[MosaicHWMappingInput[Any]]] = [
         ErdosRenyiFactory(hw_config=HW_SMALL, n=60, probability=p, seed=42) for p in probabilities
     ]
-    swta_factories: List[BaseInputFactory[MosaicHWMappingInput[Any]]] = [
+    swta_factories: List[HWBaseInputFactory[MosaicHWMappingInput[Any]]] = [
         SwtaFactory(hw_config=HW_SMALL, num_clusters=4, neurons_per_cluster=15, seed=42)
     ]
 
@@ -68,7 +68,7 @@ def define_task_inputs():
     random_baseline = MapperBaselineProvider(mapper=RandomMapper(seed=42))
 
     # 3. generate task inputs
-    task_inputs: List[Tuple[BaseInputFactory[MosaicHWMappingInput[Any]], BaseBaselineProvider[
+    task_inputs: List[Tuple[HWBaseInputFactory[MosaicHWMappingInput[Any]], BaseBaselineProvider[
         BaseMosaicMappingState[Any], MosaicHWMappingInput[Any]]]] = []
     for f in mosaic_factories:
         task_inputs.append((f, gt_baseline))
