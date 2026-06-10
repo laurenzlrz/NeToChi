@@ -3,8 +3,8 @@ import numpy as np
 from pydantic import BaseModel, ConfigDict
 from netochi.input_generator.interfaces import MosaicMappingInput, MosaicAssignment
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
-from netochi.mapping.exceptions import HardwareConstraintError
-from netochi.mapping.constants import HARDWARE_CAPACITY_EXCEEDED
+from netochi.definitions.exceptions import HardwareConstraintError
+from netochi.definitions.constants import HARDWARE_CAPACITY_EXCEEDED
 
 
 class GreedyMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):

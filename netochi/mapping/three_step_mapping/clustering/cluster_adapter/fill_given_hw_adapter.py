@@ -3,7 +3,7 @@ from collections import defaultdict
 import numpy as np
 
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
-from netochi.mapping.exceptions import HardwareConstraintError
+from netochi.definitions.exceptions import HardwareConstraintError
 from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOutput, ClusterAndHwOutput, HwClusteringAdapter
 
 
