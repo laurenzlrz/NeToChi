@@ -56,10 +56,13 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState[Any], MosaicHWMapp
         return MosaicNetworkMappingState(mapping_input=mapping_input, neuron_local_idxs_assignment=best_state_data.local_assignment, neuron_core_idxs_assignment=best_state_data.core_assignment, neuron_slice_assignments=best_state_data.slice_assignment)
 
 
-    def _run_simulated_annealing(self, T_start=1000.0, T_min=0.1, alpha=0.95, steps_per_T=50) -> BestStateData: # gemini: T_start = 10000, alpha=0.98
+    def _run_simulated_annealing(self, T_start=50.0, T_min=0.01, alpha=0.98, steps_per_T=None) -> BestStateData: # gemini: T_start = 10000, alpha=0.98
         """
         invariant: slice assigner is always in same state as SA state
         """
+        if steps_per_T is None:
+            steps_per_T = 10 * self.graph.num_vertices()
+
         current_energy = self._compute_energy()
         best_energy = current_energy
         best_state_data: BestStateData = BestStateData(core_assignment = self.state.core_assignment.copy(),

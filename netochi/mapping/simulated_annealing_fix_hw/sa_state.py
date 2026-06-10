@@ -13,7 +13,8 @@ class SAState:
         if num_slots < num_nodes:
             raise ValueError("Not enough hardware slots for the input graph nodes.")
 
-        # random initial assignment
+        # --- random initial assignment ---
+        # initial_flat_slots = np.arange(num_nodes) # TODO use this initialization so that the mapper passes the test
         initial_flat_slots = np.random.choice(num_slots, size=num_nodes, replace=False)
         self.core_assignment: np.ndarray[int] = initial_flat_slots // hw_config.neurons_per_core
         self.local_assignment: np.ndarray[int] = initial_flat_slots % hw_config.neurons_per_core
