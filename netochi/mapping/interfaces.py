@@ -16,30 +16,30 @@ from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 
 class MappingState[ANY_MAPPING_INPUT: MappingInput](BaseModel):
     """Base class for all mapping results."""
-    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=False, strict=True) # only for pydantic
+    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=False, strict=True)
     mapping_input: ANY_MAPPING_INPUT
 
-    def init_random_assignments(self, seed: Optional[int] = None) -> None:
-        """Abstract initialization method for assignments.
-        basically constructor"""
-        pass
-
-class HWNetworkMappingState[ANY_MAPPING_INPUT: MappingInput](MappingState[ANY_MAPPING_INPUT]):
+class HWNetworkMappingState[ANY_MAPPING_INPUT: MappingInput, INFERRED_HW_CONFIG: Any](MappingState[ANY_MAPPING_INPUT]):
     """
     Base class for states that infer hardware. 
     Does not strictly require hardware parameters in input, but provides/infers them.
     """
+    inferred_hw_config: INFERRED_HW_CONFIG
 
-    def _init_random_hw(self, seed: Optional[int] = None) -> None:
-        """Randomly initialize hardware configuration."""
-        pass
+    @property
+    def inferred_hw(self) -> INFERRED_HW_CONFIG:
+        """Convenience property to access inferred hardware config."""
+        return self.inferred_hw_config
 
-class NetworkAssignmentState[WITH_HW_INPUT: HWMappingInput](MappingState[WITH_HW_INPUT]):
+class NetworkAssignmentState[WITH_HW_INPUT: HWMappingInput, GT_HW_CONFIG: Any](MappingState[WITH_HW_INPUT]):
     """
     State for hardware-aware partitioning. 
     Requires specific hardware parameters in the input (WITH_HW_INPUT).
     """
-    pass
+    @property
+    def gt_hw(self) -> GT_HW_CONFIG:
+        """Convenience property to access hardware config directly from the input."""
+        return self.mapping_input.hw_config
 
 # -----------------------------------------------------------------------------
 # Mosaic Specific Interfaces
@@ -62,7 +62,7 @@ class BaseMosaicMappingState[ANY_MAPPING_INPUT: MappingInput](MappingState[ANY_M
     def s(self) -> np.ndarray[tuple[Any, Any], np.dtype[np.int_]]: return self.assignment.neuron_slice_assignment
 
 
-class MosaicNetworkMappingState(BaseMosaicMappingState[MosaicMappingInput], NetworkAssignmentState[MosaicMappingInput]):
+class MosaicNetworkMappingState(BaseMosaicMappingState[MosaicMappingInput], NetworkAssignmentState[MosaicMappingInput, MosaicHardwareConfig]):
     """
     State for pure partitioning/assignment mappers. 
     Input MUST contain the hardware configuration (MosaicMappingInput).
@@ -73,10 +73,6 @@ class MosaicNetworkMappingState(BaseMosaicMappingState[MosaicMappingInput], Netw
         self.mapping_input.hw_config.verify_assignment(self.assignment)
         return self
 
-    @property
-    def hw(self) -> MosaicHardwareConfig:
-        """Cheating method to access hardware config directly from the input, since it's guaranteed to be there."""
-        return self.mapping_input.hw_config
 
     @classmethod
     def from_input_zero(cls, mapping_input: MosaicMappingInput) -> 'MosaicNetworkMappingState':
@@ -95,16 +91,11 @@ class MosaicNetworkMappingState(BaseMosaicMappingState[MosaicMappingInput], Netw
         )
 
 
-class MosaicHWMappingState[ANY_MAPPING_INPUT: MappingInput](BaseMosaicMappingState[ANY_MAPPING_INPUT], HWNetworkMappingState[ANY_MAPPING_INPUT]):
+class MosaicHWMappingState[ANY_MAPPING_INPUT: MappingInput](BaseMosaicMappingState[ANY_MAPPING_INPUT], HWNetworkMappingState[ANY_MAPPING_INPUT, MosaicHardwareConfig]):
     """
     State for joint inference mappers. 
     Input is purely the network (MappingInput), but output includes the optimized hardware.
     """
-    hw_config_inferred: MosaicHardwareConfig = Field(description="Inferred hardware configuration parameters relevant to the mapping process.")
-
-    @property
-    def hw(self) -> MosaicHardwareConfig:
-        return self.hw_config_inferred
 
     @classmethod
     def from_guess_zero(cls, mapping_input: ANY_MAPPING_INPUT, initial_hw_guess: MosaicHardwareConfig) -> 'MosaicHWMappingState[ANY_MAPPING_INPUT]':
@@ -114,7 +105,7 @@ class MosaicHWMappingState[ANY_MAPPING_INPUT: MappingInput](BaseMosaicMappingSta
         """
         return cls(
             mapping_input=mapping_input,
-            hw_config_inferred=initial_hw_guess,
+            inferred_hw_config=initial_hw_guess,
             assignment=MosaicAssignment.zero(
                 hw = initial_hw_guess,
                 num_neurons=mapping_input.graph.num_vertices()
@@ -125,7 +116,7 @@ class MosaicHWMappingState[ANY_MAPPING_INPUT: MappingInput](BaseMosaicMappingSta
     def from_guess_random(cls, mapping_input: ANY_MAPPING_INPUT, initial_hw_guess: MosaicHardwareConfig, seed: Optional[int]) -> 'MosaicHWMappingState[ANY_MAPPING_INPUT]':
         return cls(
             mapping_input=mapping_input,
-            hw_config_inferred=initial_hw_guess,
+            inferred_hw_config=initial_hw_guess,
             assignment=MosaicAssignment.random(num_neurons=mapping_input.graph.num_vertices(), hw=initial_hw_guess, seed=seed)
         )
 
