@@ -4,10 +4,10 @@ import numpy as np
 
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.mapping.exceptions import HardwareConstraintError
-from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOutput, ClusterAndHwOutput, HwClusteringAdapter
+from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOutput, ClusterAndHwOutput, ClusteringAdapterFixedHw
 
 
-class FillGivenHwAdapter(HwClusteringAdapter):
+class FillGivenHwAdapter(ClusteringAdapterFixedHw):
     """
     this adapter throws away the hierarchy and only takes the lowest-level cluster as leaves.
     It sorts the neurons by cluster id and fills the cores one by one until all neurons are placed.

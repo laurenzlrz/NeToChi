@@ -1,6 +1,6 @@
 
 from netochi.mapping.three_step_mapping.interfaces import LocalAddressAssigner, SliceAssigner, \
-    ClusterAndHwOutput, HwClusterer
+    ClusterAndHwOutput, ClustererInferHw
 
 from netochi.mapping.interfaces import MosaicHWMappingState, BaseMapper
 from netochi.input_generator.interfaces import MappingInput
@@ -12,7 +12,7 @@ class ThreeStepMapper(BaseMapper[MosaicHWMappingState, MappingInput]):
     Given mapping input, infers mapping + hardware
     """
 
-    def __init__(self, clusterer: HwClusterer, address_assigner: LocalAddressAssigner, slice_assigner: SliceAssigner):
+    def __init__(self, clusterer: ClustererInferHw, address_assigner: LocalAddressAssigner, slice_assigner: SliceAssigner):
         self._clusterer = clusterer
         self._address_assigner = address_assigner
         self._slice_assigner = slice_assigner

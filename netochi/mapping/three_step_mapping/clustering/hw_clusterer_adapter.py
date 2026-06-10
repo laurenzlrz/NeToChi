@@ -1,11 +1,10 @@
 
 from netochi.input_generator.interfaces import MappingInput
-from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOutput, ClusterAndHwOutput, HwClusterer, \
-    HierarchicalClusterer, ClusteringAdapter
+from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOutput, ClusterAndHwOutput, \
+    HierarchicalClusterer, ClusteringAdapter, ClustererInferHw
 
 
-
-class HwClustererAdapter(HwClusterer):
+class HwClustererAdapter(ClustererInferHw):
     """
     This adapter runs a HierarchicalClusterer and then transforms the HierarchicalClusterOutput into ClusterAndHwOutput, i.e. it infers the hardware and adapts the clustering, so that it fits the hardware
 
