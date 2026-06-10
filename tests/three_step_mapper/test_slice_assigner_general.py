@@ -3,6 +3,7 @@ import numpy as np
 import graph_tool.all as gt
 
 from netochi.mapping.three_step_mapping.interfaces import ClusterAndHwOutput, MosaicHardwareConfig
+from netochi.mapping.three_step_mapping.slice_assignment.delta_optimal_slice_assigner import DeltaOptimalSliceAssigner
 from netochi.mapping.three_step_mapping.slice_assignment.optimal_slice_assigner import OptimalSliceAssigner
 
 
@@ -11,7 +12,7 @@ from netochi.mapping.three_step_mapping.slice_assignment.optimal_slice_assigner 
 class TestOptimalSliceAssigner(unittest.TestCase):
 
     def setUp(self):
-        self.assigner = OptimalSliceAssigner()
+        self.assigner = DeltaOptimalSliceAssigner()
 
     def test_selects_first_half_slice(self):
         """
