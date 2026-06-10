@@ -108,6 +108,7 @@ class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
                 graph.add_edges_from((int(src), target_neuron) for src in selected_sources)
 
         assignment: MosaicAssignment = MosaicAssignment(
+            hw=self.hw_config,
             neuron_core_pre_assignment=np.arange(total_neurons) // neurons_per_core,
             neuron_idx_pre_assignment=np.arange(total_neurons) % neurons_per_core,
             neuron_slice_assignment=slice_assignment

@@ -25,7 +25,7 @@ class WTAFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
     
     _graph: Optional[nx.DiGraph] = PrivateAttr(default=None)
 
-    def generate(self) -> MosaicHWMappingInput[Any]:
+    def generate(self) -> MosaicMappingInput:
         """Generate a single MosaicMappingInput with a WTA graph."""
         rng = np.random.default_rng(self.seed)
         graph = nx.DiGraph()
@@ -57,7 +57,7 @@ class WTAFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
             "edges": str(gt_graph.num_edges())
         }
         
-        return MosaicHWMappingInput(
+        return MosaicMappingInput(
             graph=gt_graph,
             descriptions=descriptions,
             hw_config=self.hw_config,

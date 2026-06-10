@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import KW_ONLY
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 
 import graph_tool.all as gt
 import numpy as np
@@ -30,10 +30,54 @@ class HWMappingInput[HW_CONFIG](MappingInput):
 class MosaicAssignment(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, strict=True, frozen=True)
 
+    hw: MosaicHardwareConfig = Field(description="Hardware configuration for validating the assignment.")
+
     neuron_core_pre_assignment: npt.NDArray[np.int64] = Field(description="1D array mapping each neuron to a core index.")
     neuron_idx_pre_assignment: npt.NDArray[np.int64] = Field(description="1D array mapping each neuron to a local index within its assigned core.")
     neuron_slice_assignment: npt.NDArray[np.int64] = Field(description="2D array where each row corresponds to a neuron and each column corresponds to a router level, indicating the fan-in slice assignment for that neuron at that level.")
     #TODO: neuron_target_assignment: npt.NDArray[np.int64]
+
+    @classmethod
+    def zero(cls, num_neurons: int, hw: MosaicHardwareConfig) -> "MosaicAssignment":
+        """Factory method to create a zero-initialized assignment."""
+        return cls(
+            hw=hw,
+            neuron_core_pre_assignment=np.zeros(num_neurons, dtype=np.int64),
+            neuron_idx_pre_assignment=np.zeros(num_neurons, dtype=np.int64),
+            neuron_slice_assignment=np.zeros((num_neurons, hw.router_levels), dtype=np.int64)
+        )
+
+
+    @classmethod
+    def random(cls, num_neurons: int, hw: MosaicHardwareConfig, seed: Optional[int]) -> "MosaicAssignment":
+        """Factory method to create a zero-initialized assignment."""
+        ass = cls(
+            hw=hw,
+            neuron_core_pre_assignment=np.zeros(num_neurons, dtype=np.int64),
+            neuron_idx_pre_assignment=np.zeros(num_neurons, dtype=np.int64),
+            neuron_slice_assignment=np.zeros((num_neurons, hw.router_levels), dtype=np.int64)
+        )
+        ass._init_random_self(seed)
+        return ass
+
+
+    def _init_random_self(self, seed: Optional[int] = None) -> None:
+        """In-place random initialization of the assignment arrays."""
+        rng = np.random.default_rng(seed)
+        num_neurons: int = self.neuron_core_pre_assignment.size
+
+        # Core & Index allocation
+        slots = [(c, x) for c in range(self.hw.total_cores) for x in range(self.hw.neurons_per_core)]
+        rng.shuffle(slots)
+
+        for i in range(num_neurons):
+            self.neuron_core_pre_assignment[i], self.neuron_idx_pre_assignment[i] = slots[i]
+
+        # Slice allocation
+        for d in range(1, self.hw.max_distance + 1):
+            n_sl: int = self.hw.num_slices_at_distance(d)
+            self.neuron_slice_assignment[:, d] = rng.integers(0, n_sl, size=num_neurons)
+
 
     @model_validator(mode="after")
     def validate_shapes(self: "MosaicAssignment") -> "MosaicAssignment":
@@ -48,6 +92,8 @@ class MosaicAssignment(BaseModel):
             raise DimensionError("neuron_core_pre_assignment and neuron_idx_pre_assignment must have the same length.")
         if self.neuron_core_pre_assignment.size != self.neuron_slice_assignment.shape[0]:
             raise DimensionError("First dimension of neuron_slice_assignment must match length of pre-assignments.")
+
+        self.hw.verify_assignment(self)
 
         return self
 
@@ -77,7 +123,7 @@ class BaseInputFactory[MAPPING_INPUT_CO: MappingInput[Any]](ABC):
     def get_name(self) -> str:
         return self.__class__.__name__
 
-class HWBaseInputFactory[WITH_HW_INPUT_CO: HWMappingInput[Any, Any]](BaseInputFactory[WITH_HW_INPUT_CO]
+class HWBaseInputFactory[WITH_HW_INPUT_CO: HWMappingInput[Any]](BaseInputFactory[WITH_HW_INPUT_CO]
 ):
-    """Abstract base class for factories that generate MappingInputs."""
+    """Abstract base class for factories that generate MappingInputs with corresponding hardware."""
     pass
