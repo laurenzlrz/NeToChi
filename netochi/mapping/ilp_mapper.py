@@ -1,168 +1,142 @@
-import time
-from typing import Any
-import pulp  # type: ignore[import-untyped]
-from pydantic import BaseModel, ConfigDict, Field
+import pulp
+import numpy as np
+import graph_tool as gt
+from typing import Optional
+from pydantic import Field, BaseModel, ConfigDict
 
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
-from netochi.input_generator.interfaces import MosaicHWMappingInput
-from netochi.mapping.constants import MCMC_TIME_LIMIT_S
+from netochi.definitions.constants import MCMC_TIME_LIMIT_S
 
-import shutil  # Make sure this is imported at the top of your file
+from netochi.input_generator.interfaces import MosaicHardwareConfig, MosaicAssignment, MosaicMappingInput
 
-_ILP_MAX_NEURONS = 100
-
-# todo: only fixed with Gemini, needs to be verified
-
-class ILPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicHWMappingInput[Any]]):
+class ILPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
     """
     Mapper formulating the problem as a Mixed Integer Linear Program (MILP).
     """
     model_config = ConfigDict(frozen=True)
-    time_limit_s: float = Field(default=MCMC_TIME_LIMIT_S)
-    max_neurons: int = Field(default=_ILP_MAX_NEURONS)
+    time_limit_s: float = Field(default=MCMC_TIME_LIMIT_S, description="Time limit for the ILP solver in seconds.")
 
-    def run(self, mapping_input: MosaicHWMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
-        """Solve for optimal mapping using the PuLP MILP solver."""
-        graph = mapping_input.graph
-        hw = mapping_input.hw_config_inferred
-        t_start = time.monotonic()
+    def run(
+            self,
+            mapping_input: MosaicMappingInput
+    ) -> MosaicNetworkMappingState:
 
-        N = graph.num_vertices()
-        if N > self.max_neurons:
-            raise ValueError(f"ILPMapper: problem size N={N} exceeds limit of {self.max_neurons} neurons")
+        # 1. Dynamically extract structural primitives from your gt.Graph
+        # get_vertices() returns a 1D array of vertex IDs: [0, 1, 2, ... |V|-1]
+        graph: gt.Graph = mapping_input.graph
+        hw: MosaicHardwareConfig = mapping_input.hw_config
 
-        # Initialize result state
-        state = MosaicNetworkMappingState.from_input(mapping_input)
+        vertices = graph.get_vertices().tolist()
 
-        C = hw.total_cores
-        X = hw.neurons_per_core
-        max_d = hw.max_distance
+        # get_edges() returns a 2D array of shape (|E|, 2) representing (source, target) pairs
+        edges = [tuple(edge) for edge in graph.get_edges()]
 
-        def _budget_remaining() -> float:
-            return self.time_limit_s - (time.monotonic() - t_start)
+        num_neurons = len(vertices)
+        cores = list(range(hw.total_cores))
+        indices = list(range(hw.neurons_per_core))
 
-        # 1. Variables
-        w = pulp.LpVariable.dicts("w", ((i, c, x) for i in range(N) for c in range(C) for x in range(X)), cat='Binary')
-        
-        s_vars = {}
-        for i in range(N):
-            for d in range(1, max_d + 1):
-                n_slices = hw.num_slices_at_distance(d)
-                for sigma in range(n_slices):
-                    s_vars[(i, d, sigma)] = pulp.LpVariable(f"s_{i}_{d}_{sigma}", cat='Binary')
+        # 2. Initialize the Optimization Problem
+        prob = pulp.LpProblem("Minimize_FanIn_Inconsistencies", pulp.LpMinimize)
 
-        edges = [(int(e.source()), int(e.target())) for e in graph.edges()]
-        v = pulp.LpVariable.dicts("v", edges, cat='Binary')
+        # 3. Decision Variables
+        # M[i, c, x] = 1 if neuron i is mapped to core c at index x
+        M = pulp.LpVariable.dicts("M",
+                                  ((i, c, x) for i in vertices for c in cores for x in indices),
+                                  cat='Binary')
 
-        if _budget_remaining() <= 1:
-            state.init_random_assignments()
-            return state
+        # S_vars[(i, d, s)] = 1 if neuron i selects slice s for distance d
+        S_vars = {}
+        for i in vertices:
+            for d in range(1, hw.max_distance + 1):
+                num_slices = hw.num_slices_at_distance(d)
+                for s in range(num_slices):
+                    S_vars[(i, d, s)] = pulp.LpVariable(f"S_{i}_{d}_{s}", cat='Binary')
 
-        pair = pulp.LpVariable.dicts("pair", ((i, j, c1, c2) for (i, j) in edges for c1 in range(C) for c2 in range(C)), cat='Binary')
-        
-        validCross = {}
-        for (i, j) in edges:
-            for d in range(1, max_d + 1):
-                n_slices = hw.num_slices_at_distance(d)
-                for sigma in range(n_slices):
-                    validCross[(i, j, d, sigma)] = pulp.LpVariable(f"vc_{i}_{j}_{d}_{sigma}", cat='Binary')
+        # I[j, i] = 1 if directed edge (j -> i) is inconsistent with the Fan-In masks
+        I = pulp.LpVariable.dicts("I", edges, cat='Binary')
 
-        if _budget_remaining() <= 1:
-            state.init_random_assignments()
-            return state
+        # 4. Objective Function: Minimize total Fan-In structural penalties [cite: 79, 80]
+        prob += pulp.lpSum(I[edge] for edge in edges), "Total_Inconsistencies"
 
-        # 2. Objective
-        prob = pulp.LpProblem("NeuromorphicMapping", pulp.LpMaximize)
-        prob += pulp.lpSum(v[e] for e in edges), "MaximizeValidEdges"
+        # 5. Hard Constraints (P) [cite: 222]
+        # Injection rule: Every neuron from the graph must go to exactly one hardware slot [cite: 217, 222]
+        for i in vertices:
+            prob += pulp.lpSum(M[i, c, x] for c in cores for x in indices) == 1
 
-        # 3. Constraints
-        for i in range(N):
-            prob += pulp.lpSum(w[i, c, x] for c in range(C) for x in range(X)) == 1
+        # Capacity rule: Prevent address collisions (max one neuron per slot) [cite: 217, 222]
+        for c in cores:
+            for x in indices:
+                prob += pulp.lpSum(M[i, c, x] for i in vertices) <= 1
 
-        for c in range(C):
-            for x in range(X):
-                prob += pulp.lpSum(w[i, c, x] for i in range(N)) <= 1
+        # Slicing rule: Every neuron configures exactly one listening slice per distance level globally [cite: 115, 117]
+        for i in vertices:
+            for d in range(1, hw.max_distance + 1):
+                num_slices = hw.num_slices_at_distance(d)
+                prob += pulp.lpSum(S_vars[(i, d, s)] for s in range(num_slices)) == 1
 
-        for i in range(N):
-            for d in range(1, max_d + 1):
-                n_slices = hw.num_slices_at_distance(d)
-                prob += pulp.lpSum(s_vars[(i, d, sigma)] for sigma in range(n_slices)) == 1
+        # 6. Soft Constraints (Linearized Fan-In Violation Logic)
+        for (j, i) in edges:  # j is source neuron, i is target neuron
+            for c_i in cores:
+                for x_i in indices:
+                    for c_j in cores:
+                        d = hw.core_distance(c_i, c_j)
 
-        if _budget_remaining() <= 1:
-            state.init_random_assignments()
-            return state
+                        if d > 0:
+                            for x_j in indices:
+                                # Figure out which slice index covers source index x_j at this distance
+                                s_req = hw.get_slice_idx(d, x_j)
 
-        for (i, j) in edges:
-            for c1 in range(C):
-                for c2 in range(C):
-                    i_in_c1 = pulp.lpSum(w[i, c1, x] for x in range(X))
-                    j_in_c2 = pulp.lpSum(w[j, c2, x] for x in range(X))
-                    prob += pair[i, j, c1, c2] <= i_in_c1
-                    prob += pair[i, j, c1, c2] <= j_in_c2
+                                # Big-M / Penalty Linearization:
+                                # If target i is at (c_i, x_i) AND source j is at (c_j, x_j)
+                                # AND target i DID NOT select s_req, then I[(j, i)] must be forced to 1.
+                                prob += I[(j, i)] >= (M[i, c_i, x_i] + M[j, c_j, x_j] - 1 - S_vars[(i, d, s_req)])
 
-        for (i, j) in edges:
-            same_core_expr = pulp.lpSum(pair[i, j, c, c] for c in range(C))
-            cross_core_expr = []
-            for d in range(1, max_d + 1):
-                n_slices = hw.num_slices_at_distance(d)
-                pairs_at_dist = [pair[i, j, c1, c2] for c1 in range(C) for c2 in range(C) if hw.core_distance(c2, c1) == d]
-                dist_match_expr = pulp.lpSum(pairs_at_dist)
-                for sigma in range(n_slices):
-                    vc = validCross[(i, j, d, sigma)]
-                    prob += vc <= s_vars[(j, d, sigma)]
-                    prob += vc <= dist_match_expr
-                    start_x, end_x = hw.get_slice_bounds(d, sigma)
-                    i_in_slice_bounds = pulp.lpSum(w[i, c, x] for c in range(C) for x in range(start_x, end_x))
-                    prob += vc <= i_in_slice_bounds
-                    cross_core_expr.append(vc)
-            prob += v[(i, j)] <= same_core_expr + pulp.lpSum(cross_core_expr)
+        # 7. Fire up the solver engine
+        prob.solve(pulp.PULP_CBC_CMD(msg=True, timeLimit=300))
 
-        # 4. Solve using PuLP's native wrapper
-        remaining = _budget_remaining()
-        if remaining <= 1:
-            state.init_random_assignments()
-            return state
+        if pulp.LpStatus[prob.status] not in ["Optimal"]:
+            print(f"Solver status: {pulp.LpStatus[prob.status]}. Proceeding to extract best found state.")
 
-        # 1. Find the absolute path to the cbc binary in your Conda env
-        cbc_path = shutil.which("cbc")
+        # =========================================================================
+        # 8. OUTPUT EXTRACTION: Converting binary variables to MosaicAssignment
+        # =========================================================================
+        neuron_core_pre_assignment = np.zeros(num_neurons, dtype=np.int64)
+        neuron_idx_pre_assignment = np.zeros(num_neurons, dtype=np.int64)
+        neuron_slice_assignment = np.zeros((num_neurons, hw.router_levels + 1), dtype=np.int64)
 
-        if cbc_path is None:
-            raise RuntimeError(
-                "CRITICAL: The CBC solver is not installed or not in your PATH. "
-                "Please open your terminal, activate your conda environment, and run: "
-                "conda install -c conda-forge coincbc"
-            )
+        # Floating point safe checker for binary solution variants
+        def cleanly_matches_one(val: Optional[float], tolerance: float = 1e-4) -> bool:
+            return val is not None and abs(val - 1.0) < tolerance
 
-        # 2. Use COIN_CMD (the correct class for Conda/External installations)
-        solver = pulp.COIN_CMD(path=cbc_path, timeLimit=int(remaining), msg=False)
+        for i in vertices:
+            # Extract location assignments
+            for c in cores:
+                found_slot = False
+                for x in indices:
+                    if cleanly_matches_one(pulp.value(M[i, c, x])):
+                        neuron_core_pre_assignment[i] = c
+                        neuron_idx_pre_assignment[i] = x
+                        found_slot = True
+                        break
+                if found_slot:
+                    break
 
-        # 3. Solve
-        try:
-            status = prob.solve(solver)
-        except pulp.apis.core.PulpSolverError as e:
-            raise RuntimeError(
-                f"COIN_CMD failed to execute the binary found at {cbc_path}. "
-                f"Verify permissions by running: chmod +x {cbc_path}"
-            ) from e
+            # Extract globally chosen fan-in slices per distance level [cite: 115, 117]
+            for d in range(1, hw.max_distance + 1):
+                num_slices = hw.num_slices_at_distance(d)
+                for s in range(num_slices):
+                    if cleanly_matches_one(pulp.value(S_vars[(i, d, s)])):
+                        neuron_slice_assignment[i, d] = s
+                        break
 
-        # If the solver failed to find ANY feasible solution, fallback to random
-        if status == pulp.LpStatusInfeasible or status == pulp.LpStatusNotSolved:
-            state.init_random_assignments()
-            return state
-
-        # 5. Extract results from variables into the state object
-        for i in range(N):
-            for c in range(C):
-                for x in range(X):
-                    val = pulp.value(w[i, c, x])
-                    if val is not None and val > 0.5:
-                        state.neuron_core_idxs_assignment[i] = c
-                        state.neuron_local_idxs_assignment[i] = x
-
-            for d in range(1, max_d + 1):
-                for sigma in range(hw.num_slices_at_distance(d)):
-                    val = pulp.value(s_vars[(i, d, sigma)])
-                    if val is not None and val > 0.5:
-                        state.neuron_slice_assignments[i, d] = sigma
-
-        return state
+        # 9. Return the fully configured and checked object
+        assignment = MosaicAssignment(
+            hw=hw,
+            neuron_core_pre_assignment=neuron_core_pre_assignment,
+            neuron_idx_pre_assignment=neuron_idx_pre_assignment,
+            neuron_slice_assignment=neuron_slice_assignment
+        )
+        return MosaicNetworkMappingState(
+            mapping_input=mapping_input,
+            assignment=assignment
+        )
