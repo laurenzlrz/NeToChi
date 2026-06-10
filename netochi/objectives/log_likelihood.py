@@ -8,7 +8,6 @@ from netochi.objectives.interfaces import (
 )
 from netochi.mapping.interfaces import (
     BaseMosaicMappingState, 
-    NetworkAssignmentState, 
     ANY_MAPPING_INPUT
 )
 from netochi.input_generator.interfaces import MappingInput, MosaicHWMappingInput, WITH_HW_INPUT

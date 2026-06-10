@@ -1,13 +1,13 @@
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar, TYPE_CHECKING, Optional, Any
-from pydantic import BaseModel, ConfigDict
-from netochi.mapping.interfaces import MappingState
+
+from netochi.mapping.interfaces import BaseMosaicMappingState
 
 if TYPE_CHECKING:
     from netochi.pipeline.results import PipelineSummary
 
-MAPPING_STATE_CONTRA = TypeVar("MAPPING_STATE_CONTRA", bound=MappingState[Any], contravariant=True)
-MAPPING_STATE2_CONTRA = TypeVar("MAPPING_STATE2_CONTRA", bound=MappingState[Any], contravariant=True)
+MAPPING_STATE_CONTRA = TypeVar("MAPPING_STATE_CONTRA", bound=BaseMosaicMappingState[Any], contravariant=True)
+MAPPING_STATE2_CONTRA = TypeVar("MAPPING_STATE2_CONTRA", bound=BaseMosaicMappingState[Any], contravariant=True)
 
 class MappingMetric(ABC, Generic[MAPPING_STATE_CONTRA, MAPPING_STATE2_CONTRA]):
     """

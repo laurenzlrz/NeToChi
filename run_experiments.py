@@ -1,7 +1,6 @@
 from typing import List, Any, Tuple, cast
 from netochi.mapping.interfaces import (
-    MappingState, 
-    BaseMosaicMappingState, 
+    BaseMosaicMappingState,
     BaseMapper
 )
 from netochi.input_generator.interfaces import BaseInputFactory, MosaicHWMappingInput, MappingInput
@@ -70,7 +69,7 @@ def define_task_inputs():
 
     # 3. generate task inputs
     task_inputs: List[Tuple[BaseInputFactory[MosaicHWMappingInput[Any]], BaseBaselineProvider[
-        MappingState[Any], MosaicHWMappingInput[Any]]]] = []
+        BaseMosaicMappingState[Any], MosaicHWMappingInput[Any]]]] = []
     for f in mosaic_factories:
         task_inputs.append((f, gt_baseline))
     for f in er_factories:
@@ -85,11 +84,11 @@ def define_evaluators():
     hw_size_obj: MosaicHardwareSizeObjective[MosaicHWMappingInput[Any]] = MosaicHardwareSizeObjective()
     log_likelihood_obj: LogLikelihoodObjective[MosaicHWMappingInput[Any], Any] = LogLikelihoodObjective()
 
-    standard_evaluator: Evaluator[BaseMosaicMappingState[Any], MappingState[Any]] = Evaluator(
+    standard_evaluator: Evaluator[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]] = Evaluator(
         metrics=[
-            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], MappingState[Any]], inconsistency_obj)),
-            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], MappingState[Any]], hw_size_obj)),
-            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], MappingState[Any]], log_likelihood_obj)),
+            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]], inconsistency_obj)),
+            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]], hw_size_obj)),
+            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]], log_likelihood_obj)),
         ]
     )
     return standard_evaluator
@@ -104,7 +103,7 @@ def run_experiment() -> None:
     ]
     task_inputs = define_task_inputs()
 
-    mosaic_tasks: List[ExperimentTask[MosaicHWMappingInput[Any], BaseMosaicMappingState[Any], MappingState[Any]]] = []
+    mosaic_tasks: List[ExperimentTask[MosaicHWMappingInput[Any], BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]]] = []
     for mapper in mappers_std:
         mosaic_tasks.append(ExperimentTask(
             mapper=cast(BaseMapper[BaseMosaicMappingState[Any], MosaicHWMappingInput[Any]], mapper),
@@ -118,7 +117,7 @@ def run_experiment() -> None:
     print("=" * 100)
 
     # Final cast to allow the runner to accept the mosaic-specific tasks
-    general_tasks = cast(List[ExperimentTask[MappingInput[Any], MappingState[Any], MappingState[Any]]], mosaic_tasks)
+    general_tasks = cast(List[ExperimentTask[MappingInput[Any], BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]]], mosaic_tasks)
     runner = PipelineRunner(tasks=general_tasks, verbose=True)
     summary = runner.run()
 

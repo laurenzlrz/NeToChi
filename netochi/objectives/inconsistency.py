@@ -4,7 +4,6 @@ from pydantic import PrivateAttr, ConfigDict
 from netochi.objectives.interfaces import NetworkMappingObjective
 from netochi.mapping.interfaces import (
     BaseMosaicMappingState, 
-    NetworkAssignmentState,
     ANY_MAPPING_INPUT
 )
 from netochi.input_generator.interfaces import WITH_HW_INPUT

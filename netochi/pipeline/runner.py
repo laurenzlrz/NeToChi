@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Optional, Generic, TypeVar, Any, Tuple
 from pydantic import BaseModel, ConfigDict
 
-from netochi.mapping.interfaces import MosaicNetworkMappingState
+from netochi.mapping.interfaces import MosaicNetworkMappingState, BaseMosaicMappingState
 from netochi.input_generator.interfaces import MosaicHWMappingInput
 
 from netochi.pipeline.interfaces import MappingMetric, BasePipelineRunner
@@ -19,16 +19,16 @@ from netochi.pipeline.constants import (
     DEFAULT_REL_METRIC_VALUE,
     DEFAULT_METRIC_VALUE
 )
-from netochi.mapping.interfaces import BaseMapper, MappingState
+from netochi.mapping.interfaces import BaseMapper
 from netochi.input_generator.interfaces import BaseInputFactory, MappingInput
 from tests.utils_mapping_output_validation import validate_mosaic_mapping
 
-PIPELINE_INPUT = TypeVar("PIPELINE_INPUT", bound=MappingInput[Any])
-PIPELINE_INPUT_CONTRA = TypeVar("PIPELINE_INPUT_CONTRA", bound=MappingInput[Any], contravariant=True)
-MAPPING_STATE = TypeVar("MAPPING_STATE", bound=MappingState[Any])
-MAPPING_STATE_CO = TypeVar("MAPPING_STATE_CO", bound=MappingState[Any], covariant=True)
-BASELINE_STATE = TypeVar("BASELINE_STATE", bound=MappingState[Any])
-BASELINE_STATE_CO = TypeVar("BASELINE_STATE_CO", bound=MappingState[Any], covariant=True)
+PIPELINE_INPUT = TypeVar("PIPELINE_INPUT", bound=BaseMosaicMappingState[Any])
+PIPELINE_INPUT_CONTRA = TypeVar("PIPELINE_INPUT_CONTRA", bound=BaseMosaicMappingState[Any], contravariant=True)
+MAPPING_STATE = TypeVar("MAPPING_STATE", bound=BaseMosaicMappingState[Any])
+MAPPING_STATE_CO = TypeVar("MAPPING_STATE_CO", bound=BaseMosaicMappingState[Any], covariant=True)
+BASELINE_STATE = TypeVar("BASELINE_STATE", bound=BaseMosaicMappingState[Any])
+BASELINE_STATE_CO = TypeVar("BASELINE_STATE_CO", bound=BaseMosaicMappingState[Any], covariant=True)
 
 
 class Evaluator(BaseModel, Generic[MAPPING_STATE, BASELINE_STATE]):
@@ -62,10 +62,10 @@ class BaseBaselineProvider(ABC, Generic[BASELINE_STATE_CO, PIPELINE_INPUT_CONTRA
         pass
 
 
-class MosaicGroundTruthBaselineProvider(BaseBaselineProvider[MappingState[Any], MappingInput[Any]]):
+class MosaicGroundTruthBaselineProvider(BaseBaselineProvider[BaseMosaicMappingState[Any], MappingInput[Any]]):
     """Extracts ground truth from MosaicMappingInput if available."""
     
-    def get_baseline(self, mapping_input: MappingInput[Any]) -> Optional[MappingState[Any]]:
+    def get_baseline(self, mapping_input: MappingInput[Any]) -> Optional[BaseMosaicMappingState[Any]]:
             
         if not isinstance(mapping_input, MosaicHWMappingInput):
             return None
@@ -118,7 +118,7 @@ class PipelineRunner(BaseModel, BasePipelineRunner):
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
     
-    tasks: List[ExperimentTask[MappingInput[Any], MappingState[Any], MappingState[Any]]]
+    tasks: List[ExperimentTask[MappingInput[Any], BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]]]
     verbose: bool = True
 
     def run(self) -> PipelineSummary:

@@ -1,12 +1,11 @@
 from typing import Generic, TypeVar, Optional, Any
-from pydantic import ConfigDict
 
 from netochi.pipeline.interfaces import MappingMetric
-from netochi.mapping.interfaces import MappingState, MosaicHWMappingState, BaseMosaicMappingState
+from netochi.mapping.interfaces import BaseMosaicMappingState
 from netochi.objectives.interfaces import MappingObjective
 
-MAPPING_STATE = TypeVar("MAPPING_STATE", bound=MappingState[Any])
-BASELINE_STATE = TypeVar("BASELINE_STATE", bound=MappingState[Any])
+MAPPING_STATE = TypeVar("MAPPING_STATE", bound=BaseMosaicMappingState[Any])
+BASELINE_STATE = TypeVar("BASELINE_STATE", bound=BaseMosaicMappingState[Any])
 
 class ObjectiveMetric(MappingMetric[MAPPING_STATE, BASELINE_STATE], Generic[MAPPING_STATE, BASELINE_STATE]):
     """
