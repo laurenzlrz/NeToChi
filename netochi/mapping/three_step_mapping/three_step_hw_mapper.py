@@ -3,10 +3,10 @@ from netochi.mapping.three_step_mapping.interfaces import LocalAddressAssigner, 
     ClusterAndHwOutput, ClustererFixedHw
 
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
-from netochi.input_generator.interfaces import MappingInput, HWMappingInput
+from netochi.input_generator.interfaces import MappingInput, MosaicHWMappingInput
 
 
-class ThreeStepHwMapper(BaseMapper[HWMappingInput, MappingInput]):
+class ThreeStepHwMapper(BaseMapper[MosaicHWMappingInput, MappingInput]):
     """
     Given mapping input + hardware, infers mapping
     """
@@ -17,7 +17,7 @@ class ThreeStepHwMapper(BaseMapper[HWMappingInput, MappingInput]):
         self._slice_assigner = slice_assigner
 
 
-    def run(self, mapping_input: HWMappingInput) -> MosaicNetworkMappingState:
+    def run(self, mapping_input: MosaicHWMappingInput) -> MosaicNetworkMappingState:
         """
         the mapping runs in three stages:
             1. clustering

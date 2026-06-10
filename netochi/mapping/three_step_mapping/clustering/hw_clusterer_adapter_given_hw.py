@@ -1,7 +1,7 @@
 
-from netochi.input_generator.interfaces import MappingInput, HWMappingInput
+from netochi.input_generator.interfaces import MosaicHWMappingInput
 from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOutput, ClusterAndHwOutput, \
-    HierarchicalClusterer, ClusteringAdapter, ClusteringAdapterFixedHw, ClustererFixedHw
+    HierarchicalClusterer, ClusteringAdapterFixedHw, ClustererFixedHw
 
 
 class GivenHwClustererAdapter(ClustererFixedHw):
@@ -21,7 +21,7 @@ class GivenHwClustererAdapter(ClustererFixedHw):
         self._clusterer = clusterer
         self._adapter = adapter
 
-    def cluster(self, input_data: HWMappingInput) -> ClusterAndHwOutput:
+    def cluster(self, input_data: MosaicHWMappingInput) -> ClusterAndHwOutput:
         clustering: HierarchicalClusterOutput = self._clusterer.cluster(input_data=input_data)
         adapted_clustering: ClusterAndHwOutput = self._adapter.adapt_clustering(clustering=clustering, hw_config=input_data.hw_config)
         return adapted_clustering
