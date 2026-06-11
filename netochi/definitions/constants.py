@@ -1,3 +1,6 @@
+
+INEQUAL_ASSIGNMENT_OBJECTS = "The hardware configuration in the assignment does not match the hardware configuration in the input."
+
 # Error Message Constants for Mapping
 CORE_ASSIGNMENT_NOT_1D = "neuron_core_idxs_assignment must be a 1D array."
 CORE_ASSIGNMENT_SIZE_MISMATCH = "Core assignment size ({actual}) does not match graph vertices ({expected})."
