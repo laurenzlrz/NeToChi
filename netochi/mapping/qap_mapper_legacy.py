@@ -29,25 +29,22 @@ class QAPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingIn
         x_assignment = assignment.neuron_idx_pre_assignment
         s_assignment = assignment.neuron_slice_assignment
 
-        size = gt_hw.total_neurons
+        hw_num_neurons = gt_hw.total_neurons
 
         # 1. Build Adjacency Matrix A
-        A = np.zeros((size, size))
+        A = np.zeros((hw_num_neurons, hw_num_neurons))
         adj = gt.adjacency(graph).toarray()
         A[:N_graph, :N_graph] = adj
         
         # 2. Build Affinity Matrix B
-        B = np.zeros((size, size))
-        for k in range(N_graph):
-            c_k = k // gt_hw.neurons_per_core
-            for l in range(N_graph):
-                c_l = l // gt_hw.neurons_per_core
+        B = np.zeros((hw_num_neurons, hw_num_neurons))
+        for k in range(hw_num_neurons):
+            c_k = gt_hw.global_neuron_to_local(k)[0]
+            for l in range(hw_num_neurons):
+                c_l = gt_hw.global_neuron_to_local(l)[0]
                 dist = gt_hw.core_distance(c_l, c_k)
-                if dist == 0:
-                    B[k, l] = 1.0
-                else:
-                    s_d = gt_hw.num_slices_at_distance(dist)
-                    B[k, l] = 1.0 / s_d
+                s_d = gt_hw.num_slices_at_distance(dist)
+                B[k, l] = 1.0 / s_d
                     
         # 3. Solve QAP using FAQ
         res = quadratic_assignment(A, B, method='faq', options={'maximize': True})
@@ -56,10 +53,9 @@ class QAPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingIn
         # 4. Map the results back
         for node in range(N_graph):
             slot = perm[node]
-            if slot >= M:
-                slot = slot % M
-            c_assignment[node] = slot // gt_hw.neurons_per_core
-            x_assignment[node] = slot % gt_hw.neurons_per_core
+            local_tuple = gt_hw.global_neuron_to_local(slot)
+            c_assignment[node] = local_tuple[0]
+            x_assignment[node] = local_tuple[1]
             
         # 5. Greedy Slice Selection
         for tgt in range(N_graph):
