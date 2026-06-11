@@ -4,7 +4,8 @@
             "name": "Python Debugger: Python File",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}"
+            "program": "${file}",
+            "python": "/home/laurenz/.virtualenvs/netochi_env/bin/python"
         }
     ]
 }
