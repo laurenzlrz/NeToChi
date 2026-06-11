@@ -8,7 +8,7 @@ import numpy.typing as npt
 from pydantic import ConfigDict, model_validator, BaseModel, Field
 
 from netochi.definitions.exceptions import DimensionError, InvalidAssignmentError
-from netochi.definitions.constants import INEQUAL_ASSIGNMENT_OBJECTS
+from netochi.definitions.constants import INEQUAL_ASSIGNMENT_OBJECTS, TOO_MANY_NEURONS
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 
 
@@ -105,6 +105,9 @@ class MosaicMappingInput(HWMappingInput[MosaicHardwareConfig]):
 
     @model_validator(mode="after")
     def validate_pre_assignment(self) -> "MosaicMappingInput":
+        if self.graph.num_vertices() > self.hw_config.total_neurons:
+            raise DimensionError(TOO_MANY_NEURONS)
+
         if self.assignment is not None:
             if not self.assignment.hw is self.hw_config:  # Ensure the assignment's hardware config matches the input's hardware config
                 raise InvalidAssignmentError(INEQUAL_ASSIGNMENT_OBJECTS)
