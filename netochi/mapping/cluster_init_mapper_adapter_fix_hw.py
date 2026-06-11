@@ -20,6 +20,6 @@ class HwClusterInitMapper(BaseMapper[MosaicNetworkMappingState[Any], MosaicHWMap
     def run(self, mapping_input: MosaicHWMappingInput) -> MosaicNetworkMappingState[Any]:
         # --- 1. compute cluster initialization ---
         clustering = self.clusterer.cluster(mapping_input)
-        mapping_input.core_assignment_initialization = clustering
+        mapping_input.core_assignment_initialization = clustering.cluster_assignment
         return self.mapper.run(mapping_input)
 
