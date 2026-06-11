@@ -3,9 +3,9 @@ from .interfaces import (
     NetworkMappingObjective,
     LogLikelihoodObjectiveInterface,
 )
-from .log_likelihood import LogLikelihoodObjective
-from .inconsistency import InconsistencyObjective
-from .hardware_size import MosaicHardwareSizeObjective
+from .obj_log_likelihood import LogLikelihoodObjective
+from .obj_inconsistency import InconsistencyObjective
+from .obj_hardware_size import MosaicHardwareSizeObjective
 from .constants import *
 from .exceptions import *
 

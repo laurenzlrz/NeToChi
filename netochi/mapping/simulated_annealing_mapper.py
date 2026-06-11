@@ -10,18 +10,24 @@ from netochi.input_generator.interfaces import MosaicHWMappingInput
 
 import numpy as np
 import graph_tool.all as gt
+from dataclasses import dataclass
 
-from netochi.mapping.simulated_annealing_state_mutation_utils import SAState, Mutation, SwapMutation, MoveMutation
-from netochi.mapping.three_step_mapping.interfaces import ClusterAndHwOutput
-from netochi.mapping.three_step_mapping.slice_assignment.optimal_slice_assigner import OptimalSliceAssigner
-
+from netochi.mapping.simulated_annealing_fix_hw.sa_mutation import SAState, Mutation, SwapMutation, MoveMutation
+from netochi.mapping.three_step_mapping.slice_assignment.delta_optimal_slice_assigner import DeltaOptimalSliceAssigner
 
 
 SWAP = 0
 MOVE = 1
 
 
-class SimAnnealingMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], MosaicHWMappingInput[Any]]):
+@dataclass
+class BestStateData:
+    core_assignment: np.ndarray[int]
+    local_assignment: np.ndarray[int]
+    slice_assignment: np.ndarray[int]
+
+
+class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState[Any], MosaicHWMappingInput[Any]]):
     """
     Mapper using simulated annealing. Takes hw config as input.
 
@@ -30,59 +36,76 @@ class SimAnnealingMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], M
     Loss: Given a mapping, we can compute the optimal slice assignment efficiently. We can then compute the number of inconsistencies.
     """
 
+    def __init__(self, /, **data: Any):
+        super().__init__(**data)
+        self.opt_slice_assigner: DeltaOptimalSliceAssigner = None
+        self.state: SAState = None
+        self.graph: gt.Graph = None
+        self.verbose: bool = False
+
     def run(self, mapping_input: MosaicHWMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
-        best_state, best_energy = self._simulated_annealing(mapping_input.graph, mapping_input.hw_config_inferred)
-        clustering: ClusterAndHwOutput = ClusterAndHwOutput(hw=best_state.hw_config, num_clusters=best_state.hw_config.total_cores, cluster_assignment=best_state.core_assignment)
-        slice_assignment = OptimalSliceAssigner().assign_slices(clustering=clustering, graph=mapping_input.graph, local_assignment=best_state.local_assignment)
-        return MosaicNetworkMappingState(mapping_input=mapping_input, neuron_local_idxs_assignment=best_state.local_assignment, neuron_core_idxs_assignment=best_state.core_assignment, neuron_slice_assignments=slice_assignment)
+        # --- 1. initialize ---
+        self.state = SAState(mapping_input)
+        self.opt_slice_assigner = DeltaOptimalSliceAssigner(hw_config=mapping_input.hw_config, graph=mapping_input.graph,
+                                                            cluster_assignment=self.state.core_assignment, local_assignment=self.state.local_assignment)
+        self.graph = mapping_input.graph
+
+        # --- 2. run simulated annealing ---
+        best_state_data: BestStateData = self._run_simulated_annealing()
+
+        return MosaicNetworkMappingState(mapping_input=mapping_input, neuron_local_idxs_assignment=best_state_data.local_assignment, neuron_core_idxs_assignment=best_state_data.core_assignment, neuron_slice_assignments=best_state_data.slice_assignment)
 
 
-    def _simulated_annealing(self, graph, hw_config, T_start=10.0, T_min=0.1, alpha=0.95, steps_per_T=50): # gemini: T_min = 10000, alpha=0.98
-        state = SAState(graph.num_vertices(), hw_config)
-        current_energy = self._compute_energy(state=state, graph=graph)
+    def _run_simulated_annealing(self, T_start=50.0, T_min=0.01, alpha=0.98, steps_per_T=None) -> BestStateData: # gemini: T_start = 10000, alpha=0.98
+        """
+        invariant: slice assigner is always in same state as SA state
+        """
+        if steps_per_T is None:
+            steps_per_T = 10 * self.graph.num_vertices()
 
-        best_state_data = (np.copy(state.slot_to_node), np.copy(state.core_assignment), np.copy(state.local_assignment))
+        current_energy = self._compute_energy()
         best_energy = current_energy
+        best_state_data: BestStateData = BestStateData(core_assignment = self.state.core_assignment.copy(),
+                                                       local_assignment=self.state.local_assignment.copy(),
+                                                       slice_assignment=self.opt_slice_assigner.slice_assignment.copy())
 
         T = T_start
         while T > T_min:
             for _ in range(steps_per_T):
-                # Propose a random change
-                mutation: Mutation = self._propose_mutation(state)
-                new_energy = self._compute_energy(state, graph)
+                # Propose a random mutation
+                mutation: Mutation = self._do_mutation()
+                new_energy = self._compute_energy()
                 delta_E = new_energy - current_energy
 
-                # Acceptance criteria (Metropolis-Hastings)
                 if delta_E < 0 or random.random() < math.exp(-delta_E / T):
-                    # Accept change permanently
+                    # Accept mutation permanently
                     current_energy = new_energy
                     if current_energy < best_energy:
                         best_energy = current_energy
-                        best_state_data = (np.copy(state.slot_to_node), np.copy(state.core_assignment), np.copy(state.local_assignment))
+                        best_state_data: BestStateData = BestStateData(core_assignment=self.state.core_assignment.copy(),
+                                                                       local_assignment=self.state.local_assignment.copy(),
+                                                                       slice_assignment=self.opt_slice_assigner.slice_assignment.copy())
+
                 else:
-                    # Reject and revert state
-                    mutation.undo(state)
+                    # Reject and undo mutation
+                    mutation.undo(state=self.state, slice_assigner=self.opt_slice_assigner)
             # Cool down
             T *= alpha
-            print(f"Temp: {T:.2f} | Current Energy: {current_energy:.2f} | Best Energy: {best_energy:.2f}")
+            if self.verbose:
+                print(f"Temp: {T:.2f} | Current Energy: {current_energy:.2f} | Best Energy: {best_energy:.2f}")
 
-        # Restore best found configuration
-        state.slot_to_node, state.core_assignment, state.local_assignment = best_state_data
-        return state, best_energy
+        return best_state_data
 
-    def _compute_energy(self, state: SAState, graph: gt.Graph) -> int:
-        # 1. compute optimal slice assignment
-        clustering: ClusterAndHwOutput = ClusterAndHwOutput(hw=state.hw_config, num_clusters=state.hw_config.total_cores, cluster_assignment=state.core_assignment)
-        opt_slice_assignment = OptimalSliceAssigner().assign_slices(clustering, graph, local_assignment=state.local_assignment)
+    def _compute_energy(self) -> int:
+        return self._compute_inconsistencies(core_assignment=self.state.core_assignment,
+                                             local_assignment=self.state.local_assignment,
+                                             opt_slice_assignment=self.opt_slice_assigner.slice_assignment,
+                                             hw=self.state.hw_config,
+                                             graph=self.graph)
 
-        # 2. compute energy
-        nr_inconsistencies: int = self._compute_inconsistencies(core_assignment=state.core_assignment, local_assignment=state.local_assignment,
-                                                                opt_slice_assignment=opt_slice_assignment, hw=state.hw_config, graph=graph)
-        return nr_inconsistencies
-
-    def _propose_mutation(self, state: SAState) -> Mutation:
-        num_nodes = len(state.core_assignment)
-        num_slots = state.slot_to_node.size
+    def _do_mutation(self) -> Mutation:
+        num_nodes = len(self.state.core_assignment)
+        num_slots = self.state.slot_to_node.size
 
         # Decide between a Swap (0) or a Move to an empty slot (1)
         # If the hardware is 100% full, force a swap
@@ -92,20 +115,19 @@ class SimAnnealingMapper(BaseModel, BaseMapper[MosaicNetworkMappingState[Any], M
             # SWAP: Pick two unique graph nodes
             node_a, node_b = random.sample(range(num_nodes), 2)
             swap_mutation = SwapMutation(node_a, node_b)
-            swap_mutation.do(state=state)
+            swap_mutation.do(state=self.state, slice_assigner=self.opt_slice_assigner, graph=self.graph)
             return swap_mutation
         else:
             # MOVE: Pick a node and a guaranteed empty slot
-            node = random.randint(0, num_nodes - 1)
-            empty_cores, empty_locals = np.where(state.slot_to_node == -1)
-            random_idx = random.randrange(len(empty_cores))
-            new_core = empty_cores[random_idx]
-            new_local_address = empty_locals[random_idx]
+            node: int = random.randint(0, num_nodes - 1)
+            empty_cores, empty_locals  = np.where(self.state.slot_to_node == -1)
+            random_idx: int = random.randrange(len(empty_cores))
+            new_core: int = empty_cores[random_idx].item()
+            new_local_address: int = empty_locals[random_idx].item()
+
             move_mutation = MoveMutation(node, new_core, new_local_address)
-            move_mutation.do(state=state)
+            move_mutation.do(state=self.state, slice_assigner=self.opt_slice_assigner, graph=self.graph)
             return move_mutation
-
-
 
     def _compute_inconsistencies(self, core_assignment, local_assignment, opt_slice_assignment, hw: MosaicHardwareConfig, graph: gt.Graph) -> int:
         e_valid = 0

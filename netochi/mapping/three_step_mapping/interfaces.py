@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
-from netochi.input_generator.interfaces import MappingInput
+from netochi.input_generator.interfaces import MappingInput, MosaicHWMappingInput, HWMappingInput
 
 import graph_tool as gt
 
@@ -46,10 +46,28 @@ class HierarchicalClusterer(ABC):
     def cluster(self, input_data: MappingInput) -> HierarchicalClusterOutput:
         pass
 
-
-class HwClusterer(Clusterer):
+class ClustererOutputsHw(Clusterer):
     """
-    infers a clustering and the corresponding hardware
+    outputs a clustering that fits onto the given hardware
+    """
+
+    @abstractmethod
+    def cluster(self, input_data: MosaicHWMappingInput) -> ClusterAndHwOutput:
+        pass
+
+
+class ClustererFixedHw(ClustererOutputsHw):
+    """
+    outputs a clustering that fits onto the given hardware
+    """
+
+    @abstractmethod
+    def cluster(self, input_data: HWMappingInput) -> ClusterAndHwOutput:
+        pass
+
+class ClustererInferHw(ClustererOutputsHw):
+    """
+    outputs a clustering and the corresponding hardware
     Clustering needs to fit on the outputted hardware!!!
     """
 
@@ -59,16 +77,16 @@ class HwClusterer(Clusterer):
 
 class ClusteringAdapter:
     """
-    given a hierarchical clustering, it infers hardware and adapts clustering, so that it fits the hardware
+    given a hierarchical clustering, it infers hardware and adapts clustering so that it fits the hardware
     """
 
     @abstractmethod
     def adapt_clustering(self, clustering: HierarchicalClusterOutput) -> ClusterAndHwOutput:
         pass
 
-class HwClusteringAdapter:
+class ClusteringAdapterFixedHw:
     """
-    given a hierarchical clustering, it infers hardware and adapts clustering, so that it fits the hardware
+    given a hierarchical clustering, and hardware, it adapts clustering so that it fits the hardware
     """
 
     @abstractmethod

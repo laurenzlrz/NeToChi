@@ -30,7 +30,7 @@ class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
 
     def get_name(self) -> str:
         """Returns a concise name reflecting size and probability."""
-        return f"Mosaic_{self.hw_config.total_neurons}n_p{self.probability}"
+        return f"FeasibleMosaicNetwork_{self.hw_config.total_neurons}n_p{self.probability}"
 
     @validate_call
     def generate(self) -> MosaicMappingInput:
@@ -50,7 +50,7 @@ class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
             graph=gt_graph,
             descriptions=descriptions,
             hw_config=self.hw_config,
-            assignment=assignment
+            assignment=assignment # fully defines the ground truth (because core and local address assignment only depend on neuron id)
         )
 
     @validate_call

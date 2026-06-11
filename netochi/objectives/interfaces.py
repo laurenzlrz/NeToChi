@@ -1,14 +1,14 @@
 from abc import ABC, abstractmethod
-from typing import TypeVar, Generic, List, Dict, Any, Optional
-import numpy as np
+from typing import TypeVar, Generic, Any
 from pydantic import BaseModel, ConfigDict
-from netochi.mapping.interfaces import MappingState
+
+from netochi.mapping.interfaces import BaseMosaicMappingState
 
 # -----------------------------------------------------------------------------
 # Type Variables for Objectives
 # -----------------------------------------------------------------------------
-MAPPING_STATE = TypeVar('MAPPING_STATE', bound=MappingState[Any])
-MAPPING_STATE2 = TypeVar('MAPPING_STATE2', bound=MappingState[Any])
+MAPPING_STATE = TypeVar('MAPPING_STATE', bound=BaseMosaicMappingState[Any])
+MAPPING_STATE2 = TypeVar('MAPPING_STATE2', bound=BaseMosaicMappingState[Any])
 
 # -----------------------------------------------------------------------------
 # Objective Interfaces
