@@ -14,6 +14,8 @@ class MosaicHardwareConfig(BaseModel):
     router_levels: int = Field(ge=0, description="Number of levels in the router hierarchy.")
     slice_factor: int = Field(default=2, gt=0, description="Factor determining slice sizes for fan-in.")
 
+    #TODO EXTRACT CONSTANT STRINGS
+
     @model_validator(mode="after")
     def validate_config(self) -> "MosaicHardwareConfig":
         if self.slice_factor > self.neurons_per_core:
@@ -34,6 +36,24 @@ class MosaicHardwareConfig(BaseModel):
     @property
     def max_distance(self) -> int:
         return self.router_levels
+
+    def local_to_global_neuron(self, core_idx: int, local_idx: int) -> int:
+        """Convert (core_idx, local_idx) to a global neuron index."""
+        if core_idx < 0 or core_idx >= self.total_cores:
+            raise InvalidConfigError(f"Core index {core_idx} is out of bounds for total cores {self.total_cores}.")
+        if local_idx < 0 or local_idx >= self.neurons_per_core:
+            raise InvalidConfigError(f"Local neuron index {local_idx} is out of bounds for neurons per core {self.neurons_per_core}.")
+
+        return core_idx * self.neurons_per_core + local_idx
+
+    def global_neuron_to_local(self, global_neuron_idx: int) -> tuple[int, int]:
+        """Convert a global neuron index to (core_idx, local_idx) tuple."""
+        if global_neuron_idx < 0 or global_neuron_idx >= self.total_neurons:
+            raise InvalidConfigError(f"Global neuron index {global_neuron_idx} is out of bounds for total neurons {self.total_neurons}.")
+
+        core_idx = global_neuron_idx // self.neurons_per_core
+        local_idx = global_neuron_idx % self.neurons_per_core
+        return core_idx, local_idx
 
     def core_distance(self, core_a: int, core_b: int) -> int:
         """Calculate the hierarchical distance between two cores."""
