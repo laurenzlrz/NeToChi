@@ -104,3 +104,7 @@ class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicHWMappingInput[An
                 graph.add_edges_from((int(src), target_neuron) for src in selected_sources)
         
         object.__setattr__(self, '_graph', graph)
+
+    def get_id(self):
+        return f"Mosaic_R={self.hw_config.nodes_per_router}_l={self.hw_config.router_levels}_N={self.hw_config.neurons_per_core}_p={self.probability}_seed={self.seed}"
+

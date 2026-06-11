@@ -37,6 +37,10 @@ class Evaluator(BaseModel, Generic[MAPPING_STATE, BASELINE_STATE]):
     metrics: List[MappingMetric[MAPPING_STATE, BASELINE_STATE]]
 
     def evaluate_all(self, state: MAPPING_STATE, baseline: Optional[BASELINE_STATE]) -> Tuple[Dict[str, float], Dict[str, float]]:
+        """
+        returns tuple of (raw_results, rel_results)
+        both results are dictionaries: metric_name -> metric_value
+        """
         raw_results: Dict[str, float] = {}
         rel_results: Dict[str, float] = {}
         for metric in self.metrics:
@@ -168,6 +172,7 @@ class PipelineRunner(BaseModel, BasePipelineRunner):
 
 
                 result = ExperimentResult(
+                    input_id= factory.get_id(),
                     mapper_name=mapper_name,
                     input_metadata=meta,
                     metrics=rel_metric_values,

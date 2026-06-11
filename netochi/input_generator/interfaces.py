@@ -50,3 +50,9 @@ class HWBaseInputFactory(Generic[WITH_HW_INPUT_CO]):
         Returns a MappingInput object.
         """
         raise NotImplementedError
+
+    def get_id(self):
+        """
+        Returns a unique identifier for the generated networks (graph type, input size, ...)
+        """
+        raise NotImplementedError

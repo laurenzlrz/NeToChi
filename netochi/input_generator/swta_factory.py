@@ -102,14 +102,14 @@ class SwtaFactory(HWBaseInputFactory[MosaicHWMappingInput[SwtaNetworkResult]]):
         frozen=True
     )
 
-    def __init__(self, hw_config: MosaicHardwareConfig, inhibitory_ratio: float = 0.2, p_neighbor: float = 0.1, p_e_to_i: float = 0.2, p_i_to_e: float = 0.8, seed: int = 42):
+    def __init__(self, hw_config: MosaicHardwareConfig, seed: int = 42):
         self.hw_config = hw_config
         self.num_clusters: int = hw_config.total_cores
         self.neurons_per_cluster: int = hw_config.neurons_per_core
-        self.inhibitory_ratio = inhibitory_ratio
-        self.p_neighbor = p_neighbor
-        self.p_e_to_i = p_e_to_i
-        self.p_i_to_e = p_i_to_e
+        self.inhibitory_ratio = 0.2
+        self.p_neighbor = 0.1
+        self.p_e_to_i = 0.2
+        self.p_i_to_e = 0.8
         self.seed = seed
 
     def generate(self) -> MosaicHWMappingInput[SwtaNetworkResult]:
@@ -142,3 +142,7 @@ class SwtaFactory(HWBaseInputFactory[MosaicHWMappingInput[SwtaNetworkResult]]):
             payload=SwtaNetworkResult(graph=nx_graph, config=config),
             pre_assignment=None
         )
+
+    def get_id(self):
+        return f"sWTA_nrClusters={self.num_clusters}_N={self.neurons_per_cluster}_seed={self.seed}"
+

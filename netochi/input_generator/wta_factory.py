@@ -63,3 +63,7 @@ class WTAFactory(BaseModel, HWBaseInputFactory[MosaicHWMappingInput[Any]]):
             payload=None,
             pre_assignment=None
         )
+
+    def get_id(self):
+        return f"WTA_n={self.n}_p={self.probability}_seed={self.seed}"
+

@@ -9,6 +9,7 @@ class ExperimentResult(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
     mapper_name: str
+    input_id: str
     input_metadata: Dict[str, str]
     metrics: Dict[str, float]
     raw_metrics: Dict[str, float] = Field(default_factory=dict)

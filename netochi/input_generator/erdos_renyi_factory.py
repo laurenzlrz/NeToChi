@@ -41,3 +41,7 @@ class ErdosRenyiFactory(BaseModel, HWBaseInputFactory[MosaicHWMappingInput[Any]]
             payload=None,
             pre_assignment=None  # ER graphs don't have a default hardware mapping
         )
+
+    def get_id(self):
+        return f"ErdosRenyi_n={self.n}_p={self.probability}_seed={self.seed}"
+
