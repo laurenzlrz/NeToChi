@@ -33,5 +33,5 @@ class ObjectiveMetric(MappingMetric[MAPPING_STATE, BASELINE_STATE], Generic[MAPP
 
     def get_name(self) -> str:
         """Return the name of the wrapped objective."""
-        return self.objective.__class__.__name__
+        return self.objective.get_name()
 

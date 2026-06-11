@@ -19,3 +19,7 @@ class MosaicHardwareSizeObjective(MappingObjective[BaseMosaicMappingState[ANY_MA
         if baseline_size <= 0:
             return float('inf')
         return self.evaluate(state) / baseline_size
+
+    def get_name(self) -> str:
+        return "Hardware Size"
+

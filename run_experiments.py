@@ -34,11 +34,9 @@ from netochi.objectives.obj_inconsistency import InconsistencyObjective
 from netochi.objectives.obj_hardware_size import MosaicHardwareSizeObjective
 from netochi.objectives.interfaces import MappingObjective
 from netochi.pipeline.constants import (
-    REPORT_DIVIDER, REPORT_SUBDIVIDER, REPORT_HEADER_BASELINE, REPORT_HEADER_PURE,
-    TABLE_HEADER_REL_FORMAT, TABLE_HEADER_RAW_FORMAT, TABLE_ROW_REL_FORMAT, TABLE_ROW_RAW_FORMAT,
+    REPORT_DIVIDER, REPORT_HEADER_BASELINE, REPORT_HEADER_PURE,
     KEY_GRAPH_TYPE, KEY_UNKNOWN, DEFAULT_METRIC_VALUE
 )
-from netochi.objectives.constants import OBJ_NAME_LL, OBJ_NAME_INCONSISTENCY, OBJ_NAME_HW_SIZE
 
 
 
@@ -107,6 +105,38 @@ def define_evaluators() -> Evaluator[BaseMosaicMappingState[Any], BaseMosaicMapp
     return standard_evaluator
 
 
+def print_metrics(summary, metric_keys, raw: bool):
+
+    col_width = max([len(key_name) for key_name in metric_keys])
+    header_metrics_str = " | ".join([f"{key:<{col_width}}" for key in metric_keys])
+    header = f"{'Mapper':<{col_width}} | {'Graph Type':<{col_width}} | {header_metrics_str} | {'Elapsed (s)':<{col_width}}"
+
+    report_divider = "=" * (col_width * (len(metric_keys) + 3))
+    report_subdivider = "-" * (col_width * (len(metric_keys) + 3))
+
+    print("\n" + report_divider)
+    if raw:
+        print(REPORT_HEADER_PURE)
+    else:
+        print(REPORT_HEADER_BASELINE)
+    print(report_divider)
+    print(header)
+    print(report_subdivider)
+    for res in summary.results:
+        graph_type = res.input_metadata.get(KEY_GRAPH_TYPE, KEY_UNKNOWN)
+        metrics_str_list = []
+        for key in metric_keys:
+            if raw:
+                val = res.raw_metrics.get(key, DEFAULT_METRIC_VALUE)
+            else:
+                val = res.metrics.get(key, DEFAULT_METRIC_VALUE)
+            if isinstance(val, float):
+                metrics_str_list.append(f"{val:<{col_width}.4f}")
+            else:
+                metrics_str_list.append(f"{str(val):<{col_width}}")
+        metrics_row_str = " | ".join(metrics_str_list)
+        print(f"{res.mapper_name:<{col_width}} | {graph_type:<{col_width}} | {metrics_row_str} | {res.execution_time_s:<12.2f}")
+
 def run_experiment() -> None:
 
     # === 1. define mosaic tasks ===
@@ -132,46 +162,21 @@ def run_experiment() -> None:
     summary = runner.run()
 
     # === 3. Summary Report ===
-    print("\n" + REPORT_DIVIDER)
-    print(REPORT_HEADER_BASELINE)
-    print(REPORT_DIVIDER)
-    print(TABLE_HEADER_REL_FORMAT)
-    print(REPORT_SUBDIVIDER)
-    
+    # Dynamically extract all unique metric names from the results
+    metric_keys_dict = {}
     for res in summary.results:
-        rel_ll = res.metrics.get(OBJ_NAME_LL, DEFAULT_METRIC_VALUE)
-        rel_inc = res.metrics.get(OBJ_NAME_INCONSISTENCY, DEFAULT_METRIC_VALUE)
-        rel_hw = res.metrics.get(OBJ_NAME_HW_SIZE, DEFAULT_METRIC_VALUE)
-        graph_type = res.input_metadata.get(KEY_GRAPH_TYPE, KEY_UNKNOWN)
-        print(TABLE_ROW_REL_FORMAT.format(
-            mapper=res.mapper_name,
-            graph_type=graph_type,
-            rel_ll=rel_ll,
-            rel_inc=rel_inc,
-            rel_hw=rel_hw,
-            elapsed=res.execution_time_s
-        ))
+        for key in res.metrics.keys():
+            metric_keys_dict[key] = None
+    metric_keys = list(metric_keys_dict.keys())
 
-    print("\n" + REPORT_DIVIDER)
-    print(REPORT_HEADER_PURE)
-    print(REPORT_DIVIDER)
-    print(TABLE_HEADER_RAW_FORMAT)
-    print(REPORT_SUBDIVIDER)
+    # Build dynamic format strings for the headers
 
-    for res in summary.results:
-        raw_ll = res.raw_metrics.get(OBJ_NAME_LL, DEFAULT_METRIC_VALUE)
-        raw_inc = res.raw_metrics.get(OBJ_NAME_INCONSISTENCY, DEFAULT_METRIC_VALUE)
-        raw_hw = res.raw_metrics.get(OBJ_NAME_HW_SIZE, DEFAULT_METRIC_VALUE)
-        graph_type = res.input_metadata.get(KEY_GRAPH_TYPE, KEY_UNKNOWN)
-        print(TABLE_ROW_RAW_FORMAT.format(
-            mapper=res.mapper_name,
-            graph_type=graph_type,
-            raw_ll=raw_ll,
-            raw_inc=raw_inc,
-            raw_hw=raw_hw,
-            elapsed=res.execution_time_s
-        ))
-    
+    # Print Relative Metrics
+    print_metrics(summary=summary, metric_keys=metric_keys, raw=False)
+
+    # Print Raw Metrics
+    print_metrics(summary=summary, metric_keys=metric_keys, raw=True)
+
     print(REPORT_DIVIDER)
     print(f"Total Experiment Time: {summary.total_time_s:.2f}s")
     print("Experiment Complete.")

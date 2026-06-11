@@ -40,3 +40,6 @@ class UnusedConnectionsObjective(MappingObjective[BaseMosaicMappingState[ANY_MAP
             'm': graph.num_edges(),
             'in_edges': [[int(src) for src in v.in_neighbors()] for v in graph.vertices()]
         }
+
+    def get_name(self) -> str:
+        return "Unused Connections"

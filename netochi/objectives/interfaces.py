@@ -34,6 +34,9 @@ class MappingObjective(BaseModel, Generic[MAPPING_STATE, MAPPING_STATE2]):
         """
         raise NotImplementedError
 
+    def get_name(self) -> str:
+        return self.__class__.__name__
+
 
 class NetworkMappingObjective(MappingObjective[MAPPING_STATE, MAPPING_STATE2], Generic[MAPPING_STATE, MAPPING_STATE2]):
     """

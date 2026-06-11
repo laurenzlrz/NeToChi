@@ -18,3 +18,7 @@ class InconsistencyRelativeObjective(InconsistencyObjective[BaseMosaicMappingSta
         inconsistencies = super().evaluate(state)
         return float(inconsistencies) / float(self._graph_cache[id(state.mapping_input)]['m'])
 
+    def get_name(self) -> str:
+        return "Inconsistencies (Fraction)"
+
+
