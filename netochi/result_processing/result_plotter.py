@@ -5,6 +5,7 @@ import numpy as np
 from collections import defaultdict
 
 from netochi.pipeline import PipelineSummary
+from netochi.result_processing.config import OUTPUT_DIR_PLOTS
 
 
 def plot_results(summary: PipelineSummary):
@@ -14,8 +15,7 @@ def plot_results(summary: PipelineSummary):
     """
     # 1. Nest data: input_id -> metric -> mapper_name -> list of values
     # (Using a list handles potential duplicate/replicated runs gracefully)
-    output_dir = "result_plots"
-    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(OUTPUT_DIR_PLOTS, exist_ok=True)
 
     structured_data = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
 
@@ -77,7 +77,7 @@ def plot_results(summary: PipelineSummary):
             clean_metric = str(metric).replace(" ", "_").replace("/", "_").replace("\\", "_")
 
             filename = f"{clean_input_id}_{clean_metric}.png"
-            filepath = os.path.join(output_dir, filename)
+            filepath = os.path.join(OUTPUT_DIR_PLOTS, filename)
 
             # 4. Save file and close the plot context to free up RAM
             plt.savefig(filepath, dpi=300)

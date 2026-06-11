@@ -38,6 +38,7 @@ from netochi.pipeline.constants import (
     REPORT_DIVIDER, REPORT_HEADER_BASELINE, REPORT_HEADER_PURE,
     KEY_GRAPH_TYPE, KEY_UNKNOWN, DEFAULT_METRIC_VALUE
 )
+from netochi.result_processing.result_exporter import export_summary_to_csv
 from netochi.result_processing.result_plotter import plot_results
 
 # ======================= CONFIGURE PIPELINE HERE =============================
@@ -62,7 +63,8 @@ HW_CONFIGS = [
 ]
 
 MAPPERS = [
-    SimAnnealingMapper()
+    SimAnnealingMapper(),
+    GreedyMapper()
 ]
 
 SEED = 42
@@ -177,8 +179,11 @@ def run_experiment() -> None:
     # Print Raw Metrics
     print_metrics(summary=summary, metric_keys=metric_keys, raw=True)
 
-    # === 3. Plot results ===
+    # === 4. Plot results ===
     plot_results(summary)
+
+    # === 5. Save results ===
+    export_summary_to_csv(summary)
 
     print(REPORT_DIVIDER)
     print(f"Total Experiment Time: {summary.total_time_s:.2f}s")
