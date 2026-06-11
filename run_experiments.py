@@ -15,9 +15,9 @@ from netochi.mapping.greedy_mapper import GreedyMapper
 from netochi.mapping.mcmc.mcmc_mapper import MCMCMapper
 from netochi.mapping.mcmc.joint_inference_mapper import JointInferenceMapper
 from netochi.mapping.qap_mapper import QAPMapper
+from netochi.mapping.three_step_mapping.hcd_pca_opt_three_step_mapper import HcdPcaOptThreeStepMapper
 from netochi.mapping.simulated_annealing_mapper import SimAnnealingMapper
 
-from netochi.mapping.three_step_mapping.hcd_pca_opt_three_step_mapper import HcdPcaOptThreeStepMapper
 from netochi.objectives.obj_inconsistency_relative import InconsistencyRelativeObjective
 from netochi.objectives.obj_unused_connections import UnusedConnectionsObjective
 from netochi.pipeline.runner import (
@@ -67,6 +67,8 @@ MAPPERS = [
     SimAnnealingMapper()
 ]
 
+SEED = 42
+
 # ==============================================================================
 
 def define_task_inputs() -> List[Tuple[HWBaseInputFactory, BaseBaselineProvider]]:
@@ -74,18 +76,18 @@ def define_task_inputs() -> List[Tuple[HWBaseInputFactory, BaseBaselineProvider]
     # 1. Define the inputs (Factories)
     probabilities = [0.1, 0.5]
     mosaic_factories: List[HWBaseInputFactory[MosaicHWMappingInput[Any]]] = [
-        MosaicNetworkFactory(hw_config=HW_SMALL, probability=p, seed=42) for p in probabilities
+        MosaicNetworkFactory(hw_config=HW_SMALL, probability=p, seed=SEED) for p in probabilities
     ]
     er_factories: List[HWBaseInputFactory[MosaicHWMappingInput[Any]]] = [
-        ErdosRenyiFactory(hw_config=HW_SMALL, n=60, probability=p, seed=42) for p in probabilities
+        ErdosRenyiFactory(hw_config=HW_SMALL, n=HW_SMALL.total_neurons, probability=p, seed=SEED) for p in probabilities
     ]
     swta_factories: List[HWBaseInputFactory[MosaicHWMappingInput[Any]]] = [
-        SwtaFactory(hw_config=HW_SMALL, num_clusters=4, neurons_per_cluster=15, seed=42)
+        SwtaFactory(hw_config=HW_SMALL, seed=SEED)
     ]
 
     # 2. Define Baseline Providers
     gt_baseline = MosaicGroundTruthBaselineProvider()
-    random_baseline = MapperBaselineProvider(mapper=RandomMapper(seed=42))
+    random_baseline = MapperBaselineProvider(mapper=RandomMapper(seed=SEED))
 
     # 3. generate task inputs
     task_inputs: List[Tuple[HWBaseInputFactory[MosaicHWMappingInput[Any]], BaseBaselineProvider[

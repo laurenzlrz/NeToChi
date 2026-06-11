@@ -93,7 +93,7 @@ class SwtaNetwork:
         return self._graph
 
 
-class SwtaFactory(BaseModel, HWBaseInputFactory[MosaicHWMappingInput[SwtaNetworkResult]]):
+class SwtaFactory(HWBaseInputFactory[MosaicHWMappingInput[SwtaNetworkResult]]):
     """
     Factory generating soft Winner-Takes-All (sWTA) networks.
     """
@@ -102,14 +102,15 @@ class SwtaFactory(BaseModel, HWBaseInputFactory[MosaicHWMappingInput[SwtaNetwork
         frozen=True
     )
 
-    hw_config: MosaicHardwareConfig
-    num_clusters: int = Field(..., gt=0)
-    neurons_per_cluster: int = Field(..., gt=0)
-    inhibitory_ratio: float = 0.2
-    p_neighbor: float = 0.1
-    p_e_to_i: float = 0.2
-    p_i_to_e: float = 0.8
-    seed: int = 42
+    def __init__(self, hw_config: MosaicHardwareConfig, inhibitory_ratio: float = 0.2, p_neighbor: float = 0.1, p_e_to_i: float = 0.2, p_i_to_e: float = 0.8, seed: int = 42):
+        self.hw_config = hw_config
+        self.num_clusters: int = hw_config.total_cores
+        self.neurons_per_cluster: int = hw_config.neurons_per_core
+        self.inhibitory_ratio = inhibitory_ratio
+        self.p_neighbor = p_neighbor
+        self.p_e_to_i = p_e_to_i
+        self.p_i_to_e = p_i_to_e
+        self.seed = seed
 
     def generate(self) -> MosaicHWMappingInput[SwtaNetworkResult]:
         """Generate a single MosaicMappingInput with an sWTA graph."""
