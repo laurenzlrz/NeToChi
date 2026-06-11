@@ -1,5 +1,6 @@
 
 INEQUAL_ASSIGNMENT_OBJECTS = "The hardware configuration in the assignment does not match the hardware configuration in the input."
+TOO_MANY_NEURONS = "Graph has more neurons than the hardware can accommodate."
 
 # Error Message Constants for Mapping
 CORE_ASSIGNMENT_NOT_1D = "neuron_core_idxs_assignment must be a 1D array."
