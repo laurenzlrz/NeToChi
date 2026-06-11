@@ -119,6 +119,18 @@ class MosaicHardwareConfig(BaseModel):
                 f"with local idx {local_val} exceeds hardware limits."
             )
 
+        if assignment.neuron_core_pre_assignment.size > 0:
+            # Count how many neurons are assigned to each specific core
+            core_counts = np.bincount(assignment.neuron_core_pre_assignment, minlength=self.total_cores)
+            max_neurons_in_a_core = np.max(core_counts)
+
+            if max_neurons_in_a_core > self.neurons_per_core:
+                overcrowded_core = np.argmax(core_counts)
+                raise InvalidAssignmentError(
+                    f"Core {overcrowded_core} has been assigned {core_counts[overcrowded_core]} neurons, "
+                    f"which exceeds the maximum hardware capacity of {self.neurons_per_core} neurons per core."
+                )
+
         if assignment.neuron_slice_assignment.shape[1] != self.router_levels + 1:
             raise DimensionError(
                 f"neuron_slice_assignment must have {self.router_levels + 1} columns "
