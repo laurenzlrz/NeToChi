@@ -14,20 +14,19 @@ PAYLOAD = TypeVar('PAYLOAD')
 
 
 
-class BaseMosaicMappingState(Generic[ANY_MAPPING_INPUT]):
+class BaseMosaicMappingState(BaseModel, Generic[ANY_MAPPING_INPUT]):
     """
     Abstract base state for all Mosaic mappers.
     Contains the assignment arrays.
     """
+    model_config = {"arbitrary_types_allowed": True}
+
     neuron_core_idxs_assignment: npt.NDArray[np.int_] = Field(description="[neuron_idx] -> core_idx")
     neuron_local_idxs_assignment: npt.NDArray[np.int_] = Field(description="[neuron_idx] -> local_neuron_idx")
     neuron_slice_assignments: np.ndarray[tuple[Any, Any], np.dtype[np.int_]] = Field(description="[neuron_idx, dist] -> slice_idx")
 
     @property
     def hw(self) -> MosaicHardwareConfig: raise NotImplementedError()
-
-    @property
-    def mapping_input(self) -> ANY_MAPPING_INPUT: raise NotImplementedError()
 
     @property
     def c(self) -> npt.NDArray[np.int_]: return self.neuron_core_idxs_assignment

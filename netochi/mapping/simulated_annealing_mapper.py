@@ -2,8 +2,6 @@ import math
 import random
 from typing import Any
 
-from pydantic import BaseModel
-
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
 from netochi.input_generator.interfaces import MosaicHWMappingInput
@@ -56,7 +54,7 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState[Any], MosaicHWMapp
         return MosaicNetworkMappingState(mapping_input=mapping_input, neuron_local_idxs_assignment=best_state_data.local_assignment, neuron_core_idxs_assignment=best_state_data.core_assignment, neuron_slice_assignments=best_state_data.slice_assignment)
 
 
-    def _run_simulated_annealing(self, T_start=50.0, T_min=0.01, alpha=0.98, steps_per_T=None) -> BestStateData: # gemini: T_start = 10000, alpha=0.98
+    def _run_simulated_annealing(self, T_start=50.0, T_min=0.01, alpha=0.98, steps_per_T=100) -> BestStateData: # gemini: T_start = 10000, alpha=0.98
         """
         invariant: slice assigner is always in same state as SA state
         """

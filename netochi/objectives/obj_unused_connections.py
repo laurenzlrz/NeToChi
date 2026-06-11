@@ -1,4 +1,7 @@
 from typing import Generic, Any, Dict
+
+from pydantic import PrivateAttr, ConfigDict
+
 from netochi.objectives.interfaces import MappingObjective
 from netochi.mapping.interfaces import BaseMosaicMappingState, ANY_MAPPING_INPUT
 from netochi.objectives.utils import compute_e_valid, compute_total_hw_connections
@@ -9,6 +12,8 @@ class UnusedConnectionsObjective(MappingObjective[BaseMosaicMappingState[ANY_MAP
     Objective that measures the hardware size (core count).
     Supports relative evaluation against a baseline.
     """
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    _graph_cache: Dict[int, Any] = PrivateAttr(default_factory=dict)
 
     def evaluate(self, state: BaseMosaicMappingState[ANY_MAPPING_INPUT]) -> float:
         """Returns the total number of cores in the hardware configuration."""
