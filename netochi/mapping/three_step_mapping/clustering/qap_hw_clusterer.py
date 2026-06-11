@@ -1,3 +1,4 @@
+from typing import Any, cast
 import graph_tool.all as gt
 import numpy as np
 from pydantic import BaseModel, ConfigDict
@@ -7,7 +8,7 @@ from netochi.input_generator.interfaces import MosaicMappingInput
 from netochi.mapping.three_step_mapping.interfaces import ClusterAndHwOutput, ClustererFixedHw
 
 
-class QAPClustererHW(BaseModel, ClustererFixedHw):
+class QapHwClusterer(ClustererFixedHw):
     """
     Mapper based on the Quadratic Assignment Problem (QAP).
 
@@ -15,10 +16,10 @@ class QAPClustererHW(BaseModel, ClustererFixedHw):
     """
     model_config = ConfigDict(frozen=True)
 
-    def cluster(self, mapping_input: MosaicMappingInput) -> ClusterAndHwOutput:
+    def cluster(self, input_data: MosaicMappingInput) -> ClusterAndHwOutput:
         """Find core and address allocations using QAP FAQ heuristic."""
-        graph = mapping_input.graph
-        gt_hw = mapping_input.hw_config
+        graph = input_data.graph
+        gt_hw = input_data.hw_config
         N_graph = graph.num_vertices()
 
 
@@ -26,7 +27,7 @@ class QAPClustererHW(BaseModel, ClustererFixedHw):
 
         # 1. Build Adjacency Matrix A
         A = np.zeros((hw_num_neurons, hw_num_neurons))
-        adj = gt.adjacency(graph).toarray()
+        adj = cast(Any, gt.adjacency(graph)).toarray()
         A[:N_graph, :N_graph] = adj
 
         # 2. Build Affinity Matrix B
@@ -52,4 +53,4 @@ class QAPClustererHW(BaseModel, ClustererFixedHw):
             local_tuple = gt_hw.global_neuron_to_local(slot)
             core_assignment[node] = local_tuple[0]
 
-        return ClusterAndHwOutput(cluster_assignment=core_assignment.astype(np.int_), num_clusters=num_clusters, hw=mapping_input.hw_config)
+        return ClusterAndHwOutput(cluster_assignment=core_assignment.astype(np.int_), num_clusters=num_clusters, hw=input_data.hw_config)

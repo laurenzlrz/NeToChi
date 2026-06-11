@@ -23,7 +23,7 @@ class OptimalSliceAssigner(SliceAssigner):
         s_assignment = np.zeros((num_targets, max_dist + 1), dtype=np.int_)
 
         for tgt in range(graph.num_vertices()):
-            tgt_core = clustering.cluster_assignment[tgt]
+            tgt_core = int(clustering.cluster_assignment[tgt])
             for d in range(1, clustering.hw.max_distance + 1):
                 best_slice = 0
                 max_sources = -1
@@ -34,7 +34,7 @@ class OptimalSliceAssigner(SliceAssigner):
                     start, end = clustering.hw.get_slice_bounds(d, s_idx)
                     for src in graph.get_in_neighbors(tgt):
                         # for every source neuron: checks whether core distance = d and whether its local assignment is in current slice
-                        src_core = clustering.cluster_assignment[src]
+                        src_core = int(clustering.cluster_assignment[src])
                         if clustering.hw.core_distance(tgt_core, src_core) == d:
                             if start <= local_assignment[src] < end:
                                 count += 1

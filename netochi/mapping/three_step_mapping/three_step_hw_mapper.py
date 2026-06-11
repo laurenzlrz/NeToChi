@@ -3,10 +3,11 @@ from netochi.mapping.three_step_mapping.interfaces import LocalAddressAssigner, 
     ClusterAndHwOutput, ClustererFixedHw
 
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
-from netochi.input_generator.interfaces import MappingInput, MosaicHWMappingInput
+from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput, MosaicAssignment
+import numpy as np
 
 
-class ThreeStepHwMapper(BaseMapper[MosaicHWMappingInput, MappingInput]):
+class ThreeStepHwMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
     """
     Given mapping input + hardware, infers mapping
     """
@@ -17,7 +18,7 @@ class ThreeStepHwMapper(BaseMapper[MosaicHWMappingInput, MappingInput]):
         self._slice_assigner = slice_assigner
 
 
-    def run(self, mapping_input: MosaicHWMappingInput) -> MosaicNetworkMappingState:
+    def run(self, mapping_input: MosaicMappingInput) -> MosaicNetworkMappingState:
         """
         the mapping runs in three stages:
             1. clustering
@@ -36,11 +37,15 @@ class ThreeStepHwMapper(BaseMapper[MosaicHWMappingInput, MappingInput]):
         neuron_slice_assignment = self._slice_assigner.assign_slices(clustering=clustering, graph=graph, local_assignment=neuron_local_assignment)
 
         # --- 4. Create Mapping State ---
-        state = MosaicNetworkMappingState(mapping_input=mapping_input,
-                                          neuron_slice_assignments = neuron_slice_assignment,
-                                          neuron_local_idxs_assignment = neuron_local_assignment,
-                                          neuron_core_idxs_assignment = clustering.cluster_assignment,
-                                          model_config = None
-                                          )
+        assignment = MosaicAssignment(
+            hw=mapping_input.hw_config,
+            neuron_core_pre_assignment=clustering.cluster_assignment.astype(np.int64),
+            neuron_idx_pre_assignment=neuron_local_assignment.astype(np.int64),
+            neuron_slice_assignment=neuron_slice_assignment.astype(np.int64)
+        )
+        state = MosaicNetworkMappingState(
+            _mapping_input=mapping_input,
+            assignment=assignment
+        )
         return state
 

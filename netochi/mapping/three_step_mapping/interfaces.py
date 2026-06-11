@@ -9,7 +9,7 @@ from hamcrest.core import description
 from pydantic import BaseModel, Field, model_validator, ConfigDict
 
 from netochi.definitions.exceptions import DimensionError
-from netochi.input_generator.interfaces import MappingInput, MosaicHWMappingInput, HWMappingInput
+from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput, HWMappingInput
 
 import graph_tool as gt
 
@@ -42,7 +42,7 @@ class HierarchicalClusterOutput(ClusterOutput):
     @model_validator(mode="after")
     def validate_hierarchy(self: "HierarchicalClusterOutput") -> "HierarchicalClusterOutput":
         if not (self.cluster_parent.ndim == 1 and len(self.cluster_parent) == self.num_clusters):
-            raise DimensionError(f"cluster_parent must be 1D and cluster_parent length {self.cluster_parent.shape[0]} must match num_clusters {self.num_clusters}")
+             raise DimensionError(f"cluster_parent must be 1D and cluster_parent length {self.cluster_parent.shape[0]} must match num_clusters {self.num_clusters}")
         return self
 
 @dataclass
@@ -71,11 +71,11 @@ class ClusterAndHwOutput(ClusterOutput):
 
 # =============== Clusterer ========================
 
-class Clusterer(BaseModel, ABC):
+class Clusterer[ANY_MAPPING_INPUT: MappingInput](BaseModel, ABC):
     model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
 
     @abstractmethod
-    def cluster(self, input_data: MappingInput) -> ClusterOutput:
+    def cluster(self, input_data: ANY_MAPPING_INPUT) -> ClusterOutput:
         pass
 
 
@@ -89,26 +89,26 @@ class HierarchicalClusterer(BaseModel, ABC):
     def cluster(self, input_data: MappingInput) -> HierarchicalClusterOutput:
         pass
 
-class ClustererOutputsHw(BaseModel, Clusterer):
+class ClustererOutputsHw[ANY_MAPPING_INPUT: MappingInput](Clusterer[ANY_MAPPING_INPUT]):
     """
     outputs a clustering that fits onto the given hardware
     """
 
     @abstractmethod
-    def cluster(self, input_data: MosaicHWMappingInput) -> ClusterAndHwOutput:
+    def cluster(self, input_data: ANY_MAPPING_INPUT) -> ClusterAndHwOutput:
         pass
 
 
-class ClustererFixedHw(BaseModel, ClustererOutputsHw):
+class ClustererFixedHw[WITH_HW_INPUT: HWMappingInput](ClustererOutputsHw):
     """
     outputs a clustering that fits onto the given hardware
     """
 
     @abstractmethod
-    def cluster(self, input_data: MosaicHWMappingInput) -> ClusterAndHwOutput:
+    def cluster(self, input_data: WITH_HW_INPUT) -> ClusterAndHwOutput:
         pass
 
-class ClustererInferHw(BaseModel, ClustererOutputsHw):
+class ClustererInferHw(ClustererOutputsHw[MappingInput]):
     """
     outputs a clustering and the corresponding hardware
     Clustering needs to fit on the outputted hardware!!!
