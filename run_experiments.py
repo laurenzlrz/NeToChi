@@ -18,6 +18,8 @@ from netochi.mapping.qap_mapper import QAPMapper
 from netochi.mapping.simulated_annealing_mapper import SimAnnealingMapper
 
 from netochi.mapping.three_step_mapping.hcd_pca_opt_three_step_mapper import HcdPcaOptThreeStepMapper
+from netochi.objectives.obj_inconsistency_relative import InconsistencyRelativeObjective
+from netochi.objectives.obj_unused_connections import UnusedConnectionsObjective
 from netochi.pipeline.runner import (
     PipelineRunner, 
     ExperimentTask, 
@@ -27,9 +29,9 @@ from netochi.pipeline.runner import (
     BaseBaselineProvider
 )
 from netochi.pipeline.metrics import ObjectiveMetric
-from netochi.objectives.log_likelihood import LogLikelihoodObjective
-from netochi.objectives.inconsistency import InconsistencyObjective
-from netochi.objectives.hardware_size import MosaicHardwareSizeObjective
+from netochi.objectives.obj_log_likelihood import LogLikelihoodObjective
+from netochi.objectives.obj_inconsistency import InconsistencyObjective
+from netochi.objectives.obj_hardware_size import MosaicHardwareSizeObjective
 from netochi.objectives.interfaces import MappingObjective
 from netochi.pipeline.constants import (
     REPORT_DIVIDER, REPORT_SUBDIVIDER, REPORT_HEADER_BASELINE, REPORT_HEADER_PURE,
@@ -40,16 +42,34 @@ from netochi.objectives.constants import OBJ_NAME_LL, OBJ_NAME_INCONSISTENCY, OB
 
 
 
+# ======================= CONFIGURE PIPELINE HERE =============================
 
-def define_task_inputs():
+HW_SMALL = MosaicHardwareConfig(
+    nodes_per_router=2,
+    neurons_per_core=15,
+    router_levels=2,
+    slice_factor=2
+)
 
-    # --- Hardware Configuration: Small (4 cores × 15 = 60 neurons) ---
-    HW_SMALL = MosaicHardwareConfig(
-        nodes_per_router=2,
-        neurons_per_core=15,
-        router_levels=2,
-        slice_factor=2
-    )
+OBJECTIVES = [
+    InconsistencyObjective(),
+    InconsistencyRelativeObjective(),
+    MosaicHardwareSizeObjective(),
+    UnusedConnectionsObjective(),
+    LogLikelihoodObjective()
+]
+
+HW_CONFIGS = [
+    HW_SMALL
+]
+
+MAPPERS = [
+    SimAnnealingMapper()
+]
+
+# ==============================================================================
+
+def define_task_inputs() -> List[Tuple[HWBaseInputFactory, BaseBaselineProvider]]:
 
     # 1. Define the inputs (Factories)
     probabilities = [0.1, 0.5]
@@ -79,18 +99,9 @@ def define_task_inputs():
     return task_inputs
 
 
-def define_evaluators():
-    inconsistency_obj: InconsistencyObjective[MosaicHWMappingInput[Any], Any] = InconsistencyObjective()
-    hw_size_obj: MosaicHardwareSizeObjective[MosaicHWMappingInput[Any]] = MosaicHardwareSizeObjective()
-    log_likelihood_obj: LogLikelihoodObjective[MosaicHWMappingInput[Any], Any] = LogLikelihoodObjective()
-
-    standard_evaluator: Evaluator[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]] = Evaluator(
-        metrics=[
-            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]], inconsistency_obj)),
-            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]], hw_size_obj)),
-            ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]], log_likelihood_obj)),
-        ]
-    )
+def define_evaluators() -> Evaluator[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]]:
+    metrics = [ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]], objective)) for objective in OBJECTIVES]
+    standard_evaluator: Evaluator[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]] = Evaluator(metrics=metrics)
     return standard_evaluator
 
 
@@ -98,13 +109,10 @@ def run_experiment() -> None:
 
     # === 1. define mosaic tasks ===
     standard_evaluator = define_evaluators()
-    mappers_std = [
-        SimAnnealingMapper()
-    ]
     task_inputs = define_task_inputs()
 
     mosaic_tasks: List[ExperimentTask[MosaicHWMappingInput[Any], BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]]] = []
-    for mapper in mappers_std:
+    for mapper in MAPPERS:
         mosaic_tasks.append(ExperimentTask(
             mapper=cast(BaseMapper[BaseMosaicMappingState[Any], MosaicHWMappingInput[Any]], mapper),
             evaluator=standard_evaluator, 

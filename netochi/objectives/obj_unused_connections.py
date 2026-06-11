@@ -4,13 +4,11 @@ from netochi.mapping.interfaces import BaseMosaicMappingState, ANY_MAPPING_INPUT
 from netochi.objectives.utils import compute_e_valid, compute_total_hw_connections
 
 
-class MosaicHardwareSizeObjective(MappingObjective[BaseMosaicMappingState[ANY_MAPPING_INPUT], BaseMosaicMappingState[ANY_MAPPING_INPUT]], Generic[ANY_MAPPING_INPUT]):
+class UnusedConnectionsObjective(MappingObjective[BaseMosaicMappingState[ANY_MAPPING_INPUT], BaseMosaicMappingState[ANY_MAPPING_INPUT]], Generic[ANY_MAPPING_INPUT]):
     """
     Objective that measures the hardware size (core count).
     Supports relative evaluation against a baseline.
     """
-
-
 
     def evaluate(self, state: BaseMosaicMappingState[ANY_MAPPING_INPUT]) -> float:
         """Returns the total number of cores in the hardware configuration."""
