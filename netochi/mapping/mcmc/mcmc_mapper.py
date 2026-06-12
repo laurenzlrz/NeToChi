@@ -6,7 +6,7 @@ from graph_tool.inference import MCMCState
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from typing import Optional, Generic, Tuple, List, Any, Dict
 
-from netochi.input_generator.interfaces import MosaicMappingInput
+from netochi.input_generator.interfaces import MosaicMappingInput, MosaicAssignment
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState, BaseMosaicMappingState
 from netochi.objectives.interfaces import LogLikelihoodObjectiveInterface
 from netochi.definitions.constants import (
@@ -76,11 +76,14 @@ class HardwareMCMCState(MCMCState, Generic[PAYLOAD]):  # type: ignore[misc]
         if self.verbose:
             print(DEBUG_MCMC_RESTORE_BEST)
         if self._best_c is not None and self._best_x is not None and self._best_s is not None:
-            self.mapping_state.neuron_core_idxs_assignment = self._best_c
-            self.mapping_state.neuron_local_idxs_assignment = self._best_x
-            self.mapping_state.neuron_slice_assignments = self._best_s
+            self.mapping_state.assignment = MosaicAssignment(
+                hw=self.mapping_state.mapping_input.hw_config,
+                neuron_core_pre_assignment=self._best_c.astype(np.int64),
+                neuron_idx_pre_assignment=self._best_x.astype(np.int64),
+                neuron_slice_assignment=self._best_s.astype(np.int64)
+            )
 
-    def mcmc_sweep(self, beta: float = 1.0, **kwargs: Any) -> Tuple[float, int, int]:
+    def mcmc_sweep(self, beta: float = 1.0, *args: Any, **kwargs: Any) -> Any:
         """Perform one sweep of N move-attempts."""
         if self.verbose:
             print(DEBUG_MCMC_SWEEP_CALL.format(beta=beta))
@@ -123,7 +126,7 @@ class HardwareMCMCState(MCMCState, Generic[PAYLOAD]):  # type: ignore[misc]
 
             else:
                 # --- Slice Mutation ---
-                hw = self.mapping_state.mapping_input.hw_config_inferred
+                hw = self.mapping_state.mapping_input.hw_config
                 d = int(self._rng.integers(1, hw.max_distance + 1))
                 n_slices: int = hw.num_slices_at_distance(d)
 
@@ -146,16 +149,18 @@ class HardwareMCMCState(MCMCState, Generic[PAYLOAD]):  # type: ignore[misc]
 
         return delta_entropy, nattempts, nmoves
 
-    def _get_entropy_args(self) -> Dict[str, Any]:
+    def _get_entropy_args(self, *args: Any, **kwargs: Any) -> Any:
         return {}
 
-    def _mcmc_sweep_dispatch(self, **kwargs: Any) -> Tuple[float, int, int]:
-        return self.mcmc_sweep(**kwargs)
-    def multiflip_mcmc_sweep(self, **kwargs: Any) -> Tuple[float, int, int]:
-        return self.mcmc_sweep(**kwargs)
+    def _mcmc_sweep_dispatch(self, *args: Any, **kwargs: Any) -> Any:
+        return self.mcmc_sweep(*args, **kwargs)
 
-    def gibbs_mcmc_sweep(self, **kwargs: Any) -> Tuple[float, int, int]:
-        return self.mcmc_sweep(**kwargs)
+    def multiflip_mcmc_sweep(self, *args: Any, **kwargs: Any) -> Any:
+        return self.mcmc_sweep(*args, **kwargs)
+
+    def gibbs_mcmc_sweep(self, *args: Any, **kwargs: Any) -> Any:
+        return self.mcmc_sweep(*args, **kwargs)
+
 
 
 class MCMCMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):

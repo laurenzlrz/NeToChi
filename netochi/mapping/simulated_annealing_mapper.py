@@ -1,6 +1,7 @@
 import math
 import random
-from typing import Any
+from typing import Any, Optional
+import numpy.typing as npt
 
 from pydantic import BaseModel
 
@@ -22,9 +23,9 @@ MOVE = 1
 
 @dataclass
 class BestStateData:
-    core_assignment: np.ndarray[np.int_]
-    local_assignment: np.ndarray[np.int_]
-    slice_assignment: np.ndarray[np.int_]
+    core_assignment: npt.NDArray[np.int64]
+    local_assignment: npt.NDArray[np.int64]
+    slice_assignment: npt.NDArray[np.int64]
 
 
 class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
@@ -55,17 +56,22 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
 
         return MosaicNetworkMappingState(_mapping_input=mapping_input,
                                          assignment=MosaicAssignment(
-                                            neuron_idx_pre_assignment=best_state_data.local_assignment,
-                                            neuron_core_pre_assignment=best_state_data.core_assignment,
-                                            neuron_slice_assignment=best_state_data.slice_assignment,
+                                            neuron_idx_pre_assignment=best_state_data.local_assignment.astype(np.int64),
+                                            neuron_core_pre_assignment=best_state_data.core_assignment.astype(np.int64),
+                                            neuron_slice_assignment=best_state_data.slice_assignment.astype(np.int64),
                                             hw=mapping_input.hw_config),
                                          )
+
 
 
     def _run_simulated_annealing(self, T_start=50.0, T_min=0.01, alpha=0.98, steps_per_T=None) -> BestStateData: # gemini: T_start = 10000, alpha=0.98
         """
         invariant: slice assigner is always in same state as SA state
         """
+        assert self.graph is not None
+        assert self.state is not None
+        assert self.opt_slice_assigner is not None
+
         if steps_per_T is None:
             steps_per_T = 10 * self.graph.num_vertices()
 
@@ -103,6 +109,9 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
         return best_state_data
 
     def _compute_energy(self) -> int:
+        assert self.state is not None
+        assert self.opt_slice_assigner is not None
+        assert self.graph is not None
         return self._compute_inconsistencies(core_assignment=self.state.core_assignment,
                                              local_assignment=self.state.local_assignment,
                                              opt_slice_assignment=self.opt_slice_assigner.slice_assignment,
@@ -110,6 +119,9 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
                                              graph=self.graph)
 
     def _do_mutation(self) -> Mutation:
+        assert self.state is not None
+        assert self.opt_slice_assigner is not None
+        assert self.graph is not None
         num_nodes = len(self.state.core_assignment)
         num_slots = self.state.slot_to_node.size
 
@@ -134,6 +146,7 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
             move_mutation = MoveMutation(node, new_core, new_local_address)
             move_mutation.do(state=self.state, slice_assigner=self.opt_slice_assigner, graph=self.graph)
             return move_mutation
+
 
     def _compute_inconsistencies(self, core_assignment, local_assignment, opt_slice_assignment, hw: MosaicHardwareConfig, graph: gt.Graph) -> int:
         e_valid = 0

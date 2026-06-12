@@ -132,9 +132,9 @@ class ILPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingIn
         # 9. Return the fully configured and checked object
         assignment = MosaicAssignment(
             hw=hw,
-            neuron_core_pre_assignment=neuron_core_pre_assignment.as_type(np.int64),
-            neuron_idx_pre_assignment=neuron_idx_pre_assignment.as_type(np.int64),
-            neuron_slice_assignment=neuron_slice_assignment.as_type(np.int64)
+            neuron_core_pre_assignment=neuron_core_pre_assignment.astype(np.int64),
+            neuron_idx_pre_assignment=neuron_idx_pre_assignment.astype(np.int64),
+            neuron_slice_assignment=neuron_slice_assignment.astype(np.int64)
         )
         return MosaicNetworkMappingState(
             _mapping_input=mapping_input,

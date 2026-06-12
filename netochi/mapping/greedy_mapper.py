@@ -126,6 +126,6 @@ class GreedyMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappin
                 hw=hw,
                 neuron_core_pre_assignment=core_assignments,
                 neuron_idx_pre_assignment=local_assignments,
-                neuron_slice_assignment=slice_assignments.as_type(np.int64)
+                neuron_slice_assignment=slice_assignments.astype(np.int64)
             )
         )

@@ -1,4 +1,5 @@
 
+from typing import Optional
 import graph_tool.all as gt
 
 from netochi.mapping.simulated_annealing_fix_hw.sa_state import SAState
@@ -20,17 +21,17 @@ class MoveMutation(Mutation):
         self.node: int = node
         self.new_core: int = new_core
         self.new_local_address: int = new_local
-        self.old_core: Optional[int] = None
-        self.old_local_address: Optional[int] = None
+        self.old_core: int = -1
+        self.old_local_address: int = -1
 
     def do(self, state: SAState, slice_assigner: DeltaOptimalSliceAssigner, graph: gt.Graph):
         # 1. update undo information
-        self.old_core: int = state.core_assignment[self.node]
-        self.old_local_address: int = state.local_assignment[self.node]
+        self.old_core = int(state.core_assignment[self.node])
+        self.old_local_address = int(state.local_assignment[self.node])
         # 2. apply move
         self._apply_move(state, new_core=self.new_core, new_local_address=self.new_local_address)
         # 3. update slice assigner
-        slice_assigner.delta_assign_slices(state=state, moved_nodes=[self.node], graph=graph, old_core_and_local_of_moved_nodes={self.node: (self.old_core, self.old_local_address)})
+        slice_assigner.delta_assign_slices(state=state, moved_nodes=[self.node], graph=graph, old_core_and_local_of_moved_nodes={int(self.node): (self.old_core, self.old_local_address)})
 
     def undo(self, state: SAState, slice_assigner: DeltaOptimalSliceAssigner):
         self._apply_move(state, new_core=self.old_core, new_local_address=self.old_local_address)
@@ -52,11 +53,11 @@ class SwapMutation(Mutation):
         self.node_b = node_b
 
     def do(self, state: SAState, slice_assigner: DeltaOptimalSliceAssigner, graph: gt.Graph):
-        old_core_a, old_local_a = state.core_assignment[self.node_a], state.local_assignment[self.node_a]
-        old_core_b, old_local_b = state.core_assignment[self.node_b], state.local_assignment[self.node_b]
+        old_core_a, old_local_a = int(state.core_assignment[self.node_a]), int(state.local_assignment[self.node_a])
+        old_core_b, old_local_b = int(state.core_assignment[self.node_b]), int(state.local_assignment[self.node_b])
         self._apply_swap(state)
         slice_assigner.delta_assign_slices(state=state, moved_nodes=[self.node_a, self.node_b], graph=graph,
-                                           old_core_and_local_of_moved_nodes={self.node_a: (old_core_a, old_local_a), self.node_b: (old_core_b, old_local_b)})
+                                           old_core_and_local_of_moved_nodes={int(self.node_a): (old_core_a, old_local_a), int(self.node_b): (old_core_b, old_local_b)})
 
     def undo(self, state: SAState, slice_assigner: DeltaOptimalSliceAssigner):
         self._apply_swap(state)
@@ -71,6 +72,7 @@ class SwapMutation(Mutation):
         state.local_assignment[self.node_b] = local_a
         state.slot_to_node[core_a, local_a] = self.node_b
         state.slot_to_node[core_b, local_b] = self.node_a
+
 
 
 

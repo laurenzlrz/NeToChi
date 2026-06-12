@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 import numpy as np
 import graph_tool.all as gt
 from scipy.optimize import quadratic_assignment
@@ -23,7 +23,6 @@ class QAPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingIn
         N_graph = graph.num_vertices()
         
         # Initialize result state
-        # state = MosaicNetworkMappingState.from_input(mapping_input)
         assignment = MosaicAssignment.zero(num_neurons=N_graph, hw=gt_hw)
         c_assignment = assignment.neuron_core_pre_assignment
         x_assignment = assignment.neuron_idx_pre_assignment
@@ -33,7 +32,7 @@ class QAPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingIn
 
         # 1. Build Adjacency Matrix A
         A = np.zeros((hw_num_neurons, hw_num_neurons))
-        adj = gt.adjacency(graph).toarray()
+        adj = cast(Any, gt.adjacency(graph)).toarray()
         A[:N_graph, :N_graph] = adj
         
         # 2. Build Affinity Matrix B
@@ -42,7 +41,7 @@ class QAPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingIn
             c_k = gt_hw.global_neuron_to_local(k)[0]
             for l in range(hw_num_neurons):
                 c_l = gt_hw.global_neuron_to_local(l)[0]
-                dist = gt_hw.core_distance(c_l, c_k)
+                dist = gt_hw.core_distance(int(c_l), int(c_k))
                 s_d = gt_hw.num_slices_at_distance(dist)
                 B[k, l] = 1.0 / s_d
                     
@@ -59,7 +58,7 @@ class QAPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingIn
             
         # 5. Greedy Slice Selection
         for tgt in range(N_graph):
-            tgt_core = c_assignment[tgt]
+            tgt_core = int(c_assignment[tgt])
             for d in range(1, gt_hw.max_distance + 1):
                 best_slice = 0
                 max_sources = -1
@@ -68,13 +67,17 @@ class QAPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingIn
                     count = 0
                     start, end = gt_hw.get_slice_bounds(d, s_idx)
                     for src in graph.get_in_neighbors(tgt):
-                        src_core = c_assignment[src]
+                        src_core = int(c_assignment[int(src)])
                         if gt_hw.core_distance(tgt_core, src_core) == d:
-                            if start <= x_assignment[src] < end:
+                            if start <= x_assignment[int(src)] < end:
                                 count += 1
                     if count > max_sources:
                         max_sources = count
                         best_slice = s_idx
                 s_assignment[tgt, d] = best_slice
                 
-        return state
+        return MosaicNetworkMappingState(
+            _mapping_input=mapping_input,
+            assignment=assignment
+        )
+
