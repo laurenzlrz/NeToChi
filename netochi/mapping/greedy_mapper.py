@@ -121,11 +121,11 @@ class GreedyMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappin
                 slice_assignments[target_node, d] = best_slice
 
         return MosaicNetworkMappingState(
-            mapping_input=mapping_input,
+            _mapping_input=mapping_input,
             assignment=MosaicAssignment(
                 hw=hw,
                 neuron_core_pre_assignment=core_assignments,
                 neuron_idx_pre_assignment=local_assignments,
-                neuron_slice_assignment=slice_assignments
+                neuron_slice_assignment=slice_assignments.as_type(np.int64)
             )
         )
