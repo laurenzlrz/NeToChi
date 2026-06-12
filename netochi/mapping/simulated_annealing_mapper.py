@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
-from netochi.input_generator.interfaces import MosaicHWMappingInput
+from netochi.input_generator.interfaces import MosaicMappingInput, MosaicAssignment
 
 import numpy as np
 import graph_tool.all as gt
@@ -22,12 +22,12 @@ MOVE = 1
 
 @dataclass
 class BestStateData:
-    core_assignment: np.ndarray[int]
-    local_assignment: np.ndarray[int]
-    slice_assignment: np.ndarray[int]
+    core_assignment: np.ndarray[np.int_]
+    local_assignment: np.ndarray[np.int_]
+    slice_assignment: np.ndarray[np.int_]
 
 
-class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState[Any], MosaicHWMappingInput[Any]]):
+class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
     """
     Mapper using simulated annealing. Takes hw config as input.
 
@@ -38,12 +38,12 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState[Any], MosaicHWMapp
 
     def __init__(self, /, **data: Any):
         super().__init__(**data)
-        self.opt_slice_assigner: DeltaOptimalSliceAssigner = None
-        self.state: SAState = None
-        self.graph: gt.Graph = None
-        self.verbose: bool = False
+        self.opt_slice_assigner: Optional[DeltaOptimalSliceAssigner] = None
+        self.state: Optional[SAState] = None
+        self.graph: Optional[gt.Graph] = None
+        self.verbose: Optional[bool] = False
 
-    def run(self, mapping_input: MosaicHWMappingInput[Any]) -> MosaicNetworkMappingState[Any]:
+    def run(self, mapping_input: MosaicMappingInput) -> MosaicNetworkMappingState:
         # --- 1. initialize ---
         self.state = SAState(mapping_input)
         self.opt_slice_assigner = DeltaOptimalSliceAssigner(hw_config=mapping_input.hw_config, graph=mapping_input.graph,
@@ -53,7 +53,13 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState[Any], MosaicHWMapp
         # --- 2. run simulated annealing ---
         best_state_data: BestStateData = self._run_simulated_annealing()
 
-        return MosaicNetworkMappingState(mapping_input=mapping_input, neuron_local_idxs_assignment=best_state_data.local_assignment, neuron_core_idxs_assignment=best_state_data.core_assignment, neuron_slice_assignments=best_state_data.slice_assignment)
+        return MosaicNetworkMappingState(_mapping_input=mapping_input,
+                                         assignment=MosaicAssignment(
+                                            neuron_idx_pre_assignment=best_state_data.local_assignment,
+                                            neuron_core_pre_assignment=best_state_data.core_assignment,
+                                            neuron_slice_assignment=best_state_data.slice_assignment,
+                                            hw=mapping_input.hw_config),
+                                         )
 
 
     def _run_simulated_annealing(self, T_start=50.0, T_min=0.01, alpha=0.98, steps_per_T=None) -> BestStateData: # gemini: T_start = 10000, alpha=0.98

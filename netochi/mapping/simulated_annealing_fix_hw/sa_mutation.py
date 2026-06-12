@@ -20,8 +20,8 @@ class MoveMutation(Mutation):
         self.node: int = node
         self.new_core: int = new_core
         self.new_local_address: int = new_local
-        self.old_core: int = None
-        self.old_local_address: int = None
+        self.old_core: Optional[int] = None
+        self.old_local_address: Optional[int] = None
 
     def do(self, state: SAState, slice_assigner: DeltaOptimalSliceAssigner, graph: gt.Graph):
         # 1. update undo information
