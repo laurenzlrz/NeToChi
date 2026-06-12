@@ -7,13 +7,13 @@ from graph_tool.inference import MCMCState
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from typing import List, Tuple, Optional, Generic, Any, Dict
 
-from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput
+from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput, MosaicAssignment
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
-from netochi.mapping.interfaces import BaseMapper, MosaicHWMappingState, BaseMosaicMappingState, PAYLOAD
+from netochi.mapping.interfaces import BaseMapper, MosaicHWMappingState, BaseMosaicMappingState
 from netochi.objectives.interfaces import LogLikelihoodObjectiveInterface
 from netochi.mapping.mcmc.joint_inference_config import JointInferenceConfig
 from netochi.mapping.mcmc.hardware_heuristic import MosaicHardwareHeuristic
-from netochi.mapping.constants import (
+from netochi.definitions.constants import (
     MCMC_TIME_LIMIT_S,
     MCMC_DEFAULT_ITERATIONS,
     MCMC_DEFAULT_INITIAL_TEMP,
@@ -52,11 +52,11 @@ def log_star(n: int) -> float:
     return res
 
 
-class JointHardwareMCMCState(MCMCState, Generic[PAYLOAD]):
+class JointHardwareMCMCState(MCMCState):
     """
     Internal MCMC state for JOINT hardware-mapping optimization.
     """
-    mapping_state: MosaicHWMappingState[MappingInput[PAYLOAD], PAYLOAD]
+    mapping_state: MosaicHWMappingState[MappingInput]
     objective: LogLikelihoodObjectiveInterface[BaseMosaicMappingState[Any]]
     seed: Optional[int]
     verbose: bool
@@ -78,7 +78,7 @@ class JointHardwareMCMCState(MCMCState, Generic[PAYLOAD]):
 
     def __init__(
         self, 
-        mapping_state: MosaicHWMappingState[MappingInput[PAYLOAD], PAYLOAD],
+        mapping_state: MosaicHWMappingState[MappingInput],
         objective: LogLikelihoodObjectiveInterface[BaseMosaicMappingState[Any]],
         config: JointInferenceConfig,
         seed: Optional[int] = None,
@@ -93,7 +93,7 @@ class JointHardwareMCMCState(MCMCState, Generic[PAYLOAD]):
 
         self._rng = np.random.default_rng(self.seed)
         self.K = int(np.max(self.mapping_state.c) + 1)
-        hw = self.mapping_state.hw_config_inferred
+        hw = self.mapping_state.inferred_hw
         self.Nc = hw.neurons_per_core
         self.Nr = hw.nodes_per_router
         self.L = hw.router_levels
@@ -110,7 +110,7 @@ class JointHardwareMCMCState(MCMCState, Generic[PAYLOAD]):
     def mapping_cost(self, K: int) -> float:
         """Description length of the mapping given K cores."""
         num_neurons: int = self.mapping_state.mapping_input.graph.num_vertices()
-        hw = self.mapping_state.hw_config_inferred
+        hw = self.mapping_state.inferred_hw
         Nc = hw.neurons_per_core
         cost_c = num_neurons * math.log(K)
         cost_x = num_neurons * math.log(Nc)
@@ -184,7 +184,7 @@ class JointHardwareMCMCState(MCMCState, Generic[PAYLOAD]):
             if self.L > old_L:
                 num_neurons = self.mapping_state.mapping_input.graph.num_vertices()
                 for d in range(old_L + 1, self.L + 1):
-                    n_sl = self.mapping_state.hw_config_inferred.num_slices_at_distance(d)
+                    n_sl = self.mapping_state.inferred_hw.num_slices_at_distance(d)
                     if n_sl > 0:
                         self.mapping_state.s[:, d] = self._rng.integers(0, n_sl, size=num_neurons)
 
@@ -198,7 +198,7 @@ class JointHardwareMCMCState(MCMCState, Generic[PAYLOAD]):
         self._save_best(current_energy)
 
         num_neurons: int = self.mapping_state.mapping_input.graph.num_vertices()
-        hw = self.mapping_state.hw_config_inferred
+        hw = self.mapping_state.inferred_hw
         
         for _ in range(num_neurons):
             nattempts += 1
@@ -395,7 +395,7 @@ class JointHardwareMCMCState(MCMCState, Generic[PAYLOAD]):
         return self.mcmc_sweep(**kwargs)
 
 
-class JointInferenceMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicHWMappingState[MappingInput[PAYLOAD], PAYLOAD], MappingInput[PAYLOAD]]):
+class JointInferenceMapper(BaseModel, BaseMapper[MosaicHWMappingState[MappingInput], MappingInput]):
     """
     Pydantic-based Joint Inference Mapper.
     Input is purely the network (MappingInput).
@@ -414,7 +414,7 @@ class JointInferenceMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicHWMappi
     verbose: bool = Field(default=False)
     time_limit_s: float = Field(default=MCMC_TIME_LIMIT_S)
     
-    def run(self, mapping_input: MappingInput[PAYLOAD]) -> MosaicHWMappingState[MappingInput[PAYLOAD], PAYLOAD]:
+    def run(self, mapping_input: MappingInput) -> MosaicHWMappingState[MappingInput]:
         """Run joint inference by exploring the full hardware architecture."""
         # 1. Use heuristic to build initial hardware and placement
         state, init_hw = MosaicHardwareHeuristic.build_initial_hardware_state(
@@ -423,7 +423,7 @@ class JointInferenceMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicHWMappi
             seed=self.seed
         )
         
-        hw_state: JointHardwareMCMCState[PAYLOAD] = JointHardwareMCMCState(
+        hw_state: JointHardwareMCMCState = JointHardwareMCMCState(
             mapping_state=state, 
             objective=self.objective,
             config=self.config,
@@ -464,22 +464,20 @@ class JointInferenceMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicHWMappi
 
         return state
 
-class MosaicHardwareMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicHWMappingState[MosaicMappingInput[PAYLOAD], PAYLOAD], MosaicMappingInput[PAYLOAD]]):
+class MosaicHardwareMapper(BaseModel, BaseMapper[MosaicHWMappingState[MosaicMappingInput], MosaicMappingInput]):
     """
     A simple mapper that returns the ground truth hardware configuration from the input
     wrapped in a MosaicHWMappingState. Useful as a baseline for joint inference.
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
-    def run(self, mapping_input: MosaicMappingInput[PAYLOAD]) -> MosaicHWMappingState[MosaicMappingInput[PAYLOAD], PAYLOAD]:
+    def run(self, mapping_input: MosaicMappingInput) -> MosaicHWMappingState[MosaicMappingInput]:
         """Returns the hardware from the input in a MosaicHWMappingState."""
         from netochi.mapping.random_mapper import RandomMapper
         random_state = RandomMapper().run(mapping_input)
         
         return MosaicHWMappingState(
-            mapping_input=mapping_input,
-            hw_config_inferred=mapping_input.hw_config,
-            neuron_core_idxs_assignment=random_state.neuron_core_idxs_assignment,
-            neuron_local_idxs_assignment=random_state.neuron_local_idxs_assignment,
-            neuron_slice_assignments=random_state.neuron_slice_assignments
+            _mapping_input=mapping_input,
+            _inferred_hw_config=mapping_input.hw_config,
+            assignment=random_state.assignment
         )

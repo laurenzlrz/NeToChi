@@ -6,10 +6,10 @@ from graph_tool.inference import MCMCState
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from typing import Optional, Generic, Tuple, List, Any, Dict
 
-from netochi.input_generator.interfaces import MosaicHWMappingInput
-from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState, BaseMosaicMappingState, PAYLOAD
+from netochi.input_generator.interfaces import MosaicMappingInput
+from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState, BaseMosaicMappingState
 from netochi.objectives.interfaces import LogLikelihoodObjectiveInterface
-from netochi.mapping.constants import (
+from netochi.definitions.constants import (
     MCMC_TIME_LIMIT_S,
     MCMC_DEFAULT_ITERATIONS,
     MCMC_DEFAULT_INITIAL_TEMP,
@@ -27,7 +27,7 @@ class HardwareMCMCState(MCMCState, Generic[PAYLOAD]):  # type: ignore[misc]
     """
     Internal MCMC state for hardware mapping optimization.
     """
-    mapping_state: MosaicNetworkMappingState[PAYLOAD]
+    mapping_state: MosaicNetworkMappingState
     objective: LogLikelihoodObjectiveInterface[BaseMosaicMappingState[Any]]
     seed: Optional[int]
     verbose: bool
@@ -40,7 +40,7 @@ class HardwareMCMCState(MCMCState, Generic[PAYLOAD]):  # type: ignore[misc]
 
     def __init__(
         self, 
-        mapping_state: MosaicNetworkMappingState[PAYLOAD],
+        mapping_state: MosaicNetworkMappingState,
         objective: LogLikelihoodObjectiveInterface[BaseMosaicMappingState[Any]],
         seed: Optional[int] = None,
         verbose: bool = False
@@ -158,7 +158,7 @@ class HardwareMCMCState(MCMCState, Generic[PAYLOAD]):  # type: ignore[misc]
         return self.mcmc_sweep(**kwargs)
 
 
-class MCMCMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicNetworkMappingState[PAYLOAD], MosaicHWMappingInput[PAYLOAD]]):
+class MCMCMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
     """
     Pydantic-based MCMC Mapper using Simulated Annealing via graph-tool.
     """
@@ -171,15 +171,14 @@ class MCMCMapper(BaseModel, Generic[PAYLOAD], BaseMapper[MosaicNetworkMappingSta
     time_limit_s: float = Field(default=MCMC_TIME_LIMIT_S)
     verbose: bool = Field(default=False)
 
-    def run(self, mapping_input: MosaicHWMappingInput[PAYLOAD]) -> MosaicNetworkMappingState[PAYLOAD]:
+    def run(self, mapping_input: MosaicMappingInput) -> MosaicNetworkMappingState:
         """Run the optimization."""
         if self.verbose:
             print(DEBUG_MCMC_RUN_START)
 
-        state: MosaicNetworkMappingState[PAYLOAD] = MosaicNetworkMappingState.from_input(mapping_input)
-        state.init_random_assignments(seed=self.seed)
+        state: MosaicNetworkMappingState = MosaicNetworkMappingState.from_input_random(mapping_input, seed=self.seed)
 
-        hw_state: HardwareMCMCState[PAYLOAD] = HardwareMCMCState(
+        hw_state: HardwareMCMCState = HardwareMCMCState(
             mapping_state=state, 
             objective=self.objective,
             seed=self.seed, 
