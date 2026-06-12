@@ -45,7 +45,7 @@ class ThreeStepMapper(BaseMapper[MosaicHWMappingState, MappingInput]):
         )
         state = MosaicHWMappingState(
             _mapping_input=mapping_input,
-            inferred_hw_config=clustering.hw,
+            _inferred_hw_config=clustering.hw,
             assignment=assignment
         )
         return state
