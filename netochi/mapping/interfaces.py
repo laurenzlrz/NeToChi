@@ -28,12 +28,12 @@ class HWNetworkMappingState[ANY_MAPPING_INPUT: MappingInput, INFERRED_HW_CONFIG:
     Base class for states that infer hardware. 
     Does not strictly require hardware parameters in input, but provides/infers them.
     """
-    inferred_hw_config: INFERRED_HW_CONFIG
+    _inferred_hw_config: INFERRED_HW_CONFIG
 
     @property
     def inferred_hw(self) -> INFERRED_HW_CONFIG:
         """Convenience property to access inferred hardware config."""
-        return self.inferred_hw_config
+        return self._inferred_hw_config
 
 class NetworkAssignmentState[WITH_HW_INPUT: HWMappingInput, GT_HW_CONFIG: Any](MappingState[WITH_HW_INPUT]):
     """
@@ -109,7 +109,7 @@ class MosaicHWMappingState[ANY_MAPPING_INPUT: MappingInput](BaseMosaicMappingSta
         """
         return cls(
             _mapping_input=mapping_input,
-            inferred_hw_config=initial_hw_guess,
+            _inferred_hw_config=initial_hw_guess,
             assignment=MosaicAssignment.zero(
                 hw = initial_hw_guess,
                 num_neurons=mapping_input.graph.num_vertices()
@@ -120,7 +120,7 @@ class MosaicHWMappingState[ANY_MAPPING_INPUT: MappingInput](BaseMosaicMappingSta
     def from_guess_random(cls, mapping_input: ANY_MAPPING_INPUT, initial_hw_guess: MosaicHardwareConfig, seed: Optional[int]) -> 'MosaicHWMappingState[ANY_MAPPING_INPUT]':
         return cls(
             _mapping_input=mapping_input,
-            inferred_hw_config=initial_hw_guess,
+            _inferred_hw_config=initial_hw_guess,
             assignment=MosaicAssignment.random(num_neurons=mapping_input.graph.num_vertices(), hw=initial_hw_guess, seed=seed)
         )
 
