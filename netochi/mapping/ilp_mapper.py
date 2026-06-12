@@ -55,15 +55,15 @@ class ILPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingIn
         # I[j, i] = 1 if directed edge (j -> i) is inconsistent with the Fan-In masks
         I = pulp.LpVariable.dicts("I", edges, cat='Binary')
 
-        # 4. Objective Function: Minimize total Fan-In structural penalties [cite: 79, 80]
+        # 4. Objective Function: Minimize total Fan-In structural penalties
         prob += pulp.lpSum(I[edge] for edge in edges), "Total_Inconsistencies"
 
-        # 5. Hard Constraints (P) [cite: 222]
-        # Injection rule: Every neuron from the graph must go to exactly one hardware slot [cite: 217, 222]
+        # 5. Hard Constraints (P)
+        # Injection rule: Every neuron from the graph must go to exactly one hardware slot
         for i in vertices:
             prob += pulp.lpSum(M[i, c, x] for c in cores for x in indices) == 1
 
-        # Capacity rule: Prevent address collisions (max one neuron per slot) [cite: 217, 222]
+        # Capacity rule: Prevent address collisions (max one neuron per slot)
         for c in cores:
             for x in indices:
                 prob += pulp.lpSum(M[i, c, x] for i in vertices) <= 1
@@ -132,11 +132,11 @@ class ILPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingIn
         # 9. Return the fully configured and checked object
         assignment = MosaicAssignment(
             hw=hw,
-            neuron_core_pre_assignment=neuron_core_pre_assignment,
-            neuron_idx_pre_assignment=neuron_idx_pre_assignment,
-            neuron_slice_assignment=neuron_slice_assignment
+            neuron_core_pre_assignment=neuron_core_pre_assignment.as_type(np.int64),
+            neuron_idx_pre_assignment=neuron_idx_pre_assignment.as_type(np.int64),
+            neuron_slice_assignment=neuron_slice_assignment.as_type(np.int64)
         )
         return MosaicNetworkMappingState(
-            mapping_input=mapping_input,
+            _mapping_input=mapping_input,
             assignment=assignment
         )
