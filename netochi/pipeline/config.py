@@ -1,10 +1,15 @@
 import re
+import json
+import csv
 from pathlib import Path
 from typing import Any, Dict, List
+
+import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing_extensions import Self
 
 from netochi.definitions.exceptions import InvalidConfigError
+from netochi.pipeline import PipelineSummary
 
 
 def find_repo_root(start_path: Path = Path(__file__).resolve()) -> Path:
@@ -51,9 +56,10 @@ class PipelineOutputConfig(BaseModel):
             "#CC3311", "#EE3377", "#BBBBBB"
         ]
     )
-    csv_filename: str = Field(default="results.csv")
-    json_filename: str = Field(default="results.json")
     plot_filename_pattern: str = Field(default="{metric}_comparison")
+    plot_path: Path = Field(default=None, description="Directory for storing generated plots.")
+    dumps_path: Path = Field(default=None, description="Directory for storing intermediate dumps.")
+    csv_path: Path = Field(default=None, description="Path for storing the flattened CSV results.")
 
     # ==========================================================
     # PHASE 1: CONSTRUCTOR / MUTATOR
@@ -80,6 +86,9 @@ class PipelineOutputConfig(BaseModel):
         data["base_path"] = base_path
         # Call the helper cleanly without needing 'self'
         data["run_path"] = cls._get_next_run_dir(base_path, run_prefix)
+        data["dumps_path"] = data["run_path"] / "dumps"
+        data["csv_path"] = data["run_path"]
+        data["plot_path"] = data["run_path"] / "plots"
 
         return data
 
@@ -142,3 +151,25 @@ class PipelineOutputConfig(BaseModel):
 
         return self
 
+    def print_console(self, msg: str, name: Optional[str] = None) -> None:
+        """Utility method for consistent console output."""
+        print(msg)
+        if name:
+            save_path = self.dumps_path / f"{name}.txt" if name else None
+            save_path.write_text(msg, encoding="utf-8")
+
+    def save_to_csv(self, csv: pd.DataFrame, name: str) -> None:
+        """
+        Flattens results into a CSV file.
+        """
+        save_path = self.csv_path / f"{name}.csv"
+        csv.to_csv(save_path, index=False)
+
+    def save_plot(self, plt, name: str):
+        """
+        Saves a matplotlib plot to the designated plot directory.
+        """
+        for fmt in self.plot_format:
+            save_path = self.plot_path / f"{name}.{fmt}"
+        plt.savefig(save_path, dpi=150)
+        plt.close()

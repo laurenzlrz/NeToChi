@@ -8,3 +8,4 @@ mypy
 
 
 scipy
+matplotlib

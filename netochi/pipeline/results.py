@@ -8,12 +8,12 @@ class ExperimentResult(BaseModel):
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
-    mapper_name: str
-    input_metadata: Dict[str, str]
-    metrics: Dict[str, float]
-    raw_metrics: Dict[str, float] = Field(default_factory=dict)
-    execution_time_s: float
-    error: Optional[str] = None
+    mapper_name: str = Field(..., description="Name of the mapper/algorithm used.")
+    input_metadata: Dict[str, str] = Field(default_factory=dict, description="Metadata about the input graph, e.g., graph type, size.")
+    metrics: Dict[str, float] = Field(default_factory=dict, description="Relative metrics compared to baseline (e.g., improvement percentages).")
+    raw_metrics: Dict[str, float] = Field(default_factory=dict, description="Absolute metric values for the mapping result.")
+    execution_time_s: float = Field(0.0, description="Execution time in seconds for this mapping.")
+    error: Optional[str] = Field(None, description="Error message if the mapping failed, otherwise None.")
 
 
 class PipelineSummary(BaseModel):
@@ -23,4 +23,4 @@ class PipelineSummary(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
     results: List[ExperimentResult] = Field(default_factory=list)
-    total_time_s: float = 0.0
+    total_time_s: float = Field(0.0, description="Total execution time for the entire pipeline run.")

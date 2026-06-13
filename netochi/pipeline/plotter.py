@@ -34,19 +34,19 @@ class PipelinePlotter(BaseModel):
             
         # Generate relative plots
         for metric in rel_metrics:
-            self._plot_metric_comparison(summary, metric, plot_dir, is_raw=False)
+            self._plot_metric_comparison(summary, metric, is_raw=False)
         
         # Generate absolute plots
         for metric in raw_metrics:
-            self._plot_metric_comparison(summary, metric, plot_dir, is_raw=True)
+            self._plot_metric_comparison(summary, metric, is_raw=True)
             
         # Generate execution time comparison
-        self._plot_execution_times(summary, plot_dir)
+        self._plot_execution_times(summary)
         
         # Generate per-network individual plots
-        self._plot_individual_networks(summary, plot_dir)
+        self._plot_individual_networks(summary)
 
-    def _plot_metric_comparison(self, summary: PipelineSummary, metric: str, plot_dir: Path, is_raw: bool = False) -> None:
+    def _plot_metric_comparison(self, summary: PipelineSummary, metric: str, is_raw: bool = False) -> None:
         # Organize data: graph_type -> mapper -> value
         data: Dict[str, Dict[str, float]] = {}
         mappers: Set[str] = set()
@@ -90,11 +90,10 @@ class PipelinePlotter(BaseModel):
         
         plt.tight_layout()
         suffix_file = "raw" if is_raw else "rel"
-        filename = self.config.plot_filename_pattern.format(metric=metric) + f"_{suffix_file}.{self.config.plot_format}"
-        plt.savefig(plot_dir / filename, dpi=150)
-        plt.close()
+        filename = self.config.plot_filename_pattern.format(metric=metric) + f"_{suffix_file}"
+        self.config.save_plot(plt, filename)
 
-    def _plot_execution_times(self, summary: PipelineSummary, plot_dir: Path) -> None:
+    def _plot_execution_times(self, summary: PipelineSummary) -> None:
         # Organize data: mapper -> average execution time
         times: Dict[str, List[float]] = {}
         for res in summary.results:
@@ -121,10 +120,9 @@ class PipelinePlotter(BaseModel):
             ax.text(width, bar.get_y() + bar.get_height()/2, f' {width:.2f}s', va='center')
             
         plt.tight_layout()
-        plt.savefig(plot_dir / f"execution_times.{self.config.plot_format}", dpi=150)
-        plt.close()
+        self.config.save_plot(plt, "execution_times")
 
-    def _plot_individual_networks(self, summary: PipelineSummary, plot_dir: Path) -> None:
+    def _plot_individual_networks(self, summary: PipelineSummary) -> None:
         """
         Generates a separate plot for every unique network configuration.
         """
@@ -137,9 +135,6 @@ class PipelinePlotter(BaseModel):
             if ident not in network_data:
                 network_data[ident] = []
             network_data[ident].append(res)
-            
-        individual_dir = plot_dir / "individual"
-        individual_dir.mkdir(parents=True, exist_ok=True)
         
         for ident, results in network_data.items():
             # For each metric, plot mappers for this specific network
@@ -167,6 +162,5 @@ class PipelinePlotter(BaseModel):
                 
                 plt.tight_layout()
                 safe_ident = ident.replace(" ", "_").replace(":", "-").replace("|", "_")[:50]
-                filename = f"net_{safe_ident}_{metric}.{self.config.plot_format}"
-                plt.savefig(individual_dir / filename, dpi=150)
-                plt.close()
+                filename = f"net_{safe_ident}_{metric}"
+                self.config.save_plot(plt, filename)

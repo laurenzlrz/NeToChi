@@ -3,8 +3,6 @@ from typing import Generic, TypeVar, TYPE_CHECKING, Optional, Any
 
 from pydantic import BaseModel, ConfigDict
 
-from netochi.mapping.interfaces import BaseMosaicMappingState
-
 if TYPE_CHECKING:
     from netochi.pipeline.results import PipelineSummary
 

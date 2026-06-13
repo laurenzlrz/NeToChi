@@ -1,42 +1,88 @@
 from typing import List, Set, Dict, Any
+
+from pydantic import BaseModel, Field, ConfigDict
+
+from netochi.pipeline.config import PipelineOutputConfig
 from netochi.pipeline.results import PipelineSummary, ExperimentResult
 from netochi.definitions.constants import KEY_GRAPH_TYPE, KEY_UNKNOWN, REPORT_DIVIDER, REPORT_SUBDIVIDER, \
     REPORT_HEADER_BASELINE, REPORT_HEADER_PURE
 
 
-class SummaryReporter:
+class SummaryReporter(BaseModel):
     """
     Handles the generation and printing of experiment reports.
     Automatically discovers metrics and formats tables dynamically.
     """
+    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
+    config: PipelineOutputConfig = Field(default_factory=PipelineOutputConfig)
 
-    @staticmethod
-    def print_report(summary: PipelineSummary) -> None:
+    def generate_report_string(self, summary: PipelineSummary) -> None:
         """
-        Main entry point for printing the summary report.
+        Generates the full summary report as a string.
         """
         if not summary.results:
-            print("\nNo results to report.")
-            return
+            self.config.print_console("\nNo results to report.")
 
-        # 1. Discover all metrics present in the results
+        report_lines = []
         all_metric_names = SummaryReporter._discover_metrics(summary.results)
-        
-        # 2. Print Relative Improvement Table
-        print("\n" + SummaryReporter._get_divider(all_metric_names))
-        print(REPORT_HEADER_BASELINE)
-        print(SummaryReporter._get_divider(all_metric_names))
-        SummaryReporter._print_table(summary.results, all_metric_names, use_raw=False)
+        divider = SummaryReporter._get_divider(all_metric_names)
 
-        # 3. Print Absolute Values Table
-        print("\n" + SummaryReporter._get_divider(all_metric_names))
-        print(REPORT_HEADER_PURE)
-        print(SummaryReporter._get_divider(all_metric_names))
-        SummaryReporter._print_table(summary.results, all_metric_names, use_raw=True)
+        # 1. Relative Improvement Table
+        report_lines.append(f"\n{divider}")
+        report_lines.append(REPORT_HEADER_BASELINE)
+        report_lines.append(divider)
+        report_lines.append(SummaryReporter._get_table_string(summary.results, all_metric_names, use_raw=False))
 
-        print(SummaryReporter._get_divider(all_metric_names))
-        print(f"Total Experiment Time: {summary.total_time_s:.2f}s")
-        print("Experiment Complete.")
+        # 2. Absolute Values Table
+        report_lines.append(f"\n{divider}")
+        report_lines.append(REPORT_HEADER_PURE)
+        report_lines.append(divider)
+        report_lines.append(SummaryReporter._get_table_string(summary.results, all_metric_names, use_raw=True))
+
+        report_lines.append(divider)
+        report_lines.append(f"Total Experiment Time: {summary.total_time_s:.2f}s")
+        report_lines.append("Experiment Complete.")
+
+        final_report_str = "\n".join(report_lines)
+        self.config.print_console(final_report_str)
+
+    def _get_table_string(self, results: List[ExperimentResult], metric_names: List[str], use_raw: bool) -> str:
+        """
+        Returns a formatted table for a given set of metrics as a string.
+        """
+        table_lines = []
+        mapper_width, graph_width, metric_width, time_width = 45, 20, 25, 10
+
+        # Format Header
+        header = f"{'Mapper':<{mapper_width}} | {'Graph':<{graph_width}}"
+        for name in metric_names:
+            display_name = SummaryReporter._truncate(name, metric_width)
+            header += f" | {display_name:<{metric_width}}"
+        header += f" | {'Time (s)':<{time_width}}"
+
+        table_lines.append(header)
+        table_lines.append("-" * len(header))
+
+        sorted_results = sorted(
+            results,
+            key=lambda r: (r.input_metadata.get(KEY_GRAPH_TYPE, KEY_UNKNOWN), r.mapper_name)
+        )
+
+        for res in sorted_results:
+            mapper_display = SummaryReporter._truncate(res.mapper_name, mapper_width)
+            graph_display = SummaryReporter._truncate(res.input_metadata.get(KEY_GRAPH_TYPE, KEY_UNKNOWN), graph_width)
+
+            row = f"{mapper_display:<{mapper_width}} | {graph_display:<{graph_width}}"
+            metrics_dict = res.raw_metrics if use_raw else res.metrics
+
+            for name in metric_names:
+                val = metrics_dict.get(name, -1.0)
+                row += f" | {val:<{metric_width}.2f}"
+
+            row += f" | {res.execution_time_s:<{time_width}.3f}"
+            table_lines.append(row)
+
+        return "\n".join(table_lines)
 
     @staticmethod
     def _get_divider(metric_names: List[str]) -> str:
@@ -65,45 +111,3 @@ class SummaryReporter:
             return text[:width-3] + "..."
         return text
 
-    @staticmethod
-    def _print_table(results: List[ExperimentResult], metric_names: List[str], use_raw: bool) -> None:
-        """
-        Prints a formatted table for a given set of metrics.
-        """
-        # Header setup
-        mapper_width = 45
-        graph_width = 20
-        metric_width = 25
-        time_width = 10
-        
-        # Format Header
-        header = f"{'Mapper':<{mapper_width}} | {'Graph':<{graph_width}}"
-        for name in metric_names:
-            display_name = SummaryReporter._truncate(name, metric_width)
-            header += f" | {display_name:<{metric_width}}"
-        header += f" | {'Time (s)':<{time_width}}"
-        
-        print(header)
-        print("-" * len(header))
-
-        # Sort results by graph type then mapper name
-        sorted_results = sorted(
-            results, 
-            key=lambda r: (r.input_metadata.get(KEY_GRAPH_TYPE, KEY_UNKNOWN), r.mapper_name)
-        )
-
-        for res in sorted_results:
-            mapper_display = SummaryReporter._truncate(res.mapper_name, mapper_width)
-            graph_display = SummaryReporter._truncate(res.input_metadata.get(KEY_GRAPH_TYPE, KEY_UNKNOWN), graph_width)
-            
-            row = f"{mapper_display:<{mapper_width}} | {graph_display:<{graph_width}}"
-            
-            metrics_dict = res.raw_metrics if use_raw else res.metrics
-            
-            for name in metric_names:
-                val = metrics_dict.get(name, -1.0)
-                # Format based on value type or name (heuristic)
-                row += f" | {val:<{metric_width}.2f}"
-            
-            row += f" | {res.execution_time_s:<{time_width}.3f}"
-            print(row)
