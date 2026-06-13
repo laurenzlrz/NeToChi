@@ -14,7 +14,7 @@ from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 # Base Mapping State Interfaces
 # -----------------------------------------------------------------------------
 
-class MappingState[ANY_MAPPING_INPUT: MappingInput](BaseModel):
+class MappingState[ANY_MAPPING_INPUT: MappingInput, HW_CONFIG: Any](BaseModel):
     """Base class for all mapping results."""
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=False, strict=True)
     _mapping_input: ANY_MAPPING_INPUT
@@ -23,7 +23,12 @@ class MappingState[ANY_MAPPING_INPUT: MappingInput](BaseModel):
     def mapping_input(self) -> ANY_MAPPING_INPUT:
         return self._mapping_input
 
-class HWNetworkMappingState[ANY_MAPPING_INPUT: MappingInput, INFERRED_HW_CONFIG: Any](MappingState[ANY_MAPPING_INPUT]):
+    @property
+    @abstractmethod
+    def hw_to_evaluate(self) -> HW_CONFIG:
+        pass
+
+class HWNetworkMappingState[ANY_MAPPING_INPUT: MappingInput, INFERRED_HW_CONFIG: Any](MappingState[ANY_MAPPING_INPUT, INFERRED_HW_CONFIG]):
     """
     Base class for states that infer hardware. 
     Does not strictly require hardware parameters in input, but provides/infers them.
@@ -35,7 +40,13 @@ class HWNetworkMappingState[ANY_MAPPING_INPUT: MappingInput, INFERRED_HW_CONFIG:
         """Convenience property to access inferred hardware config."""
         return self._inferred_hw_config
 
-class NetworkAssignmentState[WITH_HW_INPUT: HWMappingInput, GT_HW_CONFIG: Any](MappingState[WITH_HW_INPUT]):
+    @property
+    def hw_to_evaluate(self) -> INFERRED_HW_CONFIG:
+        """For HW-aware mappers, the hardware to evaluate is the inferred hardware."""
+        return self._inferred_hw_config
+
+
+class NetworkAssignmentState[WITH_HW_INPUT: HWMappingInput, GT_HW_CONFIG: Any](MappingState[WITH_HW_INPUT, GT_HW_CONFIG]):
     """
     State for hardware-aware partitioning.
     Requires specific hardware parameters in the input (WITH_HW_INPUT).
@@ -45,11 +56,16 @@ class NetworkAssignmentState[WITH_HW_INPUT: HWMappingInput, GT_HW_CONFIG: Any](M
         """Convenience property to access hardware config directly from the input."""
         return self.mapping_input.hw_config
 
+    @property
+    def hw_to_evaluate(self) -> GT_HW_CONFIG:
+        """For hardware-aware mappers, the hardware to evaluate is the ground truth hardware from the input."""
+        return self.gt_hw
+
 # -----------------------------------------------------------------------------
 # Mosaic Specific Interfaces
 # -----------------------------------------------------------------------------
 
-class BaseMosaicMappingState[ANY_MAPPING_INPUT: MappingInput](MappingState[ANY_MAPPING_INPUT]):
+class BaseMosaicMappingState[ANY_MAPPING_INPUT: MappingInput](MappingState[ANY_MAPPING_INPUT, MosaicHardwareConfig]):
     """
     Abstract base state for all Mosaic mappers.  Infers HW
     Contains the assignment arrays and uses HWNetworkMappingState to ensure mapping_input exists.

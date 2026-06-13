@@ -22,25 +22,20 @@ from netochi.objectives.obj_inconsistency_relative import InconsistencyRelativeO
 from netochi.objectives.obj_unused_connections import UnusedConnectionsObjective
 from netochi.pipeline.runner import (
     PipelineRunner, 
-    ExperimentTask, 
-    Evaluator, 
-    MosaicGroundTruthBaselineProvider, 
+    ExperimentTask,
+    MosaicGroundTruthBaselineProvider,
     MapperBaselineProvider,
     BaseBaselineProvider
 )
+from netochi.pipeline.runner.evaluator_bundle import EvaluatorBundle
 from netochi.pipeline.metrics import ObjectiveMetric
 from netochi.objectives.obj_log_likelihood import LogLikelihoodObjective
 from netochi.objectives.obj_inconsistency import InconsistencyObjective
 from netochi.objectives.obj_hardware_size import MosaicHardwareSizeObjective
 from netochi.objectives.interfaces import MappingObjective
-from netochi.pipeline.constants import (
-    REPORT_DIVIDER, REPORT_SUBDIVIDER, REPORT_HEADER_BASELINE, REPORT_HEADER_PURE,
-    TABLE_HEADER_REL_FORMAT, TABLE_HEADER_RAW_FORMAT, TABLE_ROW_REL_FORMAT, TABLE_ROW_RAW_FORMAT,
-    KEY_GRAPH_TYPE, KEY_UNKNOWN, DEFAULT_METRIC_VALUE
-)
-from netochi.objectives.constants import OBJ_NAME_LL, OBJ_NAME_INCONSISTENCY, OBJ_NAME_HW_SIZE
-
-
+from netochi.definitions.constants import KEY_GRAPH_TYPE, KEY_UNKNOWN, DEFAULT_METRIC_VALUE, REPORT_DIVIDER, \
+    REPORT_SUBDIVIDER, REPORT_HEADER_BASELINE, REPORT_HEADER_PURE, TABLE_ROW_REL_FORMAT, TABLE_ROW_RAW_FORMAT, \
+    TABLE_HEADER_REL_FORMAT, TABLE_HEADER_RAW_FORMAT, OBJ_NAME_LL, OBJ_NAME_INCONSISTENCY, OBJ_NAME_HW_SIZE
 
 # ======================= CONFIGURE PIPELINE HERE =============================
 
@@ -101,9 +96,9 @@ def define_task_inputs() -> List[Tuple[HWBaseInputFactory, BaseBaselineProvider]
     return task_inputs
 
 
-def define_evaluators() -> Evaluator[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]]:
+def define_evaluators() -> EvaluatorBundle[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]]:
     metrics = [ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]], objective)) for objective in OBJECTIVES]
-    standard_evaluator: Evaluator[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]] = Evaluator(metrics=metrics)
+    standard_evaluator: EvaluatorBundle[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]] = EvaluatorBundle(metrics=metrics)
     return standard_evaluator
 
 

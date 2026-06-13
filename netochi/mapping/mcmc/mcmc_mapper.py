@@ -8,7 +8,7 @@ from typing import Optional, Generic, Tuple, List, Any, Dict
 
 from netochi.input_generator.interfaces import MosaicMappingInput, MosaicAssignment
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState, BaseMosaicMappingState
-from netochi.objectives.interfaces import LogLikelihoodObjectiveInterface
+from netochi.objectives.interfaces import ObjectiveInterface
 from netochi.definitions.constants import (
     MCMC_TIME_LIMIT_S,
     MCMC_DEFAULT_ITERATIONS,
@@ -28,7 +28,7 @@ class HardwareMCMCState(MCMCState, Generic[PAYLOAD]):  # type: ignore[misc]
     Internal MCMC state for hardware mapping optimization.
     """
     mapping_state: MosaicNetworkMappingState
-    objective: LogLikelihoodObjectiveInterface[BaseMosaicMappingState[Any]]
+    objective: ObjectiveInterface[BaseMosaicMappingState[Any]]
     seed: Optional[int]
     verbose: bool
 
@@ -41,7 +41,7 @@ class HardwareMCMCState(MCMCState, Generic[PAYLOAD]):  # type: ignore[misc]
     def __init__(
         self, 
         mapping_state: MosaicNetworkMappingState,
-        objective: LogLikelihoodObjectiveInterface[BaseMosaicMappingState[Any]],
+        objective: ObjectiveInterface[BaseMosaicMappingState[Any]],
         seed: Optional[int] = None,
         verbose: bool = False
     ) -> None:
@@ -169,7 +169,7 @@ class MCMCMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingI
     """
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
-    objective: LogLikelihoodObjectiveInterface[BaseMosaicMappingState[Any]]
+    objective: ObjectiveInterface[BaseMosaicMappingState[Any]]
     iterations: int = Field(default=MCMC_DEFAULT_ITERATIONS)
     initial_temp: float = Field(default=MCMC_DEFAULT_INITIAL_TEMP)
     seed: int = Field(default=MCMC_DEFAULT_SEED)

@@ -51,3 +51,38 @@ DEBUG_JOINT_NC_CHANGED = "DEBUG: Joint State: Nc changed (Nc={nc_old} -> {nc_new
 DEBUG_JOINT_NR_CHANGED = "DEBUG: Joint State: Nr changed (Nr={nr_old} -> {nr_new})"
 DEBUG_JOINT_L_CHANGED = "DEBUG: Joint State: L changed (L={l_old} -> {l_new})"
 DEBUG_JOINT_RESTORE_BEST = "DEBUG: Joint State: Restoring best state (K={k}, Nc={nc}, Nr={nr}, L={l}, energy={energy:.4f})"
+DEFAULT_TIME_LIMIT_S = 600.0
+PIPELINE_LOG_FORMAT = "[{mapper}] {graph_type}: LL={ll:.2f}, Time={elapsed:.3f}s"
+MSG_TASK_HEADER = "\n--- Task: {mapper} on {graph_type} (Nodes={nodes}){baseline_info} ---"
+MSG_WITH_BASELINE = " (with baseline)"
+MSG_MAPPER_FAILED = "Mapper failed, cannot evaluate"
+KEY_GRAPH_TYPE = "graph_type"
+KEY_NODES = "nodes"
+KEY_UNKNOWN = "Unknown"
+DEFAULT_METRIC_VALUE = -1.0
+DEFAULT_REL_METRIC_VALUE = 0.0
+REPORT_DIVIDER = "=" * 130
+REPORT_SUBDIVIDER = "-" * 130
+REPORT_HEADER_BASELINE = "SUMMARY REPORT: BASELINE COMPARISONS (Relative Improvement)"
+REPORT_HEADER_PURE = "SUMMARY REPORT: PURE RESULTS (Absolute Values)"
+TABLE_COL_MAPPER = "Mapper"
+TABLE_COL_GRAPH = "Graph"
+TABLE_COL_TIME = "Time (s)"
+TABLE_COL_REL_LL = "Rel-Likelihood"
+TABLE_COL_REL_INC = "Rel-Incons"
+TABLE_COL_REL_HW = "Rel-HW-Size"
+TABLE_COL_RAW_LL = "Raw-Likelihood"
+TABLE_COL_RAW_INC = "Raw-Incons"
+TABLE_COL_RAW_HW = "Raw-HW-Size"
+TABLE_ROW_REL_FORMAT = "{mapper:<45} | {graph_type:<20} | {rel_ll:<15.2f} | {rel_inc:<10.0f} | {rel_hw:<12.2f} | {elapsed:<10.3f}"
+TABLE_ROW_RAW_FORMAT = "{mapper:<45} | {graph_type:<20} | {raw_ll:<15.2f} | {raw_inc:<10.0f} | {raw_hw:<12.2f} | {elapsed:<10.3f}"
+TABLE_HEADER_REL_FORMAT = f"{TABLE_COL_MAPPER:<45} | {TABLE_COL_GRAPH:<20} | {TABLE_COL_REL_LL:<15} | {TABLE_COL_REL_INC:<10} | {TABLE_COL_REL_HW:<12} | {TABLE_COL_TIME:<10}"
+TABLE_HEADER_RAW_FORMAT = f"{TABLE_COL_MAPPER:<45} | {TABLE_COL_GRAPH:<20} | {TABLE_COL_RAW_LL:<15} | {TABLE_COL_RAW_INC:<10} | {TABLE_COL_RAW_HW:<12} | {TABLE_COL_TIME:<10}"
+OBJ_NAME_LL = "LogLikelihoodObjective"
+OBJ_NAME_INCONSISTENCY = "InconsistencyObjective"
+OBJ_NAME_HW_SIZE = "MosaicHardwareSizeObjective"
+LL_INVALID_PENALTY_LOG = -23.02585092994046  # log(1e-10)
+LL_LAPLACIAN_SMOOTHING_NUM = 1.0
+LL_LAPLACIAN_SMOOTHING_DEN = 2.0
+DEFAULT_HW_WEIGHT = 1.0
+DEFAULT_INCONSISTENCY_WEIGHT = 1.0

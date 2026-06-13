@@ -1,18 +1,16 @@
+from netochi.definitions.constants import DEFAULT_METRIC_VALUE
 from netochi.input_generator.interfaces import MosaicMappingInput
 from netochi.mapping.interfaces import MappingState, HWNetworkMappingState, MosaicHWMappingState, BaseMosaicMappingState
 from netochi.objectives.interfaces import MappingObjective
 from typing import Generic, TypeVar, Optional, Any
-from pydantic import ConfigDict
+from pydantic import ConfigDict, BaseModel
 
 from netochi.pipeline.interfaces import MappingMetric
 
-MAPPING_STATE = TypeVar("MAPPING_STATE", bound=HWNetworkMappingState[Any])
-BASELINE_STATE = TypeVar("BASELINE_STATE", bound=HWNetworkMappingState[Any])
 
-class ObjectiveMetric(MappingMetric[MAPPING_STATE, BASELINE_STATE], Generic[MAPPING_STATE, BASELINE_STATE]):
+class ObjectiveMetric[MAPPING_STATE: MappingState, BASELINE_STATE: MappingState](BaseModel, MappingMetric[MAPPING_STATE, BASELINE_STATE]):
     """
-    Adapter that allows any MappingObjective to be used as a Pipeline Metric.
-    Supports comparative evaluation if a baseline is provided.
+    Adapter that shifts Objectives into the Pipeline Metric interface.
     """
     def __init__(self, objective: MappingObjective[MAPPING_STATE, BASELINE_STATE]) -> None:
         self.objective = objective
@@ -24,7 +22,7 @@ class ObjectiveMetric(MappingMetric[MAPPING_STATE, BASELINE_STATE], Generic[MAPP
         """
         if baseline is not None:
             return self.objective.evaluate_against_baseline(state, baseline)
-        return -1.0
+        return DEFAULT_METRIC_VALUE
 
     def evaluate(self, state: MAPPING_STATE) -> float:
         """
@@ -39,11 +37,11 @@ class ObjectiveMetric(MappingMetric[MAPPING_STATE, BASELINE_STATE], Generic[MAPP
         return self.objective.__class__.__name__
 
 
-class InconsistencyPercentageMetric(MappingMetric[BaseMosaicMappingState[MosaicMappingInput[Any]], BaseMosaicMappingState[MosaicMappingInput[Any]]]):
+class InconsistencyPercentageMetric(MappingMetric[BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]):
     """
     Evaluates an inconsistency-based objective and returns it as a percentage of total edges.
     """
-    def __init__(self, objective: MappingObjective[BaseMosaicMappingState[MosaicMappingInput[Any]], BaseMosaicMappingState[MosaicMappingInput[Any]]]) -> None:
+    def __init__(self, objective: MappingObjective[BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]) -> None:
         self.objective = objective
     
     def evaluate(self, state: BaseMosaicMappingState[MosaicMappingInput[Any]]) -> float:

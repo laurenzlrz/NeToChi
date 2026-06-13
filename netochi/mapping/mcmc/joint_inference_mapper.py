@@ -10,7 +10,7 @@ from typing import List, Tuple, Optional, Generic, Any, Dict
 from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput, MosaicAssignment
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.mapping.interfaces import BaseMapper, MosaicHWMappingState, BaseMosaicMappingState
-from netochi.objectives.interfaces import LogLikelihoodObjectiveInterface
+from netochi.objectives.interfaces import ObjectiveInterface
 from netochi.mapping.mcmc.joint_inference_config import JointInferenceConfig
 from netochi.mapping.mcmc.hardware_heuristic import MosaicHardwareHeuristic
 from netochi.definitions.constants import (
@@ -57,7 +57,7 @@ class JointHardwareMCMCState(MCMCState):
     Internal MCMC state for JOINT hardware-mapping optimization.
     """
     mapping_state: MosaicHWMappingState[MappingInput]
-    objective: LogLikelihoodObjectiveInterface[BaseMosaicMappingState[Any]]
+    objective: ObjectiveInterface[BaseMosaicMappingState[Any]]
     seed: Optional[int]
     verbose: bool
     K: int
@@ -79,7 +79,7 @@ class JointHardwareMCMCState(MCMCState):
     def __init__(
         self, 
         mapping_state: MosaicHWMappingState[MappingInput],
-        objective: LogLikelihoodObjectiveInterface[BaseMosaicMappingState[Any]],
+        objective: ObjectiveInterface[BaseMosaicMappingState[Any]],
         config: JointInferenceConfig,
         seed: Optional[int] = None,
         verbose: bool = False
@@ -422,7 +422,7 @@ class JointInferenceMapper(BaseModel, BaseMapper[MosaicHWMappingState[MappingInp
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
-    objective: LogLikelihoodObjectiveInterface[BaseMosaicMappingState[Any]]
+    objective: ObjectiveInterface[BaseMosaicMappingState[Any]]
     config: JointInferenceConfig = Field(default_factory=JointInferenceConfig)
     
     slice_factor: int = Field(default=2)

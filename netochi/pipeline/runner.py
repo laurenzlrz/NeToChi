@@ -1,56 +1,19 @@
 import time
 from abc import ABC, abstractmethod
-from typing import List, Dict, Optional, Generic, TypeVar, Any, Tuple
+from typing import List, Dict, Optional, Generic, Any, Tuple
 from pydantic import BaseModel, ConfigDict
 
-from netochi.mapping.interfaces import MosaicNetworkMappingState, BaseMosaicMappingState
-from netochi.input_generator.interfaces import MosaicHWMappingInput, HWBaseInputFactory
+from netochi.mapping.interfaces import MosaicNetworkMappingState, BaseMosaicMappingState, MappingState
+from netochi.input_generator.interfaces import MosaicMappingInput, HWBaseInputFactory
 
-from netochi.pipeline.interfaces import MappingMetric, BasePipelineRunner
+from netochi.pipeline.interfaces import BasePipelineRunner
 from netochi.pipeline.results import ExperimentResult, PipelineSummary
-from netochi.pipeline.constants import (
-    PIPELINE_LOG_FORMAT,
-    MSG_TASK_HEADER,
-    MSG_WITH_BASELINE,
-    MSG_MAPPER_FAILED,
-    KEY_GRAPH_TYPE,
-    KEY_NODES,
-    KEY_UNKNOWN,
-    DEFAULT_REL_METRIC_VALUE,
-    DEFAULT_METRIC_VALUE
-)
+from netochi.definitions.constants import PIPELINE_LOG_FORMAT, MSG_TASK_HEADER, MSG_WITH_BASELINE, MSG_MAPPER_FAILED, \
+    KEY_GRAPH_TYPE, KEY_NODES, KEY_UNKNOWN
 from netochi.mapping.interfaces import BaseMapper
 from netochi.input_generator.interfaces import MappingInput
+from netochi.pipeline.runner.evaluator_bundle import EvaluatorBundle
 from tests.utils_mapping_output_validation import validate_mosaic_mapping
-
-PIPELINE_INPUT = TypeVar("PIPELINE_INPUT", bound=BaseMosaicMappingState[Any])
-PIPELINE_INPUT_CONTRA = TypeVar("PIPELINE_INPUT_CONTRA", bound=BaseMosaicMappingState[Any], contravariant=True)
-MAPPING_STATE = TypeVar("MAPPING_STATE", bound=BaseMosaicMappingState[Any])
-MAPPING_STATE_CO = TypeVar("MAPPING_STATE_CO", bound=BaseMosaicMappingState[Any], covariant=True)
-BASELINE_STATE = TypeVar("BASELINE_STATE", bound=BaseMosaicMappingState[Any])
-BASELINE_STATE_CO = TypeVar("BASELINE_STATE_CO", bound=BaseMosaicMappingState[Any], covariant=True)
-
-
-class Evaluator(BaseModel, Generic[MAPPING_STATE, BASELINE_STATE]):
-    """Strongly typed container for metrics."""
-    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
-    metrics: List[MappingMetric[MAPPING_STATE, BASELINE_STATE]]
-
-    def evaluate_all(self, state: MAPPING_STATE, baseline: Optional[BASELINE_STATE]) -> Tuple[Dict[str, float], Dict[str, float]]:
-        raw_results: Dict[str, float] = {}
-        rel_results: Dict[str, float] = {}
-        for metric in self.metrics:
-            try:
-                # Calculate Raw (Absolute)
-                raw_results[metric.get_name()] = metric.evaluate(state)
-                # Calculate Relative (if baseline exists)
-                if baseline is not None:
-                    rel_results[metric.get_name()] = metric.evaluate_against_baseline(state, baseline)
-                else:
-                    rel_results[metric.get_name()] = DEFAULT_METRIC_VALUE # No baseline
-            except Exception as e:
-                print(f"    Metric {metric.get_name()} failed: {e}")
-        return raw_results, rel_results
 
 
 class BaseBaselineProvider(ABC, Generic[BASELINE_STATE_CO, PIPELINE_INPUT_CONTRA]):
@@ -62,12 +25,12 @@ class BaseBaselineProvider(ABC, Generic[BASELINE_STATE_CO, PIPELINE_INPUT_CONTRA
         pass
 
 
-class MosaicGroundTruthBaselineProvider(BaseBaselineProvider[BaseMosaicMappingState[Any], MappingInput[Any]]):
+class MosaicGroundTruthBaselineProvider(BaseBaselineProvider[BaseMosaicMappingState, MappingInput]):
     """Extracts ground truth from MosaicMappingInput if available."""
     
     def get_baseline(self, mapping_input: MappingInput[Any]) -> Optional[BaseMosaicMappingState[Any]]:
             
-        if not isinstance(mapping_input, MosaicHWMappingInput):
+        if not isinstance(mapping_input, MosaicMappingInput):
             return None
             
         try:
@@ -99,11 +62,11 @@ class MapperBaselineProvider(BaseBaselineProvider[MAPPING_STATE_CO, PIPELINE_INP
             return None
 
 
-class ExperimentTask(BaseModel, Generic[PIPELINE_INPUT, MAPPING_STATE, BASELINE_STATE]):
+class ExperimentTask[PIPELINE_INPUT: MappingInput, MAPPING_STATE: MappingState, BASELINE_STATE](BaseModel):
     """An execution step binding mappers, inputs, and baseline logic."""
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
     mapper: BaseMapper[MAPPING_STATE, PIPELINE_INPUT]
-    evaluator: Evaluator[MAPPING_STATE, BASELINE_STATE]
+    evaluator: EvaluatorBundle[MAPPING_STATE, BASELINE_STATE]
     
     # Each input factory is paired with a specific baseline provider
     inputs: List[Tuple[
@@ -118,7 +81,7 @@ class PipelineRunner(BaseModel, BasePipelineRunner):
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
     
-    tasks: List[ExperimentTask[MappingInput[Any], BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]]]
+    tasks: List[ExperimentTask[MappingInput, BaseMosaicMappingState, BaseMosaicMappingState]]
     verbose: bool = True
 
     def run(self) -> PipelineSummary:

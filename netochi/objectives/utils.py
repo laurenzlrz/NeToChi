@@ -1,17 +1,17 @@
 from typing import Dict, Any
 
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
-from netochi.mapping.interfaces import BaseMosaicMappingState, ANY_MAPPING_INPUT
+from netochi.mapping.interfaces import BaseMosaicMappingState
 
 
 
-def compute_e_valid(state: BaseMosaicMappingState[ANY_MAPPING_INPUT], data: Dict[str, Any]) -> int:
+def compute_e_valid(state: BaseMosaicMappingState[Any], data: Dict[str, Any]) -> int:
     """
     data needs to have:
     - N: num nodes
     - in_edges for every target node
     """
-    hw = state.hw
+    hw = state.hw_to_evaluate
     c, x, s = state.c, state.x, state.s
     e_valid = 0
     for tgt in range(data['N']):

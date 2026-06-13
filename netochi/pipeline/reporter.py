@@ -1,9 +1,8 @@
 from typing import List, Set, Dict, Any
 from netochi.pipeline.results import PipelineSummary, ExperimentResult
-from netochi.pipeline.constants import (
-    REPORT_DIVIDER, REPORT_SUBDIVIDER, REPORT_HEADER_BASELINE, REPORT_HEADER_PURE,
-    KEY_GRAPH_TYPE, KEY_UNKNOWN
-)
+from netochi.definitions.constants import KEY_GRAPH_TYPE, KEY_UNKNOWN, REPORT_DIVIDER, REPORT_SUBDIVIDER, \
+    REPORT_HEADER_BASELINE, REPORT_HEADER_PURE
+
 
 class SummaryReporter:
     """

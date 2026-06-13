@@ -17,7 +17,7 @@ class ResultManager(BaseModel):
         Saves the summary to a new run directory.
         Returns the path to the run directory.
         """
-        run_dir = self.config.get_next_run_dir()
+        run_dir = self.config._get_next_run_dir()
         
         # 1. Save Full JSON
         json_path = run_dir / self.config.json_filename
