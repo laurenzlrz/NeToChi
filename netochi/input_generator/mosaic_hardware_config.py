@@ -1,7 +1,9 @@
 from pydantic import BaseModel, Field, computed_field, ConfigDict, model_validator
 import numpy as np
 
-from interfaces import MosaicAssignment
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .interfaces import MosaicAssignment
 from netochi.definitions.exceptions import InvalidConfigError, DimensionError, InvalidAssignmentError
 
 
@@ -95,7 +97,7 @@ class MosaicHardwareConfig(BaseModel):
                 return s_idx
         return -1
 
-    def verify_assignment(self, assignment: MosaicAssignment) -> None:
+    def verify_assignment(self, assignment: "MosaicAssignment") -> None:
 
         # Validation against hardware
         if assignment.neuron_core_pre_assignment.size != self.total_neurons:

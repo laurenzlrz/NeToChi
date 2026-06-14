@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from netochi.definitions.constants import DEFAULT_METRIC_VALUE
 from netochi.mapping.interfaces import MappingState
@@ -8,10 +8,11 @@ from netochi.objectives.interfaces import MappingObjective
 from netochi.pipeline.interfaces import MappingMetric
 
 
-class ObjectiveMetric[MAPPING_STATE: MappingState, BASELINE_STATE: MappingState](MappingMetric[MAPPING_STATE, BASELINE_STATE]):
+class ObjectiveMetric[MAPPING_STATE: MappingState, BASELINE_STATE: MappingState](MappingMetric[MAPPING_STATE, BASELINE_STATE], BaseModel):
     """
     Adapter that shifts Objectives into the Pipeline Metric interface.
     """
+    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
     objective: MappingObjective[MAPPING_STATE, BASELINE_STATE] = Field(..., description="The underlying objective to evaluate.")
 
     def evaluate_against_baseline(self, state: MAPPING_STATE, baseline: Optional[BASELINE_STATE] = None) -> float:

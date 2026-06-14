@@ -1,5 +1,5 @@
 import time
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Sequence
 from pydantic import BaseModel, ConfigDict, Field
 
 from netochi.mapping.interfaces import MappingState
@@ -27,7 +27,7 @@ class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELI
     #TODO
 
     @property
-    def baseline_storers(self) -> List[BaselineStorer[BASELINE_STATE, INPUT]]:
+    def baseline_storers(self) -> List[BaselineStorer[INPUT, BASELINE_STATE]]:
         return self.evaluator_bundle.get_baselines
 
     def run(self, input: INPUT) -> ExperimentResult:
@@ -112,7 +112,7 @@ class TaskBundle(BaseModel):
         return pipeline_summary
 
 
-class PipelineRunner(BaseModel, BasePipelineRunner):
+class PipelineRunner(BasePipelineRunner):
     """
     Strictly typed pipeline runner using ExperimentTasks.
     """

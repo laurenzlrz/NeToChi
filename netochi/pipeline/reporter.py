@@ -34,13 +34,13 @@ class SummaryReporter(PipelineConsumer):
         report_lines.append(f"\n{divider}")
         report_lines.append(REPORT_HEADER_BASELINE)
         report_lines.append(divider)
-        report_lines.append(SummaryReporter._get_table_string(summary.results, all_metric_names, use_raw=False))
+        report_lines.append(self._get_table_string(summary.results, all_metric_names, use_raw=False))
 
         # 2. Absolute Values Table
         report_lines.append(f"\n{divider}")
         report_lines.append(REPORT_HEADER_PURE)
         report_lines.append(divider)
-        report_lines.append(SummaryReporter._get_table_string(summary.results, all_metric_names, use_raw=True))
+        report_lines.append(self._get_table_string(summary.results, all_metric_names, use_raw=True))
 
         report_lines.append(divider)
         report_lines.append(f"Total Experiment Time: {summary.total_time_s:.2f}s")

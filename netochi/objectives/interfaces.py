@@ -8,12 +8,11 @@ from netochi.mapping.interfaces import MappingState
 # Objective Interfaces
 # -----------------------------------------------------------------------------
 
-class MappingObjective[MAPPING_STATE: MappingState, MAPPING_STATE_BASELINE: MappingState](BaseModel):
+class MappingObjective[MAPPING_STATE: MappingState, MAPPING_STATE_BASELINE: MappingState](ABC):
     """
     Base class for all mapping objectives.
     Supports both direct evaluation and baseline-comparative evaluation.
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
     
     def evaluate(self, state: MAPPING_STATE) -> float:
         """
@@ -37,3 +36,8 @@ class ObjectiveInterface[MAPPING_STATE: MappingState]:
     def evaluate(self, state: MAPPING_STATE) -> float:
         """Evaluate the log-likelihood of the mapping state."""
         raise NotImplementedError
+
+    def log_likelihood(self, state: MAPPING_STATE) -> float:
+        """Calculate the log-likelihood for the current mapping assignment."""
+        raise NotImplementedError
+

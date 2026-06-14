@@ -18,7 +18,6 @@ from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 
 # =============== Cluster Output ====================
 
-@dataclass
 class ClusterOutput(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, strict=True, frozen=True)
 
@@ -35,7 +34,6 @@ class ClusterOutput(BaseModel):
                                  f"Max cluster ID: {higher_than_cluster_id}, num_clusters: {self.num_clusters}")
         return self
 
-@dataclass
 class HierarchicalClusterOutput(ClusterOutput):
     cluster_parent: npt.NDArray[np.int_] = Field(description="Cluster ID -> Parent Cluster ID (-1 for root)")
 
@@ -45,7 +43,6 @@ class HierarchicalClusterOutput(ClusterOutput):
              raise DimensionError(f"cluster_parent must be 1D and cluster_parent length {self.cluster_parent.shape[0]} must match num_clusters {self.num_clusters}")
         return self
 
-@dataclass
 class ClusterAndHwOutput(ClusterOutput):
     hw: MosaicHardwareConfig = Field(description="Hardware configuration that the clustering fits on")
 
@@ -99,7 +96,7 @@ class ClustererOutputsHw[ANY_MAPPING_INPUT: MappingInput](Clusterer[ANY_MAPPING_
         pass
 
 
-class ClustererFixedHw[WITH_HW_INPUT: HWMappingInput](ClustererOutputsHw):
+class ClustererFixedHw[WITH_HW_INPUT: HWMappingInput](ClustererOutputsHw[WITH_HW_INPUT]):
     """
     outputs a clustering that fits onto the given hardware
     """

@@ -23,7 +23,7 @@ class QAPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingIn
         N_graph = graph.num_vertices()
         
         # Initialize result state
-        assignment = MosaicAssignment.zero(num_neurons=N_graph, hw=gt_hw)
+        assignment = MosaicAssignment.spread(num_neurons=N_graph, hw=gt_hw)
         c_assignment = assignment.neuron_core_pre_assignment
         x_assignment = assignment.neuron_idx_pre_assignment
         s_assignment = assignment.neuron_slice_assignment

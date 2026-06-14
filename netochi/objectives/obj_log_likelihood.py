@@ -1,6 +1,6 @@
 import numpy as np
 from typing import Dict, Any
-from pydantic import PrivateAttr, ConfigDict
+from pydantic import BaseModel, PrivateAttr, ConfigDict
 
 from netochi.mapping.interfaces import (
     BaseMosaicMappingState, 
@@ -11,7 +11,7 @@ from netochi.definitions.exceptions import BaselineMismatchError
 from netochi.objectives import ObjectiveInterface, MappingObjective
 
 
-class LogLikelihoodObjective(MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]],
+class LogLikelihoodObjective(BaseModel, MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]],
                              ObjectiveInterface[BaseMosaicMappingState[Any]]):
     """
     SBM-based Log-Likelihood objective for neuromorphic mapping.
@@ -63,7 +63,7 @@ class LogLikelihoodObjective(MappingObjective[BaseMosaicMappingState[Any], BaseM
             c_tgt = c[tgt]
             for src in data['in_edges'][tgt]:
                 c_src = c[src]
-                dist = hw.core_distance(c_tgt, c_src)
+                dist = hw.core_distance(int(c_tgt), int(c_src))
                 if dist == 0:
                     e_valid += 1
                 else:

@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import graph_tool.all as gt
+from typing import Any
 
 from netochi.mapping.interfaces import BaseMosaicMappingState
 
@@ -11,13 +12,13 @@ def plot_sorted_adjacency(graph: gt.Graph, state: BaseMosaicMappingState, filena
     Plots the adjacency matrix of a graph, sorted by core assignment and then local index.
     Draws red boundary lines to separate different cores and labels the axes with Core IDs.
     """
-    c = state.neuron_core_idxs_assignment
-    x = state.neuron_local_idxs_assignment
+    c = state.c
+    x = state.x
 
     # Sort primarily by core ID (c), secondarily by local ID (x)
     sorted_indices = np.lexsort((x, c))
-    adj_matrix = gt.adjacency(graph)
-    adj_sorted = adj_matrix[sorted_indices, :][:, sorted_indices]
+    adj_matrix: Any = gt.adjacency(graph)
+    adj_sorted = adj_matrix.tocsr()[sorted_indices, :][:, sorted_indices]
 
     plt.figure(figsize=(8, 8))
     plt.spy(adj_sorted.T, markersize=4, color='black')
@@ -61,7 +62,8 @@ def plot_sorted_adjacency(graph: gt.Graph, state: BaseMosaicMappingState, filena
     plt.xlabel("Target Neuron")
     plt.ylabel("Source Neuron")
 
-    plt.gca().xaxis.tick_top()
-    plt.gca().xaxis.set_label_position('top')
+    ax: Any = plt.gca()
+    ax.xaxis.tick_top()
+    ax.xaxis.set_label_position('top')
     plt.tight_layout()
     plt.savefig(filename, bbox_inches='tight')

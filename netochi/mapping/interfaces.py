@@ -3,7 +3,7 @@ from typing import TypeVar, Optional, Any
 
 import numpy as np
 import numpy.typing as npt
-from pydantic import BaseModel, Field, ConfigDict, model_validator
+from pydantic import BaseModel, Field, ConfigDict, model_validator, PrivateAttr
 
 from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput, HWMappingInput, MosaicAssignment
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
@@ -16,12 +16,8 @@ from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 
 class MappingState[ANY_MAPPING_INPUT: MappingInput, HW_CONFIG: Any](BaseModel):
     """Base class for all mapping results."""
-    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=False, strict=True)
-    _mapping_input: ANY_MAPPING_INPUT
-
-    @property
-    def mapping_input(self) -> ANY_MAPPING_INPUT:
-        return self._mapping_input
+    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=False, strict=True, populate_by_name=True)
+    mapping_input: ANY_MAPPING_INPUT = Field(alias="_mapping_input", frozen=True)
 
     @property
     @abstractmethod
@@ -33,17 +29,12 @@ class HWNetworkMappingState[ANY_MAPPING_INPUT: MappingInput, INFERRED_HW_CONFIG:
     Base class for states that infer hardware. 
     Does not strictly require hardware parameters in input, but provides/infers them.
     """
-    _inferred_hw_config: INFERRED_HW_CONFIG
-
-    @property
-    def inferred_hw(self) -> INFERRED_HW_CONFIG:
-        """Convenience property to access inferred hardware config."""
-        return self._inferred_hw_config
+    inferred_hw: INFERRED_HW_CONFIG = Field(alias="_inferred_hw_config", frozen=False)
 
     @property
     def hw_to_evaluate(self) -> INFERRED_HW_CONFIG:
         """For HW-aware mappers, the hardware to evaluate is the inferred hardware."""
-        return self._inferred_hw_config
+        return self.inferred_hw
 
 class NetworkAssignmentState[WITH_HW_INPUT: HWMappingInput, GT_HW_CONFIG: Any](MappingState[WITH_HW_INPUT, GT_HW_CONFIG]):
     """
@@ -98,7 +89,7 @@ class MosaicNetworkMappingState(BaseMosaicMappingState[MosaicMappingInput], Netw
         hw = mapping_input.hw_config
         return cls(
             _mapping_input=mapping_input,
-            assignment=MosaicAssignment.zero(num_neurons=mapping_input.graph.num_vertices(), hw=hw)
+            assignment=MosaicAssignment.spread(num_neurons=mapping_input.graph.num_vertices(), hw=hw)
         )
 
     @classmethod
@@ -125,7 +116,7 @@ class MosaicHWMappingState[ANY_MAPPING_INPUT: MappingInput](BaseMosaicMappingSta
         return cls(
             _mapping_input=mapping_input,
             _inferred_hw_config=initial_hw_guess,
-            assignment=MosaicAssignment.zero(
+            assignment=MosaicAssignment.spread(
                 hw = initial_hw_guess,
                 num_neurons=mapping_input.graph.num_vertices()
             )

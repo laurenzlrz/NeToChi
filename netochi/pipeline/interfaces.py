@@ -6,12 +6,11 @@ from pydantic import BaseModel, ConfigDict
 if TYPE_CHECKING:
     from netochi.pipeline.results import PipelineSummary
 
-class MappingMetric[MAPPING_STATE, MAPPING_STATE_BASELINE](ABC, BaseModel):
+class MappingMetric[MAPPING_STATE, MAPPING_STATE_BASELINE](ABC):
     """
     Abstract interface for mapping metrics.
     Metrics evaluate a final mapping state, potentially against a baseline.
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
 
     @abstractmethod
     def evaluate_against_baseline(self, state: MAPPING_STATE, baseline: Optional[MAPPING_STATE_BASELINE] = None) -> float:
@@ -39,6 +38,6 @@ class BasePipelineRunner(ABC, BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
 
     @abstractmethod
-    def run(self) -> 'PipelineSummary':
+    def run(self) -> list['PipelineSummary']:
         """Execute the pipeline and return a summary of results."""
         pass

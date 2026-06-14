@@ -9,7 +9,7 @@ from netochi.definitions.constants import DEFAULT_METRIC_VALUE
 
 
 
-class BaselineStorer[MAPPING_INPUT: MappingInput, BASELINE_STATE: MappingState](BaseMapper[BASELINE_STATE, MappingInput]):
+class BaselineStorer[MAPPING_INPUT: MappingInput, BASELINE_STATE: MappingState](BaseMapper[BASELINE_STATE, MAPPING_INPUT]):
     model_config = ConfigDict(arbitrary_types_allowed=True, strict=True, frozen=False)
     _baseline_state: BASELINE_STATE
 
@@ -19,10 +19,12 @@ class BaselineStorer[MAPPING_INPUT: MappingInput, BASELINE_STATE: MappingState](
             return self._baseline_state
         return None
 
-    def run(self, input: MAPPING_INPUT) -> BASELINE_STATE:
+    def run(self, mapping_input: MAPPING_INPUT) -> BASELINE_STATE:
+        self.precompute_baseline(mapping_input)
+        assert self._baseline_state is not None
         return self._baseline_state
 
-    def precompute_baseline(self, input: MAPPING_INPUT) -> None:
+    def precompute_baseline(self, mapping_input: MAPPING_INPUT) -> None:
         pass
 
 
@@ -30,7 +32,7 @@ class BaselineStorer[MAPPING_INPUT: MappingInput, BASELINE_STATE: MappingState](
 class EvaluatorBundle[MAPPING_STATE: MappingState, BASELINE_STATE: MappingState, MAPPING_INPUT: MappingInput](BaseModel):
     """Strongly typed container for metrics."""
     model_config = ConfigDict(arbitrary_types_allowed=True, strict=True, frozen=True)
-    metrics_w_baselines: List[Tuple[MappingMetric[MAPPING_STATE, BASELINE_STATE], BaselineStorer[BASELINE_STATE, MAPPING_INPUT]]] = Field(description="Metrics to evaluate the mapping state against a baseline.")
+    metrics_w_baselines: List[Tuple[MappingMetric[MAPPING_STATE, BASELINE_STATE], BaselineStorer[MAPPING_INPUT, BASELINE_STATE]]] = Field(description="Metrics to evaluate the mapping state against a baseline.")
 
     def evaluate_all(self, state: MAPPING_STATE) -> Tuple[Dict[str, float], Dict[str, float]]:
         raw_results: Dict[str, float] = {}
@@ -47,6 +49,6 @@ class EvaluatorBundle[MAPPING_STATE: MappingState, BASELINE_STATE: MappingState,
         return raw_results, rel_results
 
     @property
-    def get_baselines(self) -> List[BaselineStorer[BASELINE_STATE, MAPPING_INPUT]]:
+    def get_baselines(self) -> List[BaselineStorer[MAPPING_INPUT, BASELINE_STATE]]:
         return [metric_baseline_tuple[1] for metric_baseline_tuple in self.metrics_w_baselines]
 

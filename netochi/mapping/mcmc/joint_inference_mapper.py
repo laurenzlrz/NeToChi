@@ -160,7 +160,7 @@ class JointHardwareMCMCState(MCMCState):
             self.Nr = self._best_Nr
             self.L = self._best_L
             hw_config = MosaicHardwareConfig(nodes_per_router=self.Nr, neurons_per_core=self.Nc, router_levels=self.L, slice_factor=2)
-            self.mapping_state._inferred_hw_config = hw_config
+            self.mapping_state.inferred_hw = hw_config
             self.mapping_state.assignment = MosaicAssignment(
                 hw=hw_config,
                 neuron_core_pre_assignment=self._best_c.astype(np.int64),
@@ -179,11 +179,11 @@ class JointHardwareMCMCState(MCMCState):
         if new_L != self.L:
             old_L = self.L
             self.L = new_L
-            self.mapping_state._inferred_hw_config = MosaicHardwareConfig(
-                nodes_per_router=self.Nr, 
-                neurons_per_core=self.Nc, 
-                router_levels=self.L, 
-                slice_factor=2
+            self.mapping_state.inferred_hw = MosaicHardwareConfig(
+                    nodes_per_router=self.Nr, 
+                    neurons_per_core=self.Nc, 
+                    router_levels=self.L, 
+                    slice_factor=2
             )
             # If L increased, initialize new slice assignments for nodes
             if self.L > old_L:
@@ -275,7 +275,7 @@ class JointHardwareMCMCState(MCMCState):
                         self.mapping_state.x[:] = old_x
                         self.mapping_state.s[:] = old_s
                         self.K, self.L = old_K, old_L
-                        self.mapping_state._inferred_hw_config = MosaicHardwareConfig(nodes_per_router=self.Nr, neurons_per_core=self.Nc, router_levels=self.L, slice_factor=2)
+                        self.mapping_state.inferred_hw = MosaicHardwareConfig(nodes_per_router=self.Nr, neurons_per_core=self.Nc, router_levels=self.L, slice_factor=2)
                 
                 elif r < (JOINT_P_SWAP + JOINT_P_SLICE + JOINT_P_ADD_CORE + JOINT_P_REMOVE_CORE):
                     # --- REMOVE CORE ---
@@ -323,7 +323,7 @@ class JointHardwareMCMCState(MCMCState):
                         self.mapping_state.x[:] = old_x
                         self.mapping_state.s[:] = old_s
                         self.K, self.L = old_K, old_L
-                        self.mapping_state._inferred_hw_config = MosaicHardwareConfig(nodes_per_router=self.Nr, neurons_per_core=self.Nc, router_levels=self.L, slice_factor=2)
+                        self.mapping_state.inferred_hw = MosaicHardwareConfig(nodes_per_router=self.Nr, neurons_per_core=self.Nc, router_levels=self.L, slice_factor=2)
 
                 elif r < (JOINT_P_SWAP + JOINT_P_SLICE + JOINT_P_ADD_CORE + JOINT_P_REMOVE_CORE + JOINT_P_NC):
                     # --- CHANGE NC ---
@@ -366,7 +366,7 @@ class JointHardwareMCMCState(MCMCState):
                             continue
                     
                     self.Nc = new_nc
-                    self.mapping_state._inferred_hw_config = MosaicHardwareConfig(nodes_per_router=self.Nr, neurons_per_core=self.Nc, router_levels=self.L, slice_factor=2)
+                    self.mapping_state.inferred_hw = MosaicHardwareConfig(nodes_per_router=self.Nr, neurons_per_core=self.Nc, router_levels=self.L, slice_factor=2)
                     new_energy = self.entropy()
                     dE = new_energy - current_energy
                     if dE < 0 or self._rng.random() < math.exp(-dE * beta):
@@ -377,7 +377,7 @@ class JointHardwareMCMCState(MCMCState):
                         self.mapping_state.x[:] = old_x
                         self.mapping_state.s[:] = old_s
                         self.Nc, self.K, self.L = old_nc, old_K, old_L
-                        self.mapping_state._inferred_hw_config = MosaicHardwareConfig(nodes_per_router=self.Nr, neurons_per_core=self.Nc, router_levels=self.L, slice_factor=2)
+                        self.mapping_state.inferred_hw = MosaicHardwareConfig(nodes_per_router=self.Nr, neurons_per_core=self.Nc, router_levels=self.L, slice_factor=2)
                 
                 elif r < (JOINT_P_SWAP + JOINT_P_SLICE + JOINT_P_ADD_CORE + JOINT_P_REMOVE_CORE + JOINT_P_NC + JOINT_P_NR):
                     # --- CHANGE NR ---
@@ -395,7 +395,7 @@ class JointHardwareMCMCState(MCMCState):
                         self._save_best(current_energy)
                     else:
                         self.Nr, self.L = old_nr, old_L
-                        self.mapping_state._inferred_hw_config = MosaicHardwareConfig(nodes_per_router=self.Nr, neurons_per_core=self.Nc, router_levels=self.L, slice_factor=2)
+                        self.mapping_state.inferred_hw = MosaicHardwareConfig(nodes_per_router=self.Nr, neurons_per_core=self.Nc, router_levels=self.L, slice_factor=2)
                 
                 # L is now implicit
 

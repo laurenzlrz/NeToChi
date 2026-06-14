@@ -6,9 +6,9 @@ matplotlib.use('Agg') # Non-interactive backend
 import matplotlib.pyplot as plt # type: ignore[import-untyped]
 import numpy as np
 from pathlib import Path
-from typing import Dict, Set, List
+from typing import Dict, Set, List, Any
 from pydantic import BaseModel, ConfigDict
-from netochi.pipeline.results import PipelineSummary
+from netochi.pipeline.results import PipelineSummary, ExperimentResult
 from netochi.pipeline.config import PipelineOutputConfig
 
 class PipelinePlotter(PipelineConsumer):
@@ -77,6 +77,7 @@ class PipelinePlotter(PipelineConsumer):
         width = 0.8 / len(sorted_mappers)
         
         fig, ax = plt.subplots(figsize=(12, 7))
+        ax: Any = ax
         
         for i, mapper in enumerate(sorted_mappers):
             values = [data[gt].get(mapper, 0.0) for gt in graph_types]
@@ -111,6 +112,7 @@ class PipelinePlotter(PipelineConsumer):
         avg_times = [np.mean(times[m]) for m in sorted_mappers]
         
         fig, ax = plt.subplots(figsize=(10, 6))
+        ax: Any = ax
         bars = ax.barh(sorted_mappers, avg_times, color=self.config.palette[0])
         
         ax.set_xlabel("Average Execution Time (s)")
@@ -152,6 +154,7 @@ class PipelinePlotter(PipelineConsumer):
                 if not values: continue
                 
                 fig, ax = plt.subplots(figsize=(10, 6))
+                ax: Any = ax
                 bars = ax.bar(mappers, values, color=self.config.palette[:len(mappers)])
                 
                 ax.set_ylabel(metric)

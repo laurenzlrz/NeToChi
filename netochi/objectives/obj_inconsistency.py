@@ -1,6 +1,6 @@
 from typing import Dict, Any
 
-from pydantic import PrivateAttr, ConfigDict
+from pydantic import BaseModel, PrivateAttr, ConfigDict
 
 from netochi.definitions.exceptions import BaselineMismatchError
 from netochi.mapping.interfaces import (
@@ -10,7 +10,7 @@ from netochi.objectives.interfaces import MappingObjective
 from netochi.objectives.utils import compute_e_valid
 
 
-class InconsistencyObjectiveFabric(MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]]):
+class InconsistencyObjectiveFabric(BaseModel, MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]]):
     model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
 
     _graph_cache: Dict[int, Any] = PrivateAttr(default_factory=dict)
@@ -51,8 +51,8 @@ class InconsistencyRelativeObjective(InconsistencyObjectiveFabric):
     """
 
     def evaluate(self, state: BaseMosaicMappingState[Any]) -> float:
-        """Returns total number of invalid edges."""
-        inconsistencies = super().evaluate(state)
+        """Returns ratio of invalid edges to total edges."""
+        inconsistencies = float(compute_e_valid(state, self._preload_graph(state)))
         return float(inconsistencies) / float(self._graph_cache[id(state.mapping_input)]['m'])
 
     def evaluate_against_baseline(self, state: BaseMosaicMappingState[Any], baseline: BaseMosaicMappingState[Any]) -> float:
@@ -79,7 +79,7 @@ class InconsistencyPercentageMetric(InconsistencyObjectiveFabric):
         return (float(invalid_edges) / float(total_edges)) * 100.0
 
     def evaluate_against_baseline(self, state: BaseMosaicMappingState[Any],
-                                  baseline: BaseMosaicMappingState[Any] = None) -> float:
+                                  baseline: BaseMosaicMappingState[Any]) -> float:
         assert baseline is not None
         baseline_val = self.evaluate(baseline)
         if baseline_val == 0:

@@ -2,7 +2,7 @@ import re
 import json
 import csv
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, ClassVar
 
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -23,6 +23,9 @@ def find_repo_root(start_path: Path = Path(__file__).resolve()) -> Path:
     return Path.cwd()
 
 
+_CREATED_PATHS = set()
+
+
 class PipelineOutputConfig(BaseModel):
     """
     Configuration for pipeline output storage and plotting.
@@ -34,11 +37,11 @@ class PipelineOutputConfig(BaseModel):
         default=Path("results"),
         description="Base directory for storing pipeline outputs (relative to repo root)."
     )
-    base_path: Path = Field(
+    base_path: Optional[Path] = Field(
         default=None,
         description="Base directory for storing pipeline outputs (absolute path, resolved at initialization)."
     )
-    run_path: Path = Field(
+    run_path: Optional[Path] = Field(
         default=None,
         description="Resolved path for the current run's output directory (set at runtime)."
     )
@@ -57,9 +60,9 @@ class PipelineOutputConfig(BaseModel):
         ]
     )
     plot_filename_pattern: str = Field(default="{metric}_comparison")
-    plot_path: Path = Field(default=None, description="Directory for storing generated plots.")
-    dumps_path: Path = Field(default=None, description="Directory for storing intermediate dumps.")
-    csv_path: Path = Field(default=None, description="Path for storing the flattened CSV results.")
+    plot_path: Optional[Path] = Field(default=None, description="Directory for storing generated plots.")
+    dumps_path: Optional[Path] = Field(default=None, description="Directory for storing intermediate dumps.")
+    csv_path: Optional[Path] = Field(default=None, description="Path for storing the flattened CSV results.")
 
     # ==========================================================
     # PHASE 1: CONSTRUCTOR / MUTATOR
@@ -97,7 +100,12 @@ class PipelineOutputConfig(BaseModel):
         Explicit execution method to safely create directory structures on disk
         post-instantiation.
         """
+        assert self.run_path is not None
         self.run_path.mkdir(parents=True, exist_ok=False)
+        assert self.dumps_path is not None
+        self.dumps_path.mkdir(parents=True, exist_ok=True)
+        assert self.plot_path is not None
+        self.plot_path.mkdir(parents=True, exist_ok=True)
 
     @classmethod
     def _get_next_run_dir(cls, base_path: Path, run_prefix: str) -> Path:
@@ -145,9 +153,12 @@ class PipelineOutputConfig(BaseModel):
             raise InvalidConfigError("plot_filename_pattern must contain the '{metric}' placeholder.")
 
         # 2. Path State Verification
-        if self.run_path.exists():
-            raise InvalidConfigError(f"Run directory '{self.run_path}' already exists.")
-        self.create_run_directory()
+        assert self.run_path is not None
+        if self.run_path not in _CREATED_PATHS:
+            if self.run_path.exists():
+                raise InvalidConfigError(f"Run directory '{self.run_path}' already exists.")
+            self.create_run_directory()
+            _CREATED_PATHS.add(self.run_path)
 
         return self
 
@@ -155,13 +166,15 @@ class PipelineOutputConfig(BaseModel):
         """Utility method for consistent console output."""
         print(msg)
         if name:
-            save_path = self.dumps_path / f"{name}.txt" if name else None
+            assert self.dumps_path is not None
+            save_path = self.dumps_path / f"{name}.txt"
             save_path.write_text(msg, encoding="utf-8")
 
     def save_to_csv(self, csv: pd.DataFrame, name: str) -> None:
         """
         Flattens results into a CSV file.
         """
+        assert self.csv_path is not None
         save_path = self.csv_path / f"{name}.csv"
         csv.to_csv(save_path, index=False)
 
@@ -169,7 +182,8 @@ class PipelineOutputConfig(BaseModel):
         """
         Saves a matplotlib plot to the designated plot directory.
         """
+        assert self.plot_path is not None
         for fmt in self.plot_format:
             save_path = self.plot_path / f"{name}.{fmt}"
-        plt.savefig(save_path, dpi=150)
+            plt.savefig(save_path, dpi=150)
         plt.close()

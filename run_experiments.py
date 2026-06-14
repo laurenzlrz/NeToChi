@@ -61,10 +61,10 @@ HW_CONFIGS = [
 ]
 
 MAPPERS = [
-    SimAnnealingMapper(),
+    #SimAnnealingMapper(),
     QAPPcaOptMapper(),
-    GreedyMapper(),
-    ILPMapper(),
+    #GreedyMapper(),
+    #ILPMapper(),
 ]
 
 SEED = 42
@@ -120,9 +120,12 @@ def define_task_inputs() -> PipelineRunner:
 
     swta_tasks = ExperimentTaskBase(input_generators=swta_factories,
                                     evaluator_mapper_bundles=other_task_runs)
-    tasks = [mosaic_tasks, er_tasks, swta_tasks]
+    tasks = [mosaic_tasks,
+             #er_tasks,
+             #swta_tasks
+             ]
 
-    bundles = [TaskBundle(tasks=task, consumer=CONSUMERS) for task in tasks]
+    bundles = [TaskBundle(tasks=[task], consumer=CONSUMERS) for task in tasks]
 
     runner = PipelineRunner(bundles=bundles)
     return runner

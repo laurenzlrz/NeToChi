@@ -18,7 +18,7 @@ def compute_e_valid(state: BaseMosaicMappingState[Any], data: Dict[str, Any]) ->
         c_tgt = c[tgt]
         for src in data['in_edges'][tgt]:
             c_src = c[src]
-            dist = hw.core_distance(c_tgt, c_src)
+            dist = hw.core_distance(int(c_tgt), int(c_src))
             if dist == 0:
                 e_valid += 1
             else:

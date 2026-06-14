@@ -23,7 +23,7 @@ from netochi.definitions.constants import (
 )
 
 
-class HardwareMCMCState(MCMCState, Generic[PAYLOAD]):  # type: ignore[misc]
+class HardwareMCMCState(MCMCState):  # type: ignore[misc]
     """
     Internal MCMC state for hardware mapping optimization.
     """

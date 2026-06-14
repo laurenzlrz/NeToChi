@@ -39,13 +39,15 @@ class MosaicAssignment(BaseModel):
     #TODO: neuron_target_assignment: npt.NDArray[np.int64]
 
     @classmethod
-    def zero(cls, num_neurons: int, hw: MosaicHardwareConfig) -> "MosaicAssignment":
+    def spread(cls, num_neurons: int, hw: MosaicHardwareConfig) -> "MosaicAssignment":
         """Factory method to create a zero-initialized assignment."""
+        neuron_core = np.arange(num_neurons, dtype=np.int64) // hw.neurons_per_core
+        neuron_idx = np.arange(num_neurons, dtype=np.int64) % hw.neurons_per_core
         return cls(
             hw=hw,
-            neuron_core_pre_assignment=np.zeros(num_neurons, dtype=np.int64),
-            neuron_idx_pre_assignment=np.zeros(num_neurons, dtype=np.int64),
-            neuron_slice_assignment=np.zeros((num_neurons, hw.router_levels), dtype=np.int64)
+            neuron_core_pre_assignment=neuron_core,
+            neuron_idx_pre_assignment=neuron_idx,
+            neuron_slice_assignment=np.zeros((num_neurons, hw.router_levels + 1), dtype=np.int64)
         )
 
 
@@ -56,7 +58,7 @@ class MosaicAssignment(BaseModel):
             hw=hw,
             neuron_core_pre_assignment=np.zeros(num_neurons, dtype=np.int64),
             neuron_idx_pre_assignment=np.zeros(num_neurons, dtype=np.int64),
-            neuron_slice_assignment=np.zeros((num_neurons, hw.router_levels), dtype=np.int64)
+            neuron_slice_assignment=np.zeros((num_neurons, hw.router_levels + 1), dtype=np.int64)
         )
         ass._init_random_self(seed)
         return ass
@@ -120,7 +122,7 @@ class MosaicMappingInput(HWMappingInput[MosaicHardwareConfig]):
 # Base Factory Interfaces
 # -----------------------------------------------------------------------------
 
-class BaseInputFactory[MAPPING_INPUT_CO: MappingInput[Any]](ABC):
+class BaseInputFactory[MAPPING_INPUT_CO: MappingInput](ABC):
     """Abstract base class for factories that generate MappingInputs."""
 
     @abstractmethod

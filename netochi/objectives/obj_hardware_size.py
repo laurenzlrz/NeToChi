@@ -15,7 +15,7 @@ class MosaicHardwareSizeObjective(MappingObjective[MosaicHWMappingState[Any], Mo
     def evaluate(self, state: MosaicHWMappingState[Any]) -> float:
         """Returns the total number of cores in the hardware configuration."""
         # TODO: Improve calculation to mirror more closely hardware costs
-        hw = state.inferred_hw
+        hw = state.hw_to_evaluate
         penalty = hw.neurons_per_core * hw.total_cores
 
         return float(penalty)
