@@ -47,7 +47,7 @@ class SummaryReporter(PipelineConsumer):
         report_lines.append("Experiment Complete.")
 
         final_report_str = "\n".join(report_lines)
-        self.config.print_console(final_report_str)
+        self.config.print_console(final_report_str, "summary_report")
 
     def _get_table_string(self, results: List[ExperimentResult], metric_names: List[str], use_raw: bool) -> str:
         """
