@@ -2,7 +2,7 @@
 
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.mapping.interfaces import BaseMosaicMappingState
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Optional
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,7 +16,7 @@ def plot_hardware_mapping(
         graph: gt.Graph,
         state: BaseMosaicMappingState,
         config: MosaicHardwareConfig,
-        filename: str = "hardware_mapping_circular_updated.pdf"
+        filename: Optional[str] = None
 ):
     """
     Plots the hardware routing hierarchy and mapped neural network.
@@ -174,8 +174,9 @@ def plot_hardware_mapping(
     ax.axis('off')
     plt.margins(0.1);
     plt.tight_layout()
-    plt.savefig(filename, bbox_inches='tight', format='pdf')
-    plt.close(fig)
+    if filename is not None:
+        plt.savefig(filename, bbox_inches='tight')
+        plt.close(fig)
 
 
 from netochi.pipeline.interfaces import PipelineConsumer
@@ -195,8 +196,6 @@ class MappingOutputVisualizer(PipelineConsumer[MosaicMappingInput, BaseMosaicMap
                 safe_meta = "_".join(f"{k}-{v}" for k, v in sorted(res.input_metadata.items()))[:50]
                 name = f"hardware_mapping_{res.mapper_name}_{safe_meta}"
                 
-                assert self.config.plot_path is not None
-                for fmt in self.config.plot_format:
-                    filename = str(self.config.plot_path / f"{name}.{fmt}")
-                    plot_hardware_mapping(graph, res.state, hw_config, filename)
+                plot_hardware_mapping(graph, res.state, hw_config)
+                self.config.save_plot(plt, name)
 

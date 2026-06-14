@@ -1,11 +1,12 @@
 import matplotlib.pyplot as plt
 import networkx as nx
+from typing import Optional
 
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 
 
 
-def plot_routing_hierarchy(hw_config: MosaicHardwareConfig, filename: str):
+def plot_routing_hierarchy(hw_config: MosaicHardwareConfig, filename: Optional[str] = None):
     """
     Plots the routing hierarchy tree for a given MosaicHardwareConfig.
     Leaves (cores) are circles, routers are rectangles.
@@ -83,8 +84,9 @@ def plot_routing_hierarchy(hw_config: MosaicHardwareConfig, filename: str):
     plt.margins(x=0.05, y=0.1)
     plt.axis("off")
     plt.tight_layout()
-    plt.savefig(filename, bbox_inches='tight')
-    plt.close()
+    if filename is not None:
+        plt.savefig(filename, bbox_inches='tight')
+        plt.close()
 
 
 from netochi.pipeline.interfaces import PipelineConsumer
@@ -106,8 +108,6 @@ class RoutingHierarchyVisualizer(PipelineConsumer[MosaicMappingInput, BaseMosaic
                     seen_hw_configs.add(hw_key)
                     name = f"routing_hierarchy_{hw_config.nodes_per_router}_{hw_config.neurons_per_core}_{hw_config.router_levels}"
                     
-                    assert self.config.plot_path is not None
-                    for fmt in self.config.plot_format:
-                        filename = str(self.config.plot_path / f"{name}.{fmt}")
-                        plot_routing_hierarchy(hw_config, filename)
+                    plot_routing_hierarchy(hw_config)
+                    self.config.save_plot(plt, name)
 

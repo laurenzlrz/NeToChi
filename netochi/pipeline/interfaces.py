@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Generic, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+from netochi.pipeline.config import PipelineOutputConfig
 
 from netochi.definitions.generics import Input_contra, MappingState_contra, BaselineState_contra, Input_co, \
     MappingState_co, BaselineState_co
@@ -37,6 +39,7 @@ class BasePipelineRunner(ABC, BaseModel, Generic[Input_co, MappingState_co, Base
     Structural interface for the benchmarking pipeline.
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
+    config: PipelineOutputConfig = Field(description="Configuration for pipeline execution.")
 
     @abstractmethod
     def run(self) -> list[PipelineSummary[Input_co, MappingState_co, BaselineState_co]]:

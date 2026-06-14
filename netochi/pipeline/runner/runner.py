@@ -1,6 +1,8 @@
 import time
-from typing import List, Optional, Any, Sequence, Generic
+from typing import List, Dict, Optional, Any, Sequence, TypeVar, Generic
 from pydantic import BaseModel, ConfigDict, Field
+
+from netochi.pipeline.config import PipelineOutputConfig
 
 from netochi.definitions.generics import Input_co, MappingState_co, BaselineState_co
 from netochi.mapping.interfaces import MappingState
@@ -66,6 +68,7 @@ class ExperimentTaskBase(BaseModel, Generic[Input_co, MappingState_co, BaselineS
         description="List of input factories to generate mapping inputs.")
     evaluator_mapper_bundles: Sequence[ExperimentTaskRun[Any, Any, Any]] = Field(
         description="Mapping of mappers to their corresponding evaluator bundles.")
+    config: PipelineOutputConfig = Field(description="Configuration for pipeline outputs.")
 
     def run(self) -> List[ExperimentResult]:
         results: List[ExperimentResult] = []
@@ -79,10 +82,18 @@ class ExperimentTaskBase(BaseModel, Generic[Input_co, MappingState_co, BaselineS
         for input in self.input_generators:
             assert isinstance(input, BaseInputFactory), "Each input generator must be an instance of BaseInputFactory"
             input_instance = input.generate() # TODO Make Sure No Altering!
+            input_name = input.get_name()
+            self.config.print_console(f"Evaluating input generator: {input_name}")
             for storer in baselines_runner_list:
                 storer.run(input_instance)
             for evaluator_mapper_bundle in self.evaluator_mapper_bundles:
+                mapper_name = evaluator_mapper_bundle.mapper.get_name()
+                self.config.print_console(f"  --> Running mapper: {mapper_name}...")
                 result = evaluator_mapper_bundle.run(input_instance)
+                if result.error:
+                    self.config.print_console(f"  --> Mapper failed: {result.error}")
+                else:
+                    self.config.print_console(f"  --> Mapper completed successfully in {result.execution_time_s:.4f}s")
                 results.append(result)
 
         return results
@@ -98,6 +109,7 @@ class TaskBundle(BaseModel, Generic[Input_co, MappingState_co, BaselineState_co]
         description="List of experiment tasks to execute in the pipeline.")
     consumer: Sequence[PipelineConsumer[Any, Any, Any]] = Field(
         description="List of consumers to process the pipeline summary after execution.")
+    config: PipelineOutputConfig = Field(description="Configuration for pipeline outputs.")
 
     def run(self):
         results = []

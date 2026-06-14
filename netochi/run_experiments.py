@@ -123,21 +123,24 @@ def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, Mappi
                                          mapper=mapper) for mapper in MAPPERS]
 
     mosaic_tasks = ExperimentTaskBase(input_generators=mosaic_factories,
-                                       evaluator_mapper_bundles=mosaic_task_runs)
+                                       evaluator_mapper_bundles=mosaic_task_runs,
+                                       config=PIPELINE_CONFIG)
 
     er_tasks = ExperimentTaskBase(input_generators=er_factories,
-                                  evaluator_mapper_bundles=other_task_runs)
+                                  evaluator_mapper_bundles=other_task_runs,
+                                  config=PIPELINE_CONFIG)
 
     swta_tasks = ExperimentTaskBase(input_generators=swta_factories,
-                                    evaluator_mapper_bundles=other_task_runs)
+                                    evaluator_mapper_bundles=other_task_runs,
+                                    config=PIPELINE_CONFIG)
     tasks: List[ExperimentTaskBase[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]] = [mosaic_tasks,
              #er_tasks,
              #swta_tasks
              ]
 
-    bundles: List[TaskBundle[MappingInput, MappingState, MappingState]] = [TaskBundle(tasks=[task], consumer=CONSUMERS) for task in tasks]
+    bundles: List[TaskBundle[MappingInput, MappingState, MappingState]] = [TaskBundle(tasks=[task], consumer=CONSUMERS, config=PIPELINE_CONFIG) for task in tasks]
 
-    runner: BasePipelineRunner[MappingInput, MappingState, MappingState] = PipelineRunner(bundles=bundles)
+    runner: BasePipelineRunner[MappingInput, MappingState, MappingState] = PipelineRunner(bundles=bundles, config=PIPELINE_CONFIG)
     return runner
 
 

@@ -92,12 +92,15 @@ class ClusteringVisualizer(PipelineConsumer[MosaicMappingInput, BaseMosaicMappin
                 safe_meta = "_".join(f"{k}-{v}" for k, v in sorted(res.input_metadata.items()))[:50]
                 name = f"clustering_comparison_{res.mapper_name}_{safe_meta}"
                 
-                assert self.config.plot_path is not None
-                for fmt in self.config.plot_format:
-                    filename = str(self.config.plot_path / f"{name}.{fmt}")
-                    plot_clustering_comparison(
-                        graph,
-                        initial_assignment=initial_assignment,
-                        inferred_assignment=inferred_assignment,
-                        filename=filename
-                    )
+                class GraphToolPlotWrapper:
+                    def savefig(self, save_path, dpi=150):
+                        plot_clustering_comparison(
+                            graph,
+                            initial_assignment=initial_assignment,
+                            inferred_assignment=inferred_assignment,
+                            filename=str(save_path)
+                        )
+                    def close(self):
+                        pass
+
+                self.config.save_plot(GraphToolPlotWrapper(), name)

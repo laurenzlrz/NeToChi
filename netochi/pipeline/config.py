@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing_extensions import Self
 
 from netochi.definitions.exceptions import InvalidConfigError
-from netochi.pipeline import PipelineSummary
+
 
 
 def find_repo_root(start_path: Path = Path(__file__).resolve()) -> Path:
@@ -168,7 +168,9 @@ class PipelineOutputConfig(BaseModel):
         if name:
             assert self.dumps_path is not None
             save_path = self.dumps_path / f"{name}.txt"
-            save_path.write_text(msg, encoding="utf-8")
+
+            with save_path.open(mode="a", encoding="utf-8") as f:
+                f.write(f"{msg}\n")
 
     def save_to_csv(self, csv: pd.DataFrame, name: str) -> None:
         """
