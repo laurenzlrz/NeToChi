@@ -1,26 +1,24 @@
-from typing import List, Set, Dict, Any
-
-
 
 from pydantic import BaseModel, Field, ConfigDict
 import pandas as pd
 
 from netochi.pipeline.config import PipelineOutputConfig
-from netochi.pipeline.results import PipelineSummary, ExperimentResult
-from netochi.definitions.constants import KEY_GRAPH_TYPE, KEY_UNKNOWN, REPORT_DIVIDER, REPORT_SUBDIVIDER, \
-    REPORT_HEADER_BASELINE, REPORT_HEADER_PURE
+from netochi.pipeline.pipeline_consumer import PipelineConsumer
+from netochi.pipeline.results import PipelineSummary
 
 
-class SummaryArchiver(BaseModel):
+class SummaryArchiver(PipelineConsumer):
     """
     Handles the generation and printing of experiment reports.
     Automatically discovers metrics and formats tables dynamically.
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
     config: PipelineOutputConfig = Field(default_factory=PipelineOutputConfig)
 
     csv_filename: str = Field(default="results.csv")
 
+    def consume(self, data: PipelineSummary) -> None:
+        df = self.create_summary_dataframe(data)
+        self.config.save_to_csv(df, self.csv_filename)
 
     def create_summary_dataframe(self, summary: PipelineSummary) -> pd.DataFrame:
         """

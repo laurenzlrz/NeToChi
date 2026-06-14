@@ -1,4 +1,7 @@
 import matplotlib # type: ignore[import-untyped]
+
+from netochi.pipeline.PipelineConsumer import PipelineConsumer
+
 matplotlib.use('Agg') # Non-interactive backend
 import matplotlib.pyplot as plt # type: ignore[import-untyped]
 import numpy as np
@@ -8,22 +11,22 @@ from pydantic import BaseModel, ConfigDict
 from netochi.pipeline.results import PipelineSummary
 from netochi.pipeline.config import PipelineOutputConfig
 
-class PipelinePlotter(BaseModel):
+class PipelinePlotter(PipelineConsumer):
     """
     Generates interpretable plots from pipeline results.
     """
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
     config: PipelineOutputConfig
 
-    def plot_all(self, summary: PipelineSummary, output_dir: Path, plot_subfolder: str = "plots") -> None:
+    def consume(self, data: PipelineSummary) -> None:
+        self.plot_all(data)
+
+    def plot_all(self, summary: PipelineSummary) -> None:
         """
         Generates all configured plots (raw and relative) and saves them.
         """
         if not summary.results:
             return
-            
-        plot_dir = output_dir / plot_subfolder
-        plot_dir.mkdir(parents=True, exist_ok=True)
         
         # Identify all available relative metrics
         rel_metrics: Set[str] = set()

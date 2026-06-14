@@ -45,7 +45,6 @@ class HWNetworkMappingState[ANY_MAPPING_INPUT: MappingInput, INFERRED_HW_CONFIG:
         """For HW-aware mappers, the hardware to evaluate is the inferred hardware."""
         return self._inferred_hw_config
 
-
 class NetworkAssignmentState[WITH_HW_INPUT: HWMappingInput, GT_HW_CONFIG: Any](MappingState[WITH_HW_INPUT, GT_HW_CONFIG]):
     """
     State for hardware-aware partitioning.
