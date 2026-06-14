@@ -23,7 +23,7 @@ from netochi.mapping.three_step_mapping.qap_pca_opt_three_step_mapper import QAP
 from netochi.objectives.obj_unused_connections import UnusedConnectionsObjective
 from netochi.pipeline.archiver import SummaryArchiver
 from netochi.pipeline.config import PipelineOutputConfig
-from netochi.pipeline.pipeline_consumer import PipelineConsumer
+from netochi.pipeline.interfaces import PipelineConsumer
 from netochi.pipeline.plotter import PipelinePlotter
 from netochi.pipeline.reporter import SummaryReporter
 from netochi.pipeline.runner.runner import (

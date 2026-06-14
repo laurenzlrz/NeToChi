@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field, ConfigDict
 import pandas as pd
 
 from netochi.pipeline.config import PipelineOutputConfig
-from netochi.pipeline.pipeline_consumer import PipelineConsumer
+from netochi.pipeline.interfaces import PipelineConsumer
 from netochi.pipeline.results import PipelineSummary
 
 

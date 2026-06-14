@@ -5,8 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from netochi.mapping.interfaces import MappingState
 from netochi.input_generator.interfaces import BaseInputFactory
 
-from netochi.pipeline.interfaces import BasePipelineRunner
-from netochi.pipeline.pipeline_consumer import PipelineConsumer
+from netochi.pipeline.interfaces import BasePipelineRunner, PipelineConsumer
 from netochi.pipeline.results import ExperimentResult, PipelineSummary
 from netochi.mapping.interfaces import BaseMapper
 from netochi.input_generator.interfaces import MappingInput

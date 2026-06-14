@@ -3,7 +3,7 @@ from typing import List, Set, Dict, Any
 from pydantic import BaseModel, Field, ConfigDict
 
 from netochi.pipeline.config import PipelineOutputConfig
-from netochi.pipeline.pipeline_consumer import PipelineConsumer
+from netochi.pipeline.interfaces import PipelineConsumer
 from netochi.pipeline.results import PipelineSummary, ExperimentResult
 from netochi.definitions.constants import KEY_GRAPH_TYPE, KEY_UNKNOWN, REPORT_DIVIDER, REPORT_SUBDIVIDER, \
     REPORT_HEADER_BASELINE, REPORT_HEADER_PURE

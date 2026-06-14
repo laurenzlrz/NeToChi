@@ -1,6 +1,6 @@
 import matplotlib # type: ignore[import-untyped]
 
-from netochi.pipeline.pipeline_consumer import PipelineConsumer
+from netochi.pipeline.interfaces import PipelineConsumer
 
 matplotlib.use('Agg') # Non-interactive backend
 import matplotlib.pyplot as plt # type: ignore[import-untyped]
