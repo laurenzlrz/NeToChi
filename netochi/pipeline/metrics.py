@@ -31,7 +31,5 @@ class ObjectiveMetric[MAPPING_STATE: MappingState, BASELINE_STATE: MappingState]
         return self.objective.evaluate(state)
 
     def get_name(self) -> str:
-        """
-        Use the underlying objective's name for reporting.
-        """
-        return self.objective.__class__.__name__
+        """Return the name of the wrapped objective."""
+        return self.objective.get_name()

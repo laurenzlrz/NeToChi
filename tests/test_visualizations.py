@@ -1,3 +1,5 @@
+import os
+os.makedirs("test_results", exist_ok=True)
 
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 
@@ -16,6 +18,18 @@ class MockMappingState:
     neuron_core_idxs_assignment: np.ndarray
     neuron_local_idxs_assignment: np.ndarray
     neuron_slice_assignments: np.ndarray
+
+    @property
+    def c(self):
+        return self.neuron_core_idxs_assignment
+
+    @property
+    def x(self):
+        return self.neuron_local_idxs_assignment
+
+    @property
+    def s(self):
+        return self.neuron_slice_assignments
 
 
 def test_hardware_mapping_visualization():

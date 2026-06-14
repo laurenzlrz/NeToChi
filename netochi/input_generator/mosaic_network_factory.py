@@ -47,6 +47,7 @@ class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
 
 
         return MosaicMappingInput(
+            id=self.get_id(),
             graph=gt_graph,
             descriptions=descriptions,
             hw_config=self.hw_config,
@@ -106,7 +107,6 @@ class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
                 sampled = self._rng.random(source_candidates.size) < self.probability
                 selected_sources = source_candidates[sampled]
                 graph.add_edges_from((int(src), target_neuron) for src in selected_sources)
-
         assignment: MosaicAssignment = MosaicAssignment(
             hw=self.hw_config,
             neuron_core_pre_assignment=np.arange(total_neurons) // neurons_per_core,
@@ -114,3 +114,6 @@ class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
             neuron_slice_assignment=slice_assignment
         )
         return graph, assignment
+
+    def get_id(self) -> str:
+        return f"Mosaic_R={self.hw_config.nodes_per_router}_l={self.hw_config.router_levels}_N={self.hw_config.neurons_per_core}_p={self.probability}_seed={self.seed}"

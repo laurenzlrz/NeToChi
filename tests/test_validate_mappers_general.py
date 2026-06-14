@@ -2,11 +2,11 @@ import os
 import pytest
 import numpy as np
 
-from netochi.input_generator.interfaces import MosaicHWMappingInput
+from netochi.input_generator.interfaces import MosaicMappingInput, MosaicAssignment
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.mapping.greedy_mapper import GreedyMapper
 from netochi.mapping.ilp_mapper import ILPMapper
-from netochi.mapping.qap_mapper import QAPMapper
+from netochi.mapping.qap_mapper_legacy import QAPMapper
 from netochi.mapping.simulated_annealing_mapper import SimAnnealingMapper
 from netochi.mapping.three_step_mapping.hcd_pca_opt_three_step_mapper import HcdPcaOptThreeStepMapper
 from netochi.mapping.three_step_mapping.hsbm_pca_opt_three_step_mapper import HsbmPcaOptThreeStepMapper
@@ -16,10 +16,10 @@ from tests.utils_graph_generation import create_fc_graph, create_two_fc_componen
 
 
 MAPPERS_TO_TEST = [
-    SimAnnealingMapper(),
-    # GreedyMapper(),
-    # ILPMapper(),
-    # QAPMapper(),
+    # SimAnnealingMapper(),
+    GreedyMapper(),
+    ILPMapper(),
+    QAPMapper(),
     # HcdPcaOptThreeStepMapper(),
     # HsbmPcaOptThreeStepMapper()
 ]
@@ -34,6 +34,14 @@ def hw_config():
         router_levels=1,  # 2^1 = 2 total cores
         slice_factor=2
     )
+
+
+@pytest.fixture(autouse=True)
+def set_seeds():
+    """Sets random seeds for numpy and random for determinism."""
+    import random
+    np.random.seed(42)
+    random.seed(42)
 
 
 @pytest.fixture
@@ -51,15 +59,23 @@ def test_fc_component_mapped_to_single_core(mapper, hw_config, output_dir):
     """
     A fully connected graph with size == neurons_per_core should be packed into a single core.
     """
-    g = create_fc_graph(hw_config.neurons_per_core)
-    mapping_input = MosaicHWMappingInput(graph=g, descriptions={}, hw_config=hw_config)
+    import graph_tool.all as gt
+    g = gt.Graph(directed=True)
+    g.add_vertex(hw_config.total_neurons)
+    for i in range(hw_config.neurons_per_core):
+        for j in range(hw_config.neurons_per_core):
+            if i != j:
+                g.add_edge(i, j)
+                
+    assignment = MosaicAssignment.spread(hw_config.total_neurons, hw_config)
+    mapping_input = MosaicMappingInput(graph=g, descriptions={}, hw_config=hw_config, assignment=assignment)
 
     state = mapper.run(mapping_input)
-    unique_cores = np.unique(state.c)
+    unique_cores = np.unique(state.c[:hw_config.neurons_per_core])
 
     # Assertions
     mapper_name = mapper.__class__.__name__
-    assert len(unique_cores) == 1, f"[{mapper_name}] Expected 1 core to be used, but found: {unique_cores}"
+    assert len(unique_cores) == 1, f"[{mapper_name}] Expected 1 core to be used for the FC component, but found: {unique_cores}"
 
     # Visualization
     filename = os.path.join(output_dir, f"{mapper_name}_fc_component_mapped_to_single_core_MAPPING_STATE.pdf")
@@ -73,7 +89,8 @@ def test_two_fc_components_mapped_separately(mapper, hw_config, output_dir):
     """
     N = hw_config.neurons_per_core
     g = create_two_fc_components(N)
-    mapping_input = MosaicHWMappingInput(graph=g, descriptions={}, hw_config=hw_config)
+    assignment = MosaicAssignment.spread(hw_config.total_neurons, hw_config)
+    mapping_input = MosaicMappingInput(graph=g, descriptions={}, hw_config=hw_config, assignment=assignment)
 
     state = mapper.run(mapping_input)
 
@@ -99,7 +116,8 @@ def test_slice_alignment_for_dependent_clusters(mapper, hw_config, output_dir):
     """
     N = hw_config.neurons_per_core
     g = create_two_fc_with_directed_half(N)
-    mapping_input = MosaicHWMappingInput(graph=g, descriptions={}, hw_config=hw_config)
+    assignment = MosaicAssignment.spread(hw_config.total_neurons, hw_config)
+    mapping_input = MosaicMappingInput(graph=g, descriptions={}, hw_config=hw_config, assignment=assignment)
 
     state = mapper.run(mapping_input)
 

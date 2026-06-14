@@ -11,6 +11,7 @@ class ExperimentResult[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELIN
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
+    input_id: str = Field(..., description="Unique identifier for the input generated.")
     mapper_name: str = Field(..., description="Name of the mapper/algorithm used.")
     input_metadata: Dict[str, str] = Field(default_factory=dict, description="Metadata about the input graph, e.g., graph type, size.")
     metrics: Dict[str, float] = Field(default_factory=dict, description="Relative metrics compared to baseline (e.g., improvement percentages).")

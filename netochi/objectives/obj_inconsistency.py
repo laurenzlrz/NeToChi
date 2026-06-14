@@ -39,10 +39,10 @@ class InconsistencyObjective(InconsistencyObjectiveFabric):
         return float(compute_e_valid(state, self._preload_graph(state)))
 
     def evaluate_against_baseline(self, state: BaseMosaicMappingState[Any], baseline: BaseMosaicMappingState[Any]) -> float:
-        """Evaluate relative difference in inconsistencies."""
-        if id(state.mapping_input.graph) != id(baseline.mapping_input.graph):
-            raise BaselineMismatchError("Graph topology mismatch between state and baseline.")
         return self.evaluate(state) - self.evaluate(baseline)
+
+    def get_name(self) -> str:
+        return "Inconsistencies"
 
 
 class InconsistencyRelativeObjective(InconsistencyObjectiveFabric):
@@ -56,13 +56,10 @@ class InconsistencyRelativeObjective(InconsistencyObjectiveFabric):
         return float(inconsistencies) / float(self._graph_cache[id(state.mapping_input)]['m'])
 
     def evaluate_against_baseline(self, state: BaseMosaicMappingState[Any], baseline: BaseMosaicMappingState[Any]) -> float:
-        """Evaluate relative difference in inconsistencies."""
-        if id(state.mapping_input.graph) != id(baseline.mapping_input.graph):
-            raise BaselineMismatchError("Graph topology mismatch between state and baseline.")
-        baseline_inconsistencies = self.evaluate(baseline)
-        if baseline_inconsistencies == 0:
-            return float('inf')  # Avoid division by zero; conventionally return infinity
         return self.evaluate(state) / self.evaluate(baseline)
+
+    def get_name(self) -> str:
+        return "Inconsistencies (Fraction)"
 
 
 class InconsistencyPercentageMetric(InconsistencyObjectiveFabric):
@@ -78,10 +75,11 @@ class InconsistencyPercentageMetric(InconsistencyObjectiveFabric):
             return 0.0
         return (float(invalid_edges) / float(total_edges)) * 100.0
 
-    def evaluate_against_baseline(self, state: BaseMosaicMappingState[Any],
-                                  baseline: BaseMosaicMappingState[Any]) -> float:
-        assert baseline is not None
+    def evaluate_against_baseline(self, state: BaseMosaicMappingState[Any], baseline: BaseMosaicMappingState[Any]) -> float:
         baseline_val = self.evaluate(baseline)
         if baseline_val == 0:
             return 1.0 if self.evaluate(state) == 0 else 100.0
         return self.evaluate(state) / baseline_val
+
+    def get_name(self) -> str:
+        return "Inconsistencies (%)"

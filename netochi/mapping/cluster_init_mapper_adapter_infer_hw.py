@@ -34,4 +34,3 @@ class ClusterInitMapper(BaseMapper[MosaicHWMappingState, MappingInput]):
             assignment=assignment)
         return self.mapper.run(mapping_input_adapted)
 
-

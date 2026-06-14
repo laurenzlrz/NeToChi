@@ -38,8 +38,12 @@ class ErdosRenyiFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
         }
         
         return MosaicMappingInput(
+            id=self.get_id(),
             graph=gt_graph,
             descriptions=descriptions,
             hw_config=self.hw_config,
             assignment=None
         )
+
+    def get_id(self) -> str:
+        return f"ErdosRenyi_n={self.n}_p={self.probability}_seed={self.seed}"

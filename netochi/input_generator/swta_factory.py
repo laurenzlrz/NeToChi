@@ -117,8 +117,12 @@ class SwtaFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
         }
 
         return MosaicMappingInput(
+            id=self.get_id(),
             graph=gt_graph,
             descriptions=descriptions,
             hw_config=self.hw_config,
             assignment=None
         )
+
+    def get_id(self) -> str:
+        return f"sWTA_nrClusters={self.config.num_clusters}_N={self.config.neurons_per_cluster}_seed={self.config.seed}"

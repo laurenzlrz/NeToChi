@@ -27,6 +27,9 @@ class MappingObjective[MAPPING_STATE: MappingState, MAPPING_STATE_BASELINE: Mapp
         """
         raise NotImplementedError
 
+    def get_name(self) -> str:
+        return self.__class__.__name__
+
 
 class ObjectiveInterface[MAPPING_STATE: MappingState]:
     """

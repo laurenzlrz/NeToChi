@@ -39,6 +39,7 @@ class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELI
         assert isinstance(self.evaluator_bundle, EvaluatorBundle), "Each evaluator bundle must be an instance of EvaluatorBundle"
 
         t0 = time.time()
+        input_id = input.id
         state = self.mapper.run(input)
         elapsed = time.time() - t0
         raw_metrics, rel_metrics = self.evaluator_bundle.evaluate_all(state)
@@ -47,6 +48,7 @@ class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELI
         mapper_name = self.mapper.get_name()
 
         result = ExperimentResult(
+            input_id=input_id,
             mapper_name=mapper_name,
             input_metadata=input.descriptions,
             metrics=rel_metrics,

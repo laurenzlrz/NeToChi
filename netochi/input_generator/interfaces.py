@@ -21,6 +21,7 @@ class MappingInput(BaseModel):
 
     graph: gt.Graph = Field(description="The input graph to be mapped onto hardware.")
     descriptions: Dict[str, str] = Field(description="Metadata describing the graph and mapping context.")
+    id: str = Field(default="MappingInputPlaceholder", description="Optional unique identifier for this input.")
 
 class HWMappingInput[HW_CONFIG](MappingInput):
     model_config = ConfigDict(arbitrary_types_allowed=True, strict=True, frozen=True)
@@ -119,7 +120,6 @@ class MosaicMappingInput(HWMappingInput[MosaicHardwareConfig]):
 
 class BaseInputFactory[MAPPING_INPUT_CO: MappingInput](ABC):
     """Abstract base class for factories that generate MappingInputs."""
-
     @abstractmethod
     def generate(self) -> MAPPING_INPUT_CO:
         pass
@@ -127,7 +127,13 @@ class BaseInputFactory[MAPPING_INPUT_CO: MappingInput](ABC):
     def get_name(self) -> str:
         return self.__class__.__name__
 
-class HWBaseInputFactory[WITH_HW_INPUT_CO: HWMappingInput[Any]](BaseInputFactory[WITH_HW_INPUT_CO]
-):
+    @abstractmethod
+    def get_id(self) -> str:
+        """
+        Returns a unique identifier for the generated networks (graph type, input size, ...)
+        """
+        pass
+
+class HWBaseInputFactory[WITH_HW_INPUT_CO: HWMappingInput[Any]](BaseInputFactory[WITH_HW_INPUT_CO]):
     """Abstract base class for factories that generate MappingInputs with corresponding hardware."""
     pass

@@ -70,3 +70,6 @@ class LogLikelihoodObjective(BaseModel, MappingObjective[BaseMosaicMappingState[
                     if hw.get_slice_bounds(dist, s[tgt][dist])[0] <= x[src] < hw.get_slice_bounds(dist, s[tgt][dist])[1]:
                         e_valid += 1
         return e_valid
+
+    def get_name(self) -> str:
+        return "Log-Likelihood"

@@ -93,8 +93,8 @@ class SummaryReporter(BaseModel, PipelineConsumer[MappingInput, MappingState[Any
     @staticmethod
     def _get_divider(metric_names: List[str]) -> str:
         """Calculates a divider line based on the number of metrics."""
-        # Widths match _print_table: mapper(45) + graph(20) + metrics(N*25) + time(10) + separators
-        base_width = 45 + 20 + 10 + (3 * 3) # widths + 3 separators (|)
+        # Widths match _print_table: mapper(45) + graph(40) + metrics(N*25) + time(10) + separators
+        base_width = 45 + 40 + 10 + (3 * 3) # widths + 3 separators (|)
         metric_width = len(metric_names) * (25 + 3) # width + separator (|)
         return "=" * (base_width + metric_width)
 

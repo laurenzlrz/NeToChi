@@ -1,4 +1,6 @@
-from typing import Any
+from typing import Any, Dict
+
+from pydantic import PrivateAttr, ConfigDict
 
 from netochi.mapping.interfaces import BaseMosaicMappingState
 from netochi.objectives.obj_inconsistency import InconsistencyObjectiveFabric
@@ -10,6 +12,8 @@ class UnusedConnectionsObjective(InconsistencyObjectiveFabric):
     Objective that measures the hardware size (core count).
     Supports relative evaluation against a baseline.
     """
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    _graph_cache: Dict[int, Any] = PrivateAttr(default_factory=dict)
 
     def evaluate(self, state: BaseMosaicMappingState[Any]) -> float:
         """Returns the total number of cores in the hardware configuration."""
@@ -23,3 +27,6 @@ class UnusedConnectionsObjective(InconsistencyObjectiveFabric):
         if baseline_size <= 0:
             return float('inf')
         return self.evaluate(state) / baseline_size
+
+    def get_name(self) -> str:
+        return "Unused Connections"
