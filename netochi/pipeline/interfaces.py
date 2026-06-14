@@ -48,9 +48,12 @@ class BasePipelineRunner(ABC, BaseModel, Generic[Input_co, MappingState_co, Base
 
 # TODO Put generics into another folder
 
-class PipelineConsumer(ABC, BaseModel, Generic[Input_contra, MappingState_contra, BaselineState_contra]):
+class PipelineConsumer(ABC, Generic[Input_contra, MappingState_contra, BaselineState_contra]):
 
-    model_config = ConfigDict(strict=True, arbitrary_types_allowed=True)
-
+    @abstractmethod
     def consume(self, data: PipelineSummary[Input_contra, MappingState_contra, BaselineState_contra]) -> None:
-        NotImplementedError("Consume method must be implemented by subclasses of PipelineConsumer.")
+        """
+        Consume the pipeline summary data.
+        This method must be implemented by subclasses.
+        """
+        pass

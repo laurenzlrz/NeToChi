@@ -10,11 +10,12 @@ from netochi.mapping.interfaces import MappingState
 from netochi.pipeline.results import PipelineSummary
 
 
-class SummaryArchiver(PipelineConsumer[MappingInput, MappingState[Any, Any], MappingState[Any, Any]]):
+class SummaryArchiver(BaseModel, PipelineConsumer[MappingInput, MappingState[Any, Any], MappingState[Any, Any]]):
     """
     Handles the generation and printing of experiment reports.
     Automatically discovers metrics and formats tables dynamically.
     """
+    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
     config: PipelineOutputConfig = Field(description="Configuration for report output formatting and behavior.")
 
     csv_filename: str = Field(default="results.csv")

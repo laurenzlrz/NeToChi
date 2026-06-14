@@ -13,11 +13,11 @@ from pydantic import BaseModel, ConfigDict
 from netochi.pipeline.results import PipelineSummary, ExperimentResult
 from netochi.pipeline.config import PipelineOutputConfig
 
-class PipelinePlotter(PipelineConsumer[MappingInput, MappingState[Any, Any], MappingState[Any, Any]]):
+class PipelinePlotter(BaseModel, PipelineConsumer[MappingInput, MappingState[Any, Any], MappingState[Any, Any]]):
     """
     Generates interpretable plots from pipeline results.
     """
-    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, strict=True)
     config: PipelineOutputConfig
 
     def consume(self, data: PipelineSummary) -> None:

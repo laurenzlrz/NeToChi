@@ -72,6 +72,7 @@ def plot_clustering_comparison(
     )
 
 
+from pydantic import BaseModel, ConfigDict
 from netochi.pipeline.interfaces import PipelineConsumer
 from netochi.pipeline.config import PipelineOutputConfig
 from netochi.pipeline.results import PipelineSummary
@@ -79,7 +80,8 @@ from netochi.mapping.interfaces import BaseMosaicMappingState
 from netochi.input_generator.interfaces import MosaicMappingInput
 from typing import Any
 
-class ClusteringVisualizer(PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]):
+class ClusteringVisualizer(BaseModel, PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]):
+    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
     config: PipelineOutputConfig
 
     def consume(self, data: PipelineSummary[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]) -> None:

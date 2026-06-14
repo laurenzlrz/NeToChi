@@ -179,13 +179,15 @@ def plot_hardware_mapping(
         plt.close(fig)
 
 
+from pydantic import BaseModel, ConfigDict
 from netochi.pipeline.interfaces import PipelineConsumer
 from netochi.pipeline.config import PipelineOutputConfig
 from netochi.pipeline.results import PipelineSummary
 from netochi.input_generator.interfaces import MosaicMappingInput
 from netochi.mapping.interfaces import BaseMosaicMappingState
 
-class MappingOutputVisualizer(PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]):
+class MappingOutputVisualizer(BaseModel, PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]):
+    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
     config: PipelineOutputConfig
 
     def consume(self, data: PipelineSummary[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]) -> None:

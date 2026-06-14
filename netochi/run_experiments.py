@@ -70,6 +70,7 @@ MAPPERS = [
     QAPPcaOptMapper(),
     RandomMapper(),
     GreedyMapper(),
+    MosaicGroundTruthBaselineProvider()
     #ILPMapper(),
 ]
 

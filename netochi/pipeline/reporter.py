@@ -11,11 +11,12 @@ from netochi.definitions.constants import KEY_GRAPH_TYPE, KEY_UNKNOWN, REPORT_DI
     REPORT_HEADER_BASELINE, REPORT_HEADER_PURE
 
 
-class SummaryReporter(PipelineConsumer[MappingInput, MappingState[Any, Any], MappingState[Any, Any]]):
+class SummaryReporter(BaseModel, PipelineConsumer[MappingInput, MappingState[Any, Any], MappingState[Any, Any]]):
     """
     Handles the generation and printing of experiment reports.
     Automatically discovers metrics and formats tables dynamically.
     """
+    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
     config: PipelineOutputConfig = Field(description="Configuration for report output formatting and behavior.")
 
     def consume(self, data: PipelineSummary) -> None:
@@ -56,7 +57,7 @@ class SummaryReporter(PipelineConsumer[MappingInput, MappingState[Any, Any], Map
         Returns a formatted table for a given set of metrics as a string.
         """
         table_lines = []
-        mapper_width, graph_width, metric_width, time_width = 45, 20, 25, 10
+        mapper_width, graph_width, metric_width, time_width = 45, 40, 25, 10
 
         # Format Header
         header = f"{'Mapper':<{mapper_width}} | {'Graph':<{graph_width}}"
