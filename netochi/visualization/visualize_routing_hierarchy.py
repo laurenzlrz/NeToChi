@@ -84,4 +84,30 @@ def plot_routing_hierarchy(hw_config: MosaicHardwareConfig, filename: str):
     plt.axis("off")
     plt.tight_layout()
     plt.savefig(filename, bbox_inches='tight')
+    plt.close()
+
+
+from netochi.pipeline.interfaces import PipelineConsumer
+from netochi.pipeline.config import PipelineOutputConfig
+from netochi.pipeline.results import PipelineSummary
+from netochi.input_generator.interfaces import MosaicMappingInput
+from netochi.mapping.interfaces import BaseMosaicMappingState
+
+class RoutingHierarchyVisualizer(PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]):
+    config: PipelineOutputConfig
+
+    def consume(self, data: PipelineSummary[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]) -> None:
+        seen_hw_configs = set()
+        for res in data.results:
+            if res.state is not None:
+                hw_config = res.state.hw_to_evaluate
+                hw_key = (hw_config.nodes_per_router, hw_config.neurons_per_core, hw_config.router_levels, hw_config.slice_factor)
+                if hw_key not in seen_hw_configs:
+                    seen_hw_configs.add(hw_key)
+                    name = f"routing_hierarchy_{hw_config.nodes_per_router}_{hw_config.neurons_per_core}_{hw_config.router_levels}"
+                    
+                    assert self.config.plot_path is not None
+                    for fmt in self.config.plot_format:
+                        filename = str(self.config.plot_path / f"{name}.{fmt}")
+                        plot_routing_hierarchy(hw_config, filename)
 

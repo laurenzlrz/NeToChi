@@ -1,12 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar, TYPE_CHECKING, Optional, Any
+from typing import Generic, Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from netochi.pipeline import PipelineSummary
-
-if TYPE_CHECKING:
-    from netochi.pipeline.results import PipelineSummary
+from netochi.definitions.generics import Input_contra, MappingState_contra, BaselineState_contra, Input_co, \
+    MappingState_co, BaselineState_co
+from netochi.pipeline.results import PipelineSummary
 
 class MappingMetric[MAPPING_STATE, MAPPING_STATE_BASELINE](ABC):
     """
@@ -33,26 +32,22 @@ class MappingMetric[MAPPING_STATE, MAPPING_STATE_BASELINE](ABC):
         return self.__class__.__name__
 
 
-class BasePipelineRunner(ABC, BaseModel):
+class BasePipelineRunner(ABC, BaseModel, Generic[Input_co, MappingState_co, BaselineState_co]):
     """
     Structural interface for the benchmarking pipeline.
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
 
     @abstractmethod
-    def run(self) -> list['PipelineSummary']:
+    def run(self) -> list[PipelineSummary[Input_co, MappingState_co, BaselineState_co]]:
         """Execute the pipeline and return a summary of results."""
         pass
 
+# TODO Put generics into another folder
 
-class PipelineConsumer(ABC, BaseModel):
+class PipelineConsumer(ABC, BaseModel, Generic[Input_contra, MappingState_contra, BaselineState_contra]):
 
-    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True, frozen=True)
+    model_config = ConfigDict(strict=True, arbitrary_types_allowed=True)
 
-    @abstractmethod
-    def consume(self, data: PipelineSummary) -> None:
-        """
-        Consume the pipeline summary data.
-        This method should be implemented by subclasses to define specific consumption behavior.
-        """
-        pass
+    def consume(self, data: PipelineSummary[Input_contra, MappingState_contra, BaselineState_contra]) -> None:
+        NotImplementedError("Consume method must be implemented by subclasses of PipelineConsumer.")

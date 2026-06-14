@@ -1,7 +1,8 @@
 import time
-from typing import List, Dict, Optional, Any, Sequence
+from typing import List, Optional, Any, Sequence, Generic
 from pydantic import BaseModel, ConfigDict, Field
 
+from netochi.definitions.generics import Input_co, MappingState_co, BaselineState_co
 from netochi.mapping.interfaces import MappingState
 from netochi.input_generator.interfaces import BaseInputFactory
 
@@ -49,26 +50,27 @@ class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELI
             metrics=rel_metrics,
             raw_metrics=raw_metrics,
             execution_time_s=elapsed,
-            error=error_msg
+            error=error_msg,
+            state=state
         )
         return result
 
 
-class ExperimentTaskBase[INPUT: MappingInput](BaseModel):
+class ExperimentTaskBase(BaseModel, Generic[Input_co, MappingState_co, BaselineState_co]):
     """Base for experiment tasks, defining common attributes."""
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True, strict=True)
 
     # For convenience, we allow multiple input factories to be associated with the same mapper and baseline logic,
     # enabling combinatorial testing without needing to duplicate the entire task definition.
-    input_generators: Sequence[BaseInputFactory[INPUT]] = Field(
+    input_generators: Sequence[BaseInputFactory[Input_co]] = Field(
         description="List of input factories to generate mapping inputs.")
-    evaluator_mapper_bundles: List[ExperimentTaskRun[INPUT, Any, Any]] = Field(
+    evaluator_mapper_bundles: Sequence[ExperimentTaskRun[Any, Any, Any]] = Field(
         description="Mapping of mappers to their corresponding evaluator bundles.")
 
     def run(self) -> List[ExperimentResult]:
         results: List[ExperimentResult] = []
 
-        baselines_runner_list: List[BaselineStorer[INPUT, Any]] = [
+        baselines_runner_list: List[BaselineStorer[Input_co, Any]] = [
             storer
             for evaluator_bundle in self.evaluator_mapper_bundles
             for storer in evaluator_bundle.baseline_storers
@@ -86,15 +88,15 @@ class ExperimentTaskBase[INPUT: MappingInput](BaseModel):
         return results
 
 
-class TaskBundle(BaseModel):
+class TaskBundle(BaseModel, Generic[Input_co, MappingState_co, BaselineState_co]):
     """
     A bundle of tasks to be executed in a pipeline.
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True, strict=True)
 
-    tasks: List[ExperimentTaskBase[Any]] = Field(
+    tasks: Sequence[ExperimentTaskBase[Input_co, MappingState_co, BaselineState_co]] = Field(
         description="List of experiment tasks to execute in the pipeline.")
-    consumer: List[PipelineConsumer] = Field(
+    consumer: Sequence[PipelineConsumer[Any, Any, Any]] = Field(
         description="List of consumers to process the pipeline summary after execution.")
 
     def run(self):
@@ -111,13 +113,14 @@ class TaskBundle(BaseModel):
         return pipeline_summary
 
 
-class PipelineRunner(BasePipelineRunner):
+class PipelineRunner(BasePipelineRunner[Input_co, MappingState_co, BaselineState_co]):
     """
     Strictly typed pipeline runner using ExperimentTasks.
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, strict=True, frozen=True)
     
-    bundles: List[TaskBundle] = Field(description="List of task bundles to execute in the pipeline.")
+    bundles: Sequence[TaskBundle[
+        Input_co, MappingState_co, BaselineState_co]] = Field(description="List of task bundles to execute in the pipeline.")
 
     def run(self) -> List[PipelineSummary]:
         overall_results = []

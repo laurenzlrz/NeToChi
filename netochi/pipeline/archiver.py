@@ -2,12 +2,15 @@
 from pydantic import BaseModel, Field, ConfigDict
 import pandas as pd
 
+from typing import Any
 from netochi.pipeline.config import PipelineOutputConfig
 from netochi.pipeline.interfaces import PipelineConsumer
+from netochi.input_generator.interfaces import MappingInput
+from netochi.mapping.interfaces import MappingState
 from netochi.pipeline.results import PipelineSummary
 
 
-class SummaryArchiver(PipelineConsumer):
+class SummaryArchiver(PipelineConsumer[MappingInput, MappingState[Any, Any], MappingState[Any, Any]]):
     """
     Handles the generation and printing of experiment reports.
     Automatically discovers metrics and formats tables dynamically.

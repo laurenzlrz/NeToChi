@@ -177,3 +177,26 @@ def plot_hardware_mapping(
     plt.savefig(filename, bbox_inches='tight', format='pdf')
     plt.close(fig)
 
+
+from netochi.pipeline.interfaces import PipelineConsumer
+from netochi.pipeline.config import PipelineOutputConfig
+from netochi.pipeline.results import PipelineSummary
+from netochi.input_generator.interfaces import MosaicMappingInput
+from netochi.mapping.interfaces import BaseMosaicMappingState
+
+class MappingOutputVisualizer(PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]):
+    config: PipelineOutputConfig
+
+    def consume(self, data: PipelineSummary[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]) -> None:
+        for res in data.results:
+            if res.state is not None:
+                graph = res.state.mapping_input.graph
+                hw_config = res.state.hw_to_evaluate
+                safe_meta = "_".join(f"{k}-{v}" for k, v in sorted(res.input_metadata.items()))[:50]
+                name = f"hardware_mapping_{res.mapper_name}_{safe_meta}"
+                
+                assert self.config.plot_path is not None
+                for fmt in self.config.plot_format:
+                    filename = str(self.config.plot_path / f"{name}.{fmt}")
+                    plot_hardware_mapping(graph, res.state, hw_config, filename)
+

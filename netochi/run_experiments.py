@@ -3,7 +3,7 @@ from typing import List, Any, Tuple, cast
 from netochi.mapping.ilp_mapper import ILPMapper
 from netochi.mapping.interfaces import (
     BaseMosaicMappingState,
-    BaseMapper
+    BaseMapper, MappingState
 )
 from netochi.input_generator.interfaces import MosaicMappingInput, MappingInput, HWBaseInputFactory
 
@@ -21,6 +21,7 @@ from netochi.mapping.simulated_annealing_mapper import SimAnnealingMapper
 from netochi.mapping.three_step_mapping.qap_pca_opt_three_step_mapper import QAPPcaOptMapper
 
 from netochi.objectives.obj_unused_connections import UnusedConnectionsObjective
+from netochi.pipeline import BasePipelineRunner
 from netochi.pipeline.archiver import SummaryArchiver
 from netochi.pipeline.config import PipelineOutputConfig
 from netochi.pipeline.interfaces import PipelineConsumer
@@ -38,6 +39,10 @@ from netochi.objectives.obj_inconsistency import InconsistencyObjective, Inconsi
 from netochi.objectives.obj_hardware_size import MosaicHardwareSizeObjective
 from netochi.objectives.interfaces import MappingObjective
 from netochi.pipeline.runner.baseline_provider import RandomMosaicBaselineProvider, MosaicGroundTruthBaselineProvider
+from netochi.visualization.visualize_adjacency_matrix import AdjacencyMatrixVisualizer
+from netochi.visualization.visualize_clustering import ClusteringVisualizer
+from netochi.visualization.visualize_mapping_output import MappingOutputVisualizer
+from netochi.visualization.visualize_routing_hierarchy import RoutingHierarchyVisualizer
 
 # ======================= CONFIGURE PIPELINE HERE =============================
 
@@ -72,15 +77,19 @@ SEED = 42
 
 PIPELINE_CONFIG = PipelineOutputConfig()
 
-CONSUMERS: List[PipelineConsumer] = [
+CONSUMERS: List[PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]] = [
     SummaryReporter(config=PIPELINE_CONFIG),
     PipelinePlotter(config=PIPELINE_CONFIG),
     SummaryArchiver(config=PIPELINE_CONFIG),
+    AdjacencyMatrixVisualizer(config=PIPELINE_CONFIG),
+    ClusteringVisualizer(config=PIPELINE_CONFIG),
+    MappingOutputVisualizer(config=PIPELINE_CONFIG),
+    RoutingHierarchyVisualizer(config=PIPELINE_CONFIG),
 ]
 
 # ==============================================================================
 
-def define_task_inputs() -> PipelineRunner:
+def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, MappingState]:
 
     # 1. Define the inputs (Factories)
     probabilities = [0.1, 0.5]
@@ -121,14 +130,14 @@ def define_task_inputs() -> PipelineRunner:
 
     swta_tasks = ExperimentTaskBase(input_generators=swta_factories,
                                     evaluator_mapper_bundles=other_task_runs)
-    tasks = [mosaic_tasks,
+    tasks: List[ExperimentTaskBase[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]] = [mosaic_tasks,
              #er_tasks,
              #swta_tasks
              ]
 
-    bundles = [TaskBundle(tasks=[task], consumer=CONSUMERS) for task in tasks]
+    bundles: List[TaskBundle[MappingInput, MappingState, MappingState]] = [TaskBundle(tasks=[task], consumer=CONSUMERS) for task in tasks]
 
-    runner = PipelineRunner(bundles=bundles)
+    runner: BasePipelineRunner[MappingInput, MappingState, MappingState] = PipelineRunner(bundles=bundles)
     return runner
 
 

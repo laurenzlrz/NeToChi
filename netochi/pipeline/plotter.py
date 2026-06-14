@@ -1,6 +1,8 @@
 import matplotlib # type: ignore[import-untyped]
 
 from netochi.pipeline.interfaces import PipelineConsumer
+from netochi.input_generator.interfaces import MappingInput
+from netochi.mapping.interfaces import MappingState
 
 matplotlib.use('Agg') # Non-interactive backend
 import matplotlib.pyplot as plt # type: ignore[import-untyped]
@@ -11,7 +13,7 @@ from pydantic import BaseModel, ConfigDict
 from netochi.pipeline.results import PipelineSummary, ExperimentResult
 from netochi.pipeline.config import PipelineOutputConfig
 
-class PipelinePlotter(PipelineConsumer):
+class PipelinePlotter(PipelineConsumer[MappingInput, MappingState[Any, Any], MappingState[Any, Any]]):
     """
     Generates interpretable plots from pipeline results.
     """

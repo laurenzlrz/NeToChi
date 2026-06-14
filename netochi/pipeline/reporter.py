@@ -4,12 +4,14 @@ from pydantic import BaseModel, Field, ConfigDict
 
 from netochi.pipeline.config import PipelineOutputConfig
 from netochi.pipeline.interfaces import PipelineConsumer
+from netochi.input_generator.interfaces import MappingInput
+from netochi.mapping.interfaces import MappingState
 from netochi.pipeline.results import PipelineSummary, ExperimentResult
 from netochi.definitions.constants import KEY_GRAPH_TYPE, KEY_UNKNOWN, REPORT_DIVIDER, REPORT_SUBDIVIDER, \
     REPORT_HEADER_BASELINE, REPORT_HEADER_PURE
 
 
-class SummaryReporter(PipelineConsumer):
+class SummaryReporter(PipelineConsumer[MappingInput, MappingState[Any, Any], MappingState[Any, Any]]):
     """
     Handles the generation and printing of experiment reports.
     Automatically discovers metrics and formats tables dynamically.
