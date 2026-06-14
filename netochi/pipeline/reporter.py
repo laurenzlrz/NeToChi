@@ -14,7 +14,7 @@ class SummaryReporter(PipelineConsumer):
     Handles the generation and printing of experiment reports.
     Automatically discovers metrics and formats tables dynamically.
     """
-    config: PipelineOutputConfig = Field(default_factory=PipelineOutputConfig)
+    config: PipelineOutputConfig = Field(description="Configuration for report output formatting and behavior.")
 
     def consume(self, data: PipelineSummary) -> None:
         self.generate_report_string(data)

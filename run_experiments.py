@@ -21,10 +21,15 @@ from netochi.mapping.simulated_annealing_mapper import SimAnnealingMapper
 from netochi.mapping.three_step_mapping.qap_pca_opt_three_step_mapper import QAPPcaOptMapper
 
 from netochi.objectives.obj_unused_connections import UnusedConnectionsObjective
+from netochi.pipeline.archiver import SummaryArchiver
+from netochi.pipeline.config import PipelineOutputConfig
+from netochi.pipeline.pipeline_consumer import PipelineConsumer
+from netochi.pipeline.plotter import PipelinePlotter
+from netochi.pipeline.reporter import SummaryReporter
 from netochi.pipeline.runner.runner import (
     PipelineRunner,
     ExperimentTaskBase,
-    ExperimentTaskRun,
+    ExperimentTaskRun, TaskBundle,
 )
 from netochi.pipeline.runner.evaluator_bundle import EvaluatorBundle
 from netochi.pipeline.metrics import ObjectiveMetric
@@ -32,10 +37,7 @@ from netochi.objectives.obj_log_likelihood import LogLikelihoodObjective
 from netochi.objectives.obj_inconsistency import InconsistencyObjective, InconsistencyRelativeObjective
 from netochi.objectives.obj_hardware_size import MosaicHardwareSizeObjective
 from netochi.objectives.interfaces import MappingObjective
-from netochi.definitions.constants import KEY_GRAPH_TYPE, KEY_UNKNOWN, DEFAULT_METRIC_VALUE, REPORT_DIVIDER, \
-    REPORT_SUBDIVIDER, REPORT_HEADER_BASELINE, REPORT_HEADER_PURE, TABLE_ROW_REL_FORMAT, TABLE_ROW_RAW_FORMAT, \
-    TABLE_HEADER_REL_FORMAT, TABLE_HEADER_RAW_FORMAT, OBJ_NAME_LL, OBJ_NAME_INCONSISTENCY, OBJ_NAME_HW_SIZE
-from runner.baseline_provider import RandomMosaicBaselineProvider, MosaicGroundTruthBaselineProvider
+from netochi.pipeline.runner.baseline_provider import RandomMosaicBaselineProvider, MosaicGroundTruthBaselineProvider
 
 # ======================= CONFIGURE PIPELINE HERE =============================
 
@@ -67,9 +69,17 @@ MAPPERS = [
 
 SEED = 42
 
+PIPELINE_CONFIG = PipelineOutputConfig()
+
+CONSUMERS: List[PipelineConsumer] = [
+    SummaryReporter(config=PIPELINE_CONFIG),
+    PipelinePlotter(config=PIPELINE_CONFIG),
+    SummaryArchiver(config=PIPELINE_CONFIG),
+]
+
 # ==============================================================================
 
-def define_task_inputs() -> List[PipelineRunner]:
+def define_task_inputs() -> PipelineRunner:
 
     # 1. Define the inputs (Factories)
     probabilities = [0.1, 0.5]
@@ -110,68 +120,25 @@ def define_task_inputs() -> List[PipelineRunner]:
 
     swta_tasks = ExperimentTaskBase(input_generators=swta_factories,
                                     evaluator_mapper_bundles=other_task_runs)
+    tasks = [mosaic_tasks, er_tasks, swta_tasks]
 
-    runner = [PipelineRunner(tasks=[task]) for task in [mosaic_tasks, er_tasks, swta_tasks]]
+    bundles = [TaskBundle(tasks=task, consumer=CONSUMERS) for task in tasks]
+
+    runner = PipelineRunner(bundles=bundles)
     return runner
 
 
 def run_experiment() -> None:
 
     # === 1. define mosaic tasks ===
-    runners = define_task_inputs()
+    runner = define_task_inputs()
 
     # === 2. Run Pipeline ===
     print("=" * 100)
     print("Neuromorphic Mapping Pipeline Execution")
     print("=" * 100)
 
-    for run in runners:
-        summary = run.run()
-
-        # === 3. Summary Report ===
-        print("\n" + REPORT_DIVIDER)
-        print(REPORT_HEADER_BASELINE)
-        print(REPORT_DIVIDER)
-        print(TABLE_HEADER_REL_FORMAT)
-        print(REPORT_SUBDIVIDER)
-
-        for res in summary.results:
-            rel_ll = res.metrics.get(OBJ_NAME_LL, DEFAULT_METRIC_VALUE)
-            rel_inc = res.metrics.get(OBJ_NAME_INCONSISTENCY, DEFAULT_METRIC_VALUE)
-            rel_hw = res.metrics.get(OBJ_NAME_HW_SIZE, DEFAULT_METRIC_VALUE)
-            graph_type = res.input_metadata.get(KEY_GRAPH_TYPE, KEY_UNKNOWN)
-            print(TABLE_ROW_REL_FORMAT.format(
-                mapper=res.mapper_name,
-                graph_type=graph_type,
-                rel_ll=rel_ll,
-                rel_inc=rel_inc,
-                rel_hw=rel_hw,
-                elapsed=res.execution_time_s
-            ))
-
-        print("\n" + REPORT_DIVIDER)
-        print(REPORT_HEADER_PURE)
-        print(REPORT_DIVIDER)
-        print(TABLE_HEADER_RAW_FORMAT)
-        print(REPORT_SUBDIVIDER)
-
-        for res in summary.results:
-            raw_ll = res.raw_metrics.get(OBJ_NAME_LL, DEFAULT_METRIC_VALUE)
-            raw_inc = res.raw_metrics.get(OBJ_NAME_INCONSISTENCY, DEFAULT_METRIC_VALUE)
-            raw_hw = res.raw_metrics.get(OBJ_NAME_HW_SIZE, DEFAULT_METRIC_VALUE)
-            graph_type = res.input_metadata.get(KEY_GRAPH_TYPE, KEY_UNKNOWN)
-            print(TABLE_ROW_RAW_FORMAT.format(
-                mapper=res.mapper_name,
-                graph_type=graph_type,
-                raw_ll=raw_ll,
-                raw_inc=raw_inc,
-                raw_hw=raw_hw,
-                elapsed=res.execution_time_s
-            ))
-
-        print(REPORT_DIVIDER)
-        print(f"Total Experiment Time: {summary.total_time_s:.2f}s")
-        print("Experiment Complete.")
+    summaries = runner.run()
 
 
 if __name__ == '__main__':

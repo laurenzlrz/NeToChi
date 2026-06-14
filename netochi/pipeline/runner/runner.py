@@ -2,17 +2,16 @@ import time
 from typing import List, Dict, Optional, Any
 from pydantic import BaseModel, ConfigDict, Field
 
-from config import PipelineOutputConfig
 from netochi.mapping.interfaces import MappingState
 from netochi.input_generator.interfaces import BaseInputFactory
 
 from netochi.pipeline.interfaces import BasePipelineRunner
+from netochi.pipeline.pipeline_consumer import PipelineConsumer
 from netochi.pipeline.results import ExperimentResult, PipelineSummary
 from netochi.mapping.interfaces import BaseMapper
 from netochi.input_generator.interfaces import MappingInput
 from netochi.pipeline.runner.evaluator_bundle import EvaluatorBundle
-from runner import baseline_provider
-from runner.evaluator_bundle import BaselineStorer
+from netochi.pipeline.runner.evaluator_bundle import BaselineStorer
 
 
 class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELINE_STATE: MappingState](BaseModel):
@@ -88,6 +87,29 @@ class ExperimentTaskBase[INPUT: MappingInput](BaseModel):
         return results
 
 
+class TaskBundle(BaseModel):
+    """
+    A bundle of tasks to be executed in a pipeline.
+    """
+    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True, strict=True)
+
+    tasks: List[ExperimentTaskBase[Any]] = Field(
+        description="List of experiment tasks to execute in the pipeline.")
+    consumer: List[PipelineConsumer] = Field(
+        description="List of consumers to process the pipeline summary after execution.")
+
+    def run(self):
+        results = []
+        start_time = time.time()
+        for task in self.tasks:
+            task_results = task.run()
+            results.extend(task_results)
+        end_time = time.time()
+        time_delta = end_time - start_time
+        pipeline_summary = PipelineSummary(results=results, total_time_s=time_delta)
+        for consumer in self.consumer:
+            consumer.consume(pipeline_summary)
+        return pipeline_summary
 
 
 class PipelineRunner(BaseModel, BasePipelineRunner):
@@ -96,24 +118,14 @@ class PipelineRunner(BaseModel, BasePipelineRunner):
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, strict=True, frozen=True)
     
-    tasks: List[ExperimentTaskBase[Any]]
-    context_config = PipelineOutputConfig()
+    bundles: List[TaskBundle] = Field(description="List of task bundles to execute in the pipeline.")
 
-    def run(self) -> PipelineSummary:
-        """Execute the pipeline across all configured tasks."""
-        results: List[ExperimentResult] = []
-        start_time = time.time()
-
-        for task in self.tasks:
-            task_results = task.run()
-            results.extend(task_results)
-
-        pipeline_summary = PipelineSummary(
-            results=results,
-            total_time_s=time.time() - start_time
-        )
-
-        return pipeline_summary
+    def run(self) -> List[PipelineSummary]:
+        overall_results = []
+        for bundle in self.bundles:
+            bundle_summary = bundle.run()
+            overall_results.append(bundle_summary)
+        return overall_results
 
 
 
