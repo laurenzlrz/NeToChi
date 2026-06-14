@@ -61,7 +61,8 @@ class HardwareMCMCState(MCMCState):  # type: ignore[misc]
         """Return the energy to minimize."""
         if self.verbose:
             print(DEBUG_MCMC_ENTROPY_CALL)
-        return -self.objective.log_likelihood(self.mapping_state)
+        # This objective here is generic but we instantiate with the LogLikelihoodObjective
+        return -self.objective.evaluate(self.mapping_state)
 
     def _save_best(self, energy: float) -> None:
         """Snapshot the current state if it is the best seen so far."""

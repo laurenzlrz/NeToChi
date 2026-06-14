@@ -137,7 +137,8 @@ class JointHardwareMCMCState(MCMCState):
 
     def entropy(self, **kwargs: Any) -> float:
         """Total Description Length (Sigma)."""
-        neg_ll = -self.objective.log_likelihood(self.mapping_state)
+        # Objective is generic but we use it with the loglikelihood objective
+        neg_ll = -self.objective.evaluate(self.mapping_state)
         c_map = self.mapping_cost(self.K)
         c_hw = self.hardware_cost(self.K, self.Nc, self.Nr, self.L)
         return neg_ll + c_map + c_hw

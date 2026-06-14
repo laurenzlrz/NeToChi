@@ -36,8 +36,3 @@ class ObjectiveInterface[MAPPING_STATE: MappingState]:
     def evaluate(self, state: MAPPING_STATE) -> float:
         """Evaluate the log-likelihood of the mapping state."""
         raise NotImplementedError
-
-    def log_likelihood(self, state: MAPPING_STATE) -> float:
-        """Calculate the log-likelihood for the current mapping assignment."""
-        raise NotImplementedError
-

@@ -54,12 +54,7 @@ class MosaicAssignment(BaseModel):
     @classmethod
     def random(cls, num_neurons: int, hw: MosaicHardwareConfig, seed: Optional[int]) -> "MosaicAssignment":
         """Factory method to create a zero-initialized assignment."""
-        ass = cls(
-            hw=hw,
-            neuron_core_pre_assignment=np.zeros(num_neurons, dtype=np.int64),
-            neuron_idx_pre_assignment=np.zeros(num_neurons, dtype=np.int64),
-            neuron_slice_assignment=np.zeros((num_neurons, hw.router_levels + 1), dtype=np.int64)
-        )
+        ass = cls.spread(num_neurons, hw)
         ass._init_random_self(seed)
         return ass
 

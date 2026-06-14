@@ -63,7 +63,8 @@ HW_CONFIGS = [
 MAPPERS = [
     #SimAnnealingMapper(),
     QAPPcaOptMapper(),
-    #GreedyMapper(),
+    RandomMapper(),
+    GreedyMapper(),
     #ILPMapper(),
 ]
 

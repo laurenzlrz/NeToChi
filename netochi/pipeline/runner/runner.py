@@ -61,7 +61,7 @@ class ExperimentTaskBase[INPUT: MappingInput](BaseModel):
 
     # For convenience, we allow multiple input factories to be associated with the same mapper and baseline logic,
     # enabling combinatorial testing without needing to duplicate the entire task definition.
-    input_generators: List[BaseInputFactory[INPUT]] = Field(
+    input_generators: Sequence[BaseInputFactory[INPUT]] = Field(
         description="List of input factories to generate mapping inputs.")
     evaluator_mapper_bundles: List[ExperimentTaskRun[INPUT, Any, Any]] = Field(
         description="Mapping of mappers to their corresponding evaluator bundles.")
