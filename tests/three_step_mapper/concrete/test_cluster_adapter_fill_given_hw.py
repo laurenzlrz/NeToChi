@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import numpy as np
 
-from netochi.mapping.exceptions import HardwareConstraintError
+from netochi.definitions.exceptions import HardwareConstraintError
 from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOutput
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.mapping.three_step_mapping.clustering.cluster_adapter.fill_given_hw_adapter import FillGivenHwAdapter

@@ -9,9 +9,12 @@ from sklearn import preprocessing
 from sklearn import mixture
 from scipy import sparse
 from scipy import linalg
+import scipy.sparse.linalg
 
 
-def find_partition(evecs, k, method='KM', n_init=20, normalization=True):
+from typing import Any, cast
+
+def find_partition(evecs, k, method='KM', n_init: int = 20, normalization=True):
     """Perform different types of clustering in spectral embedding space."""
     V = evecs[:, :k]
 
@@ -19,19 +22,22 @@ def find_partition(evecs, k, method='KM', n_init=20, normalization=True):
         X = preprocessing.normalize(V, axis=1, norm='l2')
     else:
         X = V
+    
+    clust: Any = None
+    partition_vec = None
     # select methof of clustering - QR, KM (k-means), or GMM
     if method == 'QR':
         partition_vec = clusterEVwithQR(X)
     elif method == 'KM':
-        clust = KMeans(n_clusters=k, n_init=n_init)
+        clust = KMeans(n_clusters=k, n_init=cast(Any, n_init))
     elif method == 'GMM':
-        clust = mixture.GaussianMixture(n_components=k, n_init=n_init,
+        clust = mixture.GaussianMixture(n_components=k, n_init=cast(Any, n_init),
                                         covariance_type='full')
     elif method == 'GMMspherical':
-        clust = mixture.GaussianMixture(n_components=k, n_init=n_init,
+        clust = mixture.GaussianMixture(n_components=k, n_init=cast(Any, n_init),
                                         covariance_type='spherical')
     elif method == 'GMMdiag':
-        clust = mixture.GaussianMixture(n_components=k, n_init=n_init,
+        clust = mixture.GaussianMixture(n_components=k, n_init=cast(Any, n_init),
                                         covariance_type='diag')
     else:
         raise ValueError('''something went wrong. Please specify a valid
@@ -40,6 +46,8 @@ def find_partition(evecs, k, method='KM', n_init=20, normalization=True):
     clust.fit(X)
     partition_vec = clust.predict(X)
 
+    if partition_vec is None:
+        raise ValueError("partition_vec could not be computed")
     part = Partition(pvec=partition_vec)
 
     return part
@@ -72,7 +80,7 @@ def project_orthogonal_to(subspace_basis, vectors_to_project):
 
     S = subspace_basis
 
-    projected = S @ sparse.linalg.spsolve(S.T @ S, S.T @ V)
+    projected = S @ scipy.sparse.linalg.spsolve(S.T @ S, S.T @ V)
 
     orthogonal_proj = V - projected
     return orthogonal_proj
@@ -84,6 +92,7 @@ def add_noise_to_small_matrix(M, snr=0.001, noise_type="uniform"):
     # noise level is taken relative to the Froebenius norm
     normM = linalg.norm(M, 2)
 
+    Mp = M
     if noise_type == "uniform":
         # TODO -- should we have uniform noise?
         n, m = M.shape
@@ -212,8 +221,8 @@ class Partition(object):
         else:
             raise NotImplementedError("""This functionality is implemented!
                                          Remove this error""")
-            H = self.H
-        n, k = np.shape(H)
+        H_any = cast(Any, H)
+        n, k = H_any.shape
         if n == k:
             error = 0
             return error

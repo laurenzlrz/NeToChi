@@ -1,6 +1,8 @@
 import graph_tool.all as gt
 import numpy as np
 from scipy import sparse
+from typing import cast, Any
+from scipy.sparse import csr_matrix
 from netochi.input_generator.interfaces import MappingInput
 from netochi.mapping.three_step_mapping.clustering.clusterer.utils_from_hierarchical_community_detection_paper.cluster import Hierarchy
 from netochi.mapping.three_step_mapping.clustering.clusterer.utils_from_hierarchical_community_detection_paper.inference import infer_hierarchy
@@ -12,10 +14,10 @@ class HcdClusterer(HierarchicalClusterer):
     def cluster(self, input_data: MappingInput) -> HierarchicalClusterOutput:
 
         # --- Convert gt.Graph to Undirected Sparse Matrix ---
-        A_directed = gt.adjacency(input_data.graph)
-        A_symmetric = A_directed + A_directed.T
+        A_directed = cast(csr_matrix, sparse.csr_matrix(cast(Any, gt.adjacency(input_data.graph))))
+        A_symmetric = cast(csr_matrix, A_directed + A_directed.T)
         A_symmetric.data = np.ones_like(A_symmetric.data)
-        A_sparse = sparse.csr_matrix(A_symmetric)
+        A_sparse = A_symmetric
 
         # --- Run Hierarchical Inference ---
         hierarchy = infer_hierarchy(A_sparse)

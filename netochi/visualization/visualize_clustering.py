@@ -70,3 +70,39 @@ def plot_clustering_comparison(
         output_size=(1000, 1000),
         fit_view=True
     )
+
+
+from pydantic import BaseModel, ConfigDict
+from netochi.pipeline.interfaces import PipelineConsumer
+from netochi.pipeline.config import PipelineOutputConfig
+from netochi.pipeline.results import PipelineSummary
+from netochi.mapping.interfaces import BaseMosaicMappingState
+from netochi.input_generator.interfaces import MosaicMappingInput
+from typing import Any
+
+class ClusteringVisualizer(BaseModel, PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]):
+    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
+    config: PipelineOutputConfig
+
+    def consume(self, data: PipelineSummary[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]) -> None:
+        for res in data.results:
+            if res.state is not None and res.state.mapping_input.assignment is not None:
+                graph = res.state.mapping_input.graph
+                initial_assignment = res.state.mapping_input.assignment.neuron_core_pre_assignment
+                inferred_assignment = res.state.c
+                
+                safe_meta = "_".join(f"{k}-{v}" for k, v in sorted(res.input_metadata.items()))[:50]
+                name = f"clustering_comparison_{res.mapper_name}_{safe_meta}"
+                
+                class GraphToolPlotWrapper:
+                    def savefig(self, save_path, dpi=150):
+                        plot_clustering_comparison(
+                            graph,
+                            initial_assignment=initial_assignment,
+                            inferred_assignment=inferred_assignment,
+                            filename=str(save_path)
+                        )
+                    def close(self):
+                        pass
+
+                self.config.save_plot(GraphToolPlotWrapper(), name)

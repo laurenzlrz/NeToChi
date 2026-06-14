@@ -1,29 +1,61 @@
+from pydantic import BaseModel, Field, computed_field, ConfigDict, model_validator
+import numpy as np
+
 from typing import TYPE_CHECKING
-from pydantic import BaseModel, Field, computed_field, ConfigDict
+if TYPE_CHECKING:
+    from .interfaces import MosaicAssignment
+from netochi.definitions.exceptions import InvalidConfigError, DimensionError, InvalidAssignmentError
+
 
 class MosaicHardwareConfig(BaseModel):
     """Configuration for the target neuromorphic hardware."""
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, strict=True)
 
     nodes_per_router: int = Field(gt=0, description="Number of nodes connected to each router.")
     neurons_per_core: int = Field(gt=0, description="Number of neurons in each core.")
     router_levels: int = Field(ge=0, description="Number of levels in the router hierarchy.")
     slice_factor: int = Field(default=2, gt=0, description="Factor determining slice sizes for fan-in.")
 
+    #TODO EXTRACT CONSTANT STRINGS
+
+    @model_validator(mode="after")
+    def validate_config(self) -> "MosaicHardwareConfig":
+        if self.slice_factor > self.neurons_per_core:
+            raise InvalidConfigError("slice_factor cannot be greater than neurons_per_core.")
+        return self
+
+    @computed_field
     @property
     def total_cores(self) -> int:
-        return int(self.nodes_per_router ** self.router_levels)
-    total_cores = computed_field(total_cores)
+        return self.nodes_per_router ** self.router_levels
 
+    @computed_field
     @property
     def total_neurons(self) -> int:
-        return int(self.total_cores * self.neurons_per_core)
-    total_neurons = computed_field(total_neurons)
+        return self.total_cores * self.neurons_per_core
 
+    @computed_field
     @property
     def max_distance(self) -> int:
-        return int(self.router_levels)
-    max_distance = computed_field(max_distance)
+        return self.router_levels
+
+    def local_to_global_neuron(self, core_idx: int, local_idx: int) -> int:
+        """Convert (core_idx, local_idx) to a global neuron index."""
+        if core_idx < 0 or core_idx >= self.total_cores:
+            raise InvalidConfigError(f"Core index {core_idx} is out of bounds for total cores {self.total_cores}.")
+        if local_idx < 0 or local_idx >= self.neurons_per_core:
+            raise InvalidConfigError(f"Local neuron index {local_idx} is out of bounds for neurons per core {self.neurons_per_core}.")
+
+        return core_idx * self.neurons_per_core + local_idx
+
+    def global_neuron_to_local(self, global_neuron_idx: int) -> tuple[int, int]:
+        """Convert a global neuron index to (core_idx, local_idx) tuple."""
+        if global_neuron_idx < 0 or global_neuron_idx >= self.total_neurons:
+            raise InvalidConfigError(f"Global neuron index {global_neuron_idx} is out of bounds for total neurons {self.total_neurons}.")
+
+        core_idx = global_neuron_idx // self.neurons_per_core
+        local_idx = global_neuron_idx % self.neurons_per_core
+        return core_idx, local_idx
 
     def core_distance(self, core_a: int, core_b: int) -> int:
         """Calculate the hierarchical distance between two cores."""
@@ -43,7 +75,7 @@ class MosaicHardwareConfig(BaseModel):
 
     def num_slices_at_distance(self, distance: int) -> int:
         """Number of slices a core is partitioned into at a given distance."""
-        return int(min(self.slice_factor ** distance, self.neurons_per_core))
+        return min(self.slice_factor ** distance, self.neurons_per_core)
 
     def get_slice_bounds(self, distance: int, slice_idx: int) -> tuple[int, int]:
         """Return the (start, end) local addresses for a given slice at a distance."""
@@ -55,9 +87,6 @@ class MosaicHardwareConfig(BaseModel):
     def is_valid_connection(self, source_core: int, target_core: int, source_local_addr: int, target_slice_idx: int) -> bool:
         """Check if a connection satisfies Fan-In constraints."""
         dist = self.core_distance(target_core, source_core)
-        if dist == 0:
-            return True
-        
         start, end = self.get_slice_bounds(dist, target_slice_idx)
         return start <= source_local_addr < end
 
@@ -67,3 +96,64 @@ class MosaicHardwareConfig(BaseModel):
             if start <= src_local_address < end:
                 return s_idx
         return -1
+
+    def verify_assignment(self, assignment: "MosaicAssignment") -> None:
+
+        # Validation against hardware
+        if assignment.neuron_core_pre_assignment.size != self.total_neurons:
+            raise DimensionError(
+                f"Length of neuron_core_pre_assignment ({assignment.neuron_core_pre_assignment.size}) "
+                f"must match total neurons in hardware config ({self.total_neurons})."
+            )
+
+        invalid_cores = (assignment.neuron_core_pre_assignment < 0) | (
+                    assignment.neuron_core_pre_assignment >= self.total_cores)
+        invalid_indices = (assignment.neuron_idx_pre_assignment < 0) | (
+                    assignment.neuron_idx_pre_assignment >= self.neurons_per_core)
+
+        if np.any(invalid_cores) or np.any(invalid_indices):
+            failed_idx = np.where(invalid_cores | invalid_indices)[0][0]
+            core_val = assignment.neuron_core_pre_assignment[failed_idx]
+            local_val = assignment.neuron_idx_pre_assignment[failed_idx]
+
+            raise InvalidAssignmentError(
+                f"Neuron {failed_idx} assigned to core {core_val} "
+                f"with local idx {local_val} exceeds hardware limits."
+            )
+
+        if assignment.neuron_core_pre_assignment.size > 0:
+            # Count how many neurons are assigned to each specific core
+            core_counts = np.bincount(assignment.neuron_core_pre_assignment, minlength=self.total_cores)
+            max_neurons_in_a_core = np.max(core_counts)
+
+            if max_neurons_in_a_core > self.neurons_per_core:
+                overcrowded_core = np.argmax(core_counts)
+                raise InvalidAssignmentError(
+                    f"Core {overcrowded_core} has been assigned {core_counts[overcrowded_core]} neurons, "
+                    f"which exceeds the maximum hardware capacity of {self.neurons_per_core} neurons per core."
+                )
+
+        if assignment.neuron_slice_assignment.shape[1] != self.router_levels + 1:
+            raise DimensionError(
+                f"neuron_slice_assignment must have {self.router_levels + 1} columns "
+                f"to match router levels in hardware config."
+            )
+
+        slice_indices = np.arange(self.router_levels + 1)
+        max_allowed = np.minimum(self.slice_factor ** slice_indices - 1, self.total_neurons - 1)
+        invalid_slices = (assignment.neuron_slice_assignment < 0) | (assignment.neuron_slice_assignment > max_allowed)
+
+        if np.any(invalid_slices):
+            failed_neuron_idxs, failed_slice_idxs = np.where(invalid_slices)
+
+            failed_neuron = failed_neuron_idxs[0]
+            failed_slice = failed_slice_idxs[0]
+            invalid_val = assignment.neuron_slice_assignment[failed_neuron, failed_slice]
+            allowed_limit = max_allowed[failed_slice]
+
+            raise InvalidAssignmentError(
+                f"Neuron {failed_neuron} at slice index {failed_slice} "
+                f"has invalid assignment {invalid_val}. "
+                f"Maximum allowed for this slice is {allowed_limit} "
+                f"({self.slice_factor}^{failed_slice} - 1)."
+            )

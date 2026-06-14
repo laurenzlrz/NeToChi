@@ -1,12 +1,13 @@
-from typing import Any, Optional
+from typing import Dict, Any, Optional
 import networkx as nx
 import numpy as np
+import graph_tool.all as gt
 from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
-from netochi.input_generator.interfaces import MosaicHWMappingInput, HWBaseInputFactory
+from netochi.input_generator.interfaces import BaseInputFactory, MosaicMappingInput, HWBaseInputFactory
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.utils import nx_to_gt
 
-class WTAFactory(BaseModel, HWBaseInputFactory[MosaicHWMappingInput[Any]]):
+class WTAFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
     """
     Factory generating Winner-Takes-All (WTA) networks using a hub-and-spoke skeleton.
     - Excitatory Pool: n-1 nodes.
@@ -24,7 +25,7 @@ class WTAFactory(BaseModel, HWBaseInputFactory[MosaicHWMappingInput[Any]]):
     
     _graph: Optional[nx.DiGraph] = PrivateAttr(default=None)
 
-    def generate(self) -> MosaicHWMappingInput[Any]:
+    def generate(self) -> MosaicMappingInput:
         """Generate a single MosaicMappingInput with a WTA graph."""
         rng = np.random.default_rng(self.seed)
         graph = nx.DiGraph()
@@ -56,12 +57,12 @@ class WTAFactory(BaseModel, HWBaseInputFactory[MosaicHWMappingInput[Any]]):
             "edges": str(gt_graph.num_edges())
         }
         
-        return MosaicHWMappingInput(
+        return MosaicMappingInput(
+            id=self.get_id(),
             graph=gt_graph,
             descriptions=descriptions,
             hw_config=self.hw_config,
-            payload=None,
-            pre_assignment=None
+            assignment=None
         )
 
     def get_id(self):

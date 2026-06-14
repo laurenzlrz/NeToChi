@@ -122,7 +122,8 @@ def compute_best_slice_assignment(num_neurons: int, core_assignment, max_distanc
                 continue
             best_slice = max(
                 edge_counter[v][d],
-                key=edge_counter[v][d].get
+                # TODO: WHat happens if not included in ditionary?
+                key=lambda k: edge_counter[v][d][k]
             )
             slice_assignment[v][d] = best_slice
 

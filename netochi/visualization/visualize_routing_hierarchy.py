@@ -1,11 +1,12 @@
 import matplotlib.pyplot as plt
 import networkx as nx
+from typing import Optional
 
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 
 
 
-def plot_routing_hierarchy(hw_config: MosaicHardwareConfig, filename: str):
+def plot_routing_hierarchy(hw_config: MosaicHardwareConfig, filename: Optional[str] = None):
     """
     Plots the routing hierarchy tree for a given MosaicHardwareConfig.
     Leaves (cores) are circles, routers are rectangles.
@@ -83,5 +84,32 @@ def plot_routing_hierarchy(hw_config: MosaicHardwareConfig, filename: str):
     plt.margins(x=0.05, y=0.1)
     plt.axis("off")
     plt.tight_layout()
-    plt.savefig(filename, bbox_inches='tight')
+    if filename is not None:
+        plt.savefig(filename, bbox_inches='tight')
+        plt.close()
+
+
+from pydantic import BaseModel, ConfigDict
+from netochi.pipeline.interfaces import PipelineConsumer
+from netochi.pipeline.config import PipelineOutputConfig
+from netochi.pipeline.results import PipelineSummary
+from netochi.input_generator.interfaces import MosaicMappingInput
+from netochi.mapping.interfaces import BaseMosaicMappingState
+
+class RoutingHierarchyVisualizer(BaseModel, PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]):
+    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
+    config: PipelineOutputConfig
+
+    def consume(self, data: PipelineSummary[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]) -> None:
+        seen_hw_configs = set()
+        for res in data.results:
+            if res.state is not None:
+                hw_config = res.state.hw_to_evaluate
+                hw_key = (hw_config.nodes_per_router, hw_config.neurons_per_core, hw_config.router_levels, hw_config.slice_factor)
+                if hw_key not in seen_hw_configs:
+                    seen_hw_configs.add(hw_key)
+                    name = f"routing_hierarchy_{hw_config.nodes_per_router}_{hw_config.neurons_per_core}_{hw_config.router_levels}"
+                    
+                    plot_routing_hierarchy(hw_config)
+                    self.config.save_plot(plt, name)
 

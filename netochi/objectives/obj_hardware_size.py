@@ -1,19 +1,26 @@
-from typing import Generic, Any
+from netochi.mapping.interfaces import MosaicHWMappingState
+from typing import Any
 from netochi.objectives.interfaces import MappingObjective
-from netochi.mapping.interfaces import BaseMosaicMappingState, ANY_MAPPING_INPUT
+from typing import Any
 
-class MosaicHardwareSizeObjective(MappingObjective[BaseMosaicMappingState[ANY_MAPPING_INPUT], BaseMosaicMappingState[ANY_MAPPING_INPUT]], Generic[ANY_MAPPING_INPUT]):
+from netochi.mapping.interfaces import MosaicHWMappingState
+from netochi.objectives.interfaces import MappingObjective
+
+
+class MosaicHardwareSizeObjective(MappingObjective[MosaicHWMappingState[Any], MosaicHWMappingState[Any]]):
     """
     Objective that measures the hardware size (core count).
     Supports relative evaluation against a baseline.
     """
-    def evaluate(self, state: BaseMosaicMappingState[ANY_MAPPING_INPUT]) -> float:
+    def evaluate(self, state: MosaicHWMappingState[Any]) -> float:
         """Returns the total number of cores in the hardware configuration."""
-        # Using core count scaled by network size as requested by TODO
-        num_neurons = state.mapping_input.graph.num_vertices()
-        return float(state.hw.total_cores * num_neurons)
+        # TODO: Improve calculation to mirror more closely hardware costs
+        hw = state.hw_to_evaluate
+        penalty = hw.neurons_per_core * hw.total_cores
 
-    def evaluate_against_baseline(self, state: BaseMosaicMappingState[ANY_MAPPING_INPUT], baseline: BaseMosaicMappingState[ANY_MAPPING_INPUT]) -> float:
+        return float(penalty)
+
+    def evaluate_against_baseline(self, state: MosaicHWMappingState[Any], baseline: MosaicHWMappingState[Any]) -> float:
         """Returns the ratio of state cores to baseline cores."""
         baseline_size = self.evaluate(baseline)
         if baseline_size <= 0:

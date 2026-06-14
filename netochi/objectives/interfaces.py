@@ -2,24 +2,17 @@ from abc import ABC, abstractmethod
 from typing import TypeVar, Generic, Any
 from pydantic import BaseModel, ConfigDict
 
-from netochi.mapping.interfaces import BaseMosaicMappingState
-
-# -----------------------------------------------------------------------------
-# Type Variables for Objectives
-# -----------------------------------------------------------------------------
-MAPPING_STATE = TypeVar('MAPPING_STATE', bound=BaseMosaicMappingState[Any])
-MAPPING_STATE2 = TypeVar('MAPPING_STATE2', bound=BaseMosaicMappingState[Any])
+from netochi.mapping.interfaces import MappingState
 
 # -----------------------------------------------------------------------------
 # Objective Interfaces
 # -----------------------------------------------------------------------------
 
-class MappingObjective(BaseModel, Generic[MAPPING_STATE, MAPPING_STATE2]):
+class MappingObjective[MAPPING_STATE: MappingState, MAPPING_STATE_BASELINE: MappingState](ABC):
     """
     Base class for all mapping objectives.
     Supports both direct evaluation and baseline-comparative evaluation.
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
     
     def evaluate(self, state: MAPPING_STATE) -> float:
         """
@@ -28,7 +21,7 @@ class MappingObjective(BaseModel, Generic[MAPPING_STATE, MAPPING_STATE2]):
         """
         raise NotImplementedError
 
-    def evaluate_against_baseline(self, state: MAPPING_STATE, baseline: MAPPING_STATE2) -> float:
+    def evaluate_against_baseline(self, state: MAPPING_STATE, baseline: MAPPING_STATE_BASELINE) -> float:
         """
         Evaluate a mapping state relative to a baseline reference state.
         """
@@ -38,20 +31,11 @@ class MappingObjective(BaseModel, Generic[MAPPING_STATE, MAPPING_STATE2]):
         return self.__class__.__name__
 
 
-class NetworkMappingObjective(MappingObjective[MAPPING_STATE, MAPPING_STATE2], Generic[MAPPING_STATE, MAPPING_STATE2]):
+class ObjectiveInterface[MAPPING_STATE: MappingState]:
     """
-    Objectives that evaluate network assignments relative to a baseline mapping state.
+    Interface for objectives that compute log-likelihoods.
+    This is a separate class to prevent information leakage
     """
-    pass
-
-# -----------------------------------------------------------------------------
-# Capability Interfaces
-# -----------------------------------------------------------------------------
-
-class LogLikelihoodObjectiveInterface(ABC, Generic[MAPPING_STATE]):
-    """Specific contract for log-likelihood based evaluation."""
-    
-    @abstractmethod
-    def log_likelihood(self, state: MAPPING_STATE) -> float:
-        """Returns log-likelihood of state."""
-        pass
+    def evaluate(self, state: MAPPING_STATE) -> float:
+        """Evaluate the log-likelihood of the mapping state."""
+        raise NotImplementedError

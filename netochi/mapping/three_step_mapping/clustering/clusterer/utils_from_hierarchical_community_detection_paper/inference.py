@@ -7,6 +7,7 @@ The module contains:
 
 """
 import numpy as np
+from typing import cast, Any
 
 from netochi.mapping.three_step_mapping.clustering.clusterer.utils_from_hierarchical_community_detection_paper import cluster
 from netochi.mapping.three_step_mapping.clustering.clusterer.utils_from_hierarchical_community_detection_paper.spectral_operators import BetheHessian, UniformRandomWalk
@@ -50,10 +51,11 @@ def infer_hierarchy(A, n_groups=None, parameters=setup_parameters()):
 
     # --- FIX START ---
     # Convert from sparse matrices to dense numpy arrays
+    from typing import cast, Any
     if sparse.issparse(Eagg):
-        Eagg = Eagg.toarray()
+        Eagg = cast(Any, Eagg).toarray()
     if sparse.issparse(Nagg):
-        Nagg = Nagg.toarray()
+        Nagg = cast(Any, Nagg).toarray()
     # --- FIX END --
 
     Aagg = Eagg / Nagg
@@ -118,14 +120,14 @@ def add_noise_to_small_matrix(M, snr=1e-2, undirected=True):
 
 
 def cluster_with_BetheHessian(A, num_groups=-1, regularizer='BHa',
-                              clustermode='KM', norm=False):
+                              clustermode='KM', norm=False) -> cluster.Partition:
     """
     Perform one round of spectral clustering using the Bethe Hessian
     """
     # test that graph contains edges
     if A.sum() == 0:
         partition_vector = np.zeros(A.shape[0], dtype='int')
-        return partition_vector
+        return cluster.Partition(pvec=partition_vector)
 
     # construct both the positive and the negative variant of the BH
     BH_pos = BetheHessian(A, regularizer)
@@ -134,7 +136,7 @@ def cluster_with_BetheHessian(A, num_groups=-1, regularizer='BHa',
     if num_groups == -1:
         Kpos = BH_pos.find_negative_eigenvectors()
         Kneg = BH_neg.find_negative_eigenvectors()
-        combined_evecs = np.hstack([BH_pos.evecs, BH_neg.evecs])
+        combined_evecs = np.hstack([cast(Any, BH_pos.evecs), cast(Any, BH_neg.evecs)])
 
         num_groups = Kpos + Kneg
         print(f'HCD: number of groups = {num_groups}')
@@ -142,7 +144,7 @@ def cluster_with_BetheHessian(A, num_groups=-1, regularizer='BHa',
         if num_groups == 0:
             print("no indication for grouping -- return all in one partition")
             partition_vector = np.zeros(A.shape[0], dtype='int')
-            return partition_vector # return Partition(pvec=partition_vector) if error is thrown
+            return cluster.Partition(pvec=partition_vector)
 
     else:
         # TODO: note that we combine the eigenvectors of pos/negative BH and
@@ -153,8 +155,8 @@ def cluster_with_BetheHessian(A, num_groups=-1, regularizer='BHa',
         BH_neg.find_k_eigenvectors(num_groups, which='SA')
 
         # combine both sets of eigenvales and eigenvectors and take first k
-        combined_evecs = np.hstack([BH_pos.evecs, BH_neg.evecs])
-        combined_evals = np.hstack([BH_pos.evals, BH_neg.evals])
+        combined_evecs = np.hstack([cast(Any, BH_pos.evecs), cast(Any, BH_neg.evecs)])
+        combined_evals = np.hstack([cast(Any, BH_pos.evals), cast(Any, BH_neg.evals)])
         index = np.argsort(combined_evals)
         combined_evecs = combined_evecs[:, index[:num_groups]]
 

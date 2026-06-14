@@ -1,19 +1,19 @@
-from typing import Generic, TypeVar, Optional, Any
+from typing import Optional
 
-from netochi.pipeline.interfaces import MappingMetric
-from netochi.mapping.interfaces import BaseMosaicMappingState
+from pydantic import BaseModel, ConfigDict, Field
+
+from netochi.definitions.constants import DEFAULT_METRIC_VALUE
+from netochi.mapping.interfaces import MappingState
 from netochi.objectives.interfaces import MappingObjective
+from netochi.pipeline.interfaces import MappingMetric
 
-MAPPING_STATE = TypeVar("MAPPING_STATE", bound=BaseMosaicMappingState[Any])
-BASELINE_STATE = TypeVar("BASELINE_STATE", bound=BaseMosaicMappingState[Any])
 
-class ObjectiveMetric(MappingMetric[MAPPING_STATE, BASELINE_STATE], Generic[MAPPING_STATE, BASELINE_STATE]):
+class ObjectiveMetric[MAPPING_STATE: MappingState, BASELINE_STATE: MappingState](MappingMetric[MAPPING_STATE, BASELINE_STATE], BaseModel):
     """
-    Adapter that allows any MappingObjective to be used as a Pipeline Metric.
-    Supports comparative evaluation if a baseline is provided.
+    Adapter that shifts Objectives into the Pipeline Metric interface.
     """
-    def __init__(self, objective: MappingObjective[MAPPING_STATE, BASELINE_STATE]) -> None:
-        self.objective = objective
+    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
+    objective: MappingObjective[MAPPING_STATE, BASELINE_STATE] = Field(..., description="The underlying objective to evaluate.")
 
     def evaluate_against_baseline(self, state: MAPPING_STATE, baseline: Optional[BASELINE_STATE] = None) -> float:
         """
@@ -22,7 +22,7 @@ class ObjectiveMetric(MappingMetric[MAPPING_STATE, BASELINE_STATE], Generic[MAPP
         """
         if baseline is not None:
             return self.objective.evaluate_against_baseline(state, baseline)
-        return -1.0
+        return DEFAULT_METRIC_VALUE
 
     def evaluate(self, state: MAPPING_STATE) -> float:
         """
@@ -30,8 +30,6 @@ class ObjectiveMetric(MappingMetric[MAPPING_STATE, BASELINE_STATE], Generic[MAPP
         """
         return self.objective.evaluate(state)
 
-
     def get_name(self) -> str:
         """Return the name of the wrapped objective."""
         return self.objective.get_name()
-

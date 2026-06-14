@@ -17,7 +17,8 @@ class PcaLocalAddressAssigner(LocalAddressAssigner):
         infer neuron_id -> local_idx using PCA
         """
         num_neurons = graph.num_vertices()
-        adj = gt.adjacency(graph).toarray()
+        from typing import cast, Any
+        adj = cast(Any, gt.adjacency(graph)).toarray()
         core_to_nodes = defaultdict(list)
 
         neuron_local_assignment = np.zeros(num_neurons, dtype=np.int_)

@@ -7,13 +7,17 @@ The module contains:
 
 """
 import numpy as np
+from typing import Any, Literal, cast
 from scipy.sparse.linalg import eigsh
 from scipy.sparse import eye, diags, issparse, csr_matrix
 
 
 class SpectralOperator(object):
+    operator: Any
+    evals: Any
+    evecs: Any
 
-    def find_k_eigenvectors(self, K, which='SA'):
+    def find_k_eigenvectors(self, K, which: Literal['LM', 'SM', 'LA', 'SA', 'BE'] = 'SA'):
         M = self.operator
         if M.shape[0] == 1:
             #print('WARNING: Matrix is a single element')
@@ -23,6 +27,7 @@ class SpectralOperator(object):
             evals, evecs = eigsh(M, K, which=which)
         else:
             evals, evecs = eigsh(M, M.shape[0]-1, which=which)
+        index = np.argsort(evals)
         if which == 'SA':
             index = np.argsort(evals)
         elif which == 'SM':
@@ -46,13 +51,15 @@ class SpectralOperator(object):
             self.find_k_eigenvectors(K, which='SA')
         elif len(self.evals) < K:
             self.find_k_eigenvectors(K, which='SA')
-        relevant_ev = np.nonzero(self.evals < 0)[0]
+        evals = cast(np.ndarray, self.evals)
+        relevant_ev = np.nonzero(evals < 0)[0]
         while (relevant_ev.size == K):
             K = min(2 * K, Kmax)
             self.find_k_eigenvectors(K, which='SA')
-            relevant_ev = np.nonzero(self.evals < 0)[0]
-        self.evals = self.evals[relevant_ev]
-        self.evecs = self.evecs[:, relevant_ev]
+            evals = cast(np.ndarray, self.evals)
+            relevant_ev = np.nonzero(evals < 0)[0]
+        self.evals = evals[relevant_ev]
+        self.evecs = cast(np.ndarray, self.evecs)[:, relevant_ev]
         return len(relevant_ev)
 
 
@@ -119,6 +126,8 @@ class BetheHessian(SpectralOperator):
             d = A.sum(axis=1).getA().flatten().astype(float)
             r = np.sum(d * d) / np.sum(d) - 1
             r = np.sqrt(r)
+        else:
+            raise ValueError(f"Unknown regularizer: {regularizer}")
 
         # if last character is 'n' then use the negative version of the
         # BetheHessian
@@ -134,10 +143,10 @@ class BetheHessian(SpectralOperator):
         """
         A = self.A
         r = self.r
-        A = test_sparse_and_transform(A)
+        A_any = cast(Any, test_sparse_and_transform(A))
 
-        d = A.sum(axis=1).getA().flatten().astype(float)
-        B = eye(A.shape[0]).dot(r**2 - 1) - r * A + diags(d, 0)
+        d = A_any.sum(axis=1).getA().flatten().astype(float)
+        B = eye(A_any.shape[0]).dot(r**2 - 1) - r * A_any + diags(d, 0)
         self.operator = B
 
 

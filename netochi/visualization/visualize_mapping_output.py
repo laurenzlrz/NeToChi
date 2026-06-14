@@ -2,6 +2,7 @@
 
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.mapping.interfaces import BaseMosaicMappingState
+from typing import Dict, List, Tuple, Any, Optional
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -15,7 +16,7 @@ def plot_hardware_mapping(
         graph: gt.Graph,
         state: BaseMosaicMappingState,
         config: MosaicHardwareConfig,
-        filename: str = "hardware_mapping_circular_updated.pdf"
+        filename: Optional[str] = None
 ):
     """
     Plots the hardware routing hierarchy and mapped neural network.
@@ -24,6 +25,7 @@ def plot_hardware_mapping(
     Neuron angles are offset by ~1/2 the core-to-core angle.
     """
     fig, ax = plt.subplots(figsize=(16, 12))
+    ax: Any = ax
 
     num_cores = config.total_cores
     max_level = config.router_levels
@@ -31,12 +33,12 @@ def plot_hardware_mapping(
     # ==========================================
     # 2.1 Routing Hierarchy Coordinates
     # ==========================================
-    core_radius = 2.0
+    core_radius: Any = 2.0
     core_spacing = max(6.0, core_radius * 3.0)
     core_pos = {i: (i * core_spacing, 0) for i in range(num_cores)}
 
     # Calculate Router positions level by level
-    nodes_by_level = {0: [(i, core_pos[i]) for i in range(num_cores)]}
+    nodes_by_level: Dict[int, List[Tuple[Any, Tuple[float, float]]]] = {0: [(i, core_pos[i]) for i in range(num_cores)]}
 
     for level in range(1, max_level + 1):
         nodes_by_level[level] = []
@@ -97,8 +99,8 @@ def plot_hardware_mapping(
 
     for v in graph.vertices():
         u = int(v)
-        c = state.neuron_core_idxs_assignment[u]
-        loc = state.neuron_local_idxs_assignment[u]
+        c = state.c[u]
+        loc = state.x[u]
 
         cx, cy = core_pos[c]
 
@@ -128,17 +130,17 @@ def plot_hardware_mapping(
     # 2.4 Draw Graph Edges (Valid vs Invalid)
     # ==========================================
     for e in graph.edges():
-        u = int(e.source());
+        u = int(e.source())
         v = int(e.target())
-        c_u = state.neuron_core_idxs_assignment[u];
-        c_v = state.neuron_core_idxs_assignment[v]
-        x_u = state.neuron_local_idxs_assignment[u];
+        c_u = state.c[u]
+        c_v = state.c[v]
+        x_u = state.x[u]
         dist = config.core_distance(c_u, c_v)
 
         if dist == 0:
             is_valid = True
         else:
-            target_slice_idx = state.neuron_slice_assignments[v][dist]
+            target_slice_idx = state.s[v][dist]
             is_valid = config.is_valid_connection(c_u, c_v, x_u, target_slice_idx)
 
         color = 'mediumseagreen' if is_valid else 'crimson'
@@ -172,6 +174,30 @@ def plot_hardware_mapping(
     ax.axis('off')
     plt.margins(0.1);
     plt.tight_layout()
-    plt.savefig(filename, bbox_inches='tight', format='pdf')
-    plt.close(fig)
+    if filename is not None:
+        plt.savefig(filename, bbox_inches='tight')
+        plt.close(fig)
+
+
+from pydantic import BaseModel, ConfigDict
+from netochi.pipeline.interfaces import PipelineConsumer
+from netochi.pipeline.config import PipelineOutputConfig
+from netochi.pipeline.results import PipelineSummary
+from netochi.input_generator.interfaces import MosaicMappingInput
+from netochi.mapping.interfaces import BaseMosaicMappingState
+
+class MappingOutputVisualizer(BaseModel, PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]):
+    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
+    config: PipelineOutputConfig
+
+    def consume(self, data: PipelineSummary[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]) -> None:
+        for res in data.results:
+            if res.state is not None:
+                graph = res.state.mapping_input.graph
+                hw_config = res.state.hw_to_evaluate
+                safe_meta = "_".join(f"{k}-{v}" for k, v in sorted(res.input_metadata.items()))[:50]
+                name = f"hardware_mapping_{res.mapper_name}_{safe_meta}"
+                
+                plot_hardware_mapping(graph, res.state, hw_config)
+                self.config.save_plot(plt, name)
 

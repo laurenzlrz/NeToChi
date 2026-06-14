@@ -19,31 +19,31 @@ def validate_mosaic_mapping(
     # Type Checks
     # ---------------------------------------------------------
 
-    # 1. Validate 'neuron_core_idxs_assignment' (Must be a 1D Integer Array)
-    if not isinstance(state.neuron_core_idxs_assignment, np.ndarray):
-        raise TypeError(f"neuron_core_idxs_assignment must be a numpy ndarray, got {type(state.neuron_core_idxs_assignment).__name__}")
-    if not np.issubdtype(state.neuron_core_idxs_assignment.dtype, np.integer):
+    # 1. Validate 'state.c' (Must be a 1D Integer Array)
+    if not isinstance(state.c, np.ndarray):
+        raise TypeError(f"state.c must be a numpy ndarray, got {type(state.c).__name__}")
+    if not np.issubdtype(state.c.dtype, np.integer):
         raise TypeError(
-            f"neuron_core_idxs_assignment must contain integers, got {state.neuron_core_idxs_assignment.dtype}")
-    if state.neuron_core_idxs_assignment.ndim != 1:
-        raise ValueError(f"neuron_core_idxs_assignment must be 1D, got {state.neuron_core_idxs_assignment.ndim}D")
+            f"state.c must contain integers, got {state.c.dtype}")
+    if state.c.ndim != 1:
+        raise ValueError(f"state.c must be 1D, got {state.c.ndim}D")
 
-    # 2. Validate 'neuron_local_idxs_assignment' (Must be a 1D Integer Array)
-    if not isinstance(state.neuron_local_idxs_assignment, np.ndarray):
-        raise TypeError(f"neuron_local_idxs_assignment must be a numpy ndarray, got {type(state.neuron_local_idxs_assignment).__name__}")
-    if not np.issubdtype(state.neuron_local_idxs_assignment.dtype, np.integer):
+    # 2. Validate 'state.x' (Must be a 1D Integer Array)
+    if not isinstance(state.x, np.ndarray):
+        raise TypeError(f"state.x must be a numpy ndarray, got {type(state.x).__name__}")
+    if not np.issubdtype(state.x.dtype, np.integer):
         raise TypeError(
-            f"neuron_local_idxs_assignment must contain integers, got {state.neuron_local_idxs_assignment.dtype}")
-    if state.neuron_local_idxs_assignment.ndim != 1:
-        raise ValueError(f"neuron_local_idxs_assignment must be 1D, got {state.neuron_local_idxs_assignment.ndim}D")
+            f"state.x must contain integers, got {state.x.dtype}")
+    if state.x.ndim != 1:
+        raise ValueError(f"state.x must be 1D, got {state.x.ndim}D")
 
-    # 3. Validate 'neuron_slice_assignments' (Must be a 2D Integer Matrix)
-    if not isinstance(state.neuron_slice_assignments, np.ndarray):
-        raise TypeError(f"neuron_slice_assignments must be a numpy ndarray, got {type(state.neuron_slice_assignments).__name__}")
-    if not np.issubdtype(state.neuron_slice_assignments.dtype, np.integer):
-        raise TypeError(f"neuron_slice_assignments must contain integers, got {state.neuron_slice_assignments.dtype}")
-    if state.neuron_slice_assignments.ndim != 2:
-        raise ValueError(f"neuron_slice_assignments must be a 2D matrix, got {state.neuron_slice_assignments.ndim}D")
+    # 3. Validate 'state.s' (Must be a 2D Integer Matrix)
+    if not isinstance(state.s, np.ndarray):
+        raise TypeError(f"state.s must be a numpy ndarray, got {type(state.s).__name__}")
+    if not np.issubdtype(state.s.dtype, np.integer):
+        raise TypeError(f"state.s must contain integers, got {state.s.dtype}")
+    if state.s.ndim != 2:
+        raise ValueError(f"state.s must be a 2D matrix, got {state.s.ndim}D")
 
 
     # ---------------------------------------------------------
@@ -51,9 +51,9 @@ def validate_mosaic_mapping(
     # ---------------------------------------------------------
 
     # 1. Cross-attribute Alignment Check (Ensure neuron_idx dimensions match perfectly)
-    num_neurons_core = state.neuron_core_idxs_assignment.shape[0]
-    num_neurons_local = state.neuron_local_idxs_assignment.shape[0]
-    num_neurons_slice = state.neuron_slice_assignments.shape[0]
+    num_neurons_core = state.c.shape[0]
+    num_neurons_local = state.x.shape[0]
+    num_neurons_slice = state.s.shape[0]
 
     if not (num_neurons_core == num_neurons_local == num_neurons_slice):
         raise ValueError(
@@ -65,10 +65,10 @@ def validate_mosaic_mapping(
 
     # 2. Distances range from 0 to config.max_distance inclusive
     expected_slice_cols = config.max_distance + 1
-    if state.neuron_slice_assignments.shape[1] != expected_slice_cols:
+    if state.s.shape[1] != expected_slice_cols:
         raise ValueError(
             f"Slice assignment dimension mismatch: Expected {expected_slice_cols} "
-            f"distance columns, got {state.neuron_slice_assignments.shape[1]}."
+            f"distance columns, got {state.s.shape[1]}."
         )
 
 
@@ -77,13 +77,13 @@ def validate_mosaic_mapping(
     # ---------------------------------------------------------
 
     # 1. neuron core ids within [0, num_cores)
-    if np.any((state.neuron_core_idxs_assignment < 0) | (state.neuron_core_idxs_assignment >= config.total_cores)):
+    if np.any((state.c < 0) | (state.c >= config.total_cores)):
         raise ValueError(
             f"Core assignment out of bounds. Must be in [0, {config.total_cores - 1}]."
         )
 
     # 2. local indices within [0, neurons_per_core)
-    if np.any((state.neuron_local_idxs_assignment < 0) | (state.neuron_local_idxs_assignment >= config.neurons_per_core)):
+    if np.any((state.x < 0) | (state.x >= config.neurons_per_core)):
         raise ValueError(
             f"Local neuron assignment out of bounds. Must be in [0, {config.neurons_per_core - 1}]."
         )
@@ -91,7 +91,7 @@ def validate_mosaic_mapping(
     # 3. slice indices within [0, max_slices_for_dist)
     for dist in range(expected_slice_cols):
         max_slices_for_dist = config.num_slices_at_distance(dist)
-        slice_col = state.neuron_slice_assignments[:, dist]
+        slice_col = state.s[:, dist]
 
         if np.any((slice_col < 0) | (slice_col >= max_slices_for_dist)):
             raise ValueError(
@@ -103,7 +103,7 @@ def validate_mosaic_mapping(
     # Collision Detection (Uniqueness Check)
     # ---------------------------------------------------------
     # 1. (core, local_idx) only occupied by one neuron
-    flat_hardware_indices = (state.neuron_core_idxs_assignment * config.neurons_per_core) + state.neuron_local_idxs_assignment
+    flat_hardware_indices = (state.c * config.neurons_per_core) + state.x
     unique_indices = np.unique(flat_hardware_indices)
 
     if unique_indices.size != state.mapping_input.graph.num_vertices():
