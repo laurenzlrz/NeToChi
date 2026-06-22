@@ -1,4 +1,4 @@
-from typing import List, Any, Tuple, cast
+from typing import List, Any, Tuple, cast, Optional
 
 from netochi.mapping.ilp_mapper import ILPMapper
 from netochi.mapping.interfaces import (
@@ -24,7 +24,7 @@ from netochi.objectives.obj_unused_connections import UnusedConnectionsObjective
 from netochi.pipeline import BasePipelineRunner
 from netochi.pipeline.archiver import SummaryArchiver
 from netochi.pipeline.config import PipelineOutputConfig
-from netochi.pipeline.interfaces import PipelineConsumer
+from netochi.pipeline.interfaces import PipelineConsumer, MappingStateConsumer
 from netochi.pipeline.plotter import PipelinePlotter
 from netochi.pipeline.reporter import SummaryReporter
 from netochi.pipeline.runner.runner import (
@@ -32,13 +32,14 @@ from netochi.pipeline.runner.runner import (
     ExperimentTaskBase,
     ExperimentTaskRun, TaskBundle,
 )
-from netochi.pipeline.runner.evaluator_bundle import EvaluatorBundle
+from netochi.pipeline.runner.evaluator_bundle import EvaluatorBundle, BaselineStorer
 from netochi.pipeline.metrics import ObjectiveMetric
 from netochi.objectives.obj_log_likelihood import LogLikelihoodObjective
 from netochi.objectives.obj_inconsistency import InconsistencyObjective, InconsistencyRelativeObjective
 from netochi.objectives.obj_hardware_size import MosaicHardwareSizeObjective
 from netochi.objectives.interfaces import MappingObjective
 from netochi.pipeline.runner.baseline_provider import RandomMosaicBaselineProvider, MosaicGroundTruthBaselineProvider
+from netochi.pipeline.validator import Validator
 from netochi.visualization.visualize_adjacency_matrix import AdjacencyMatrixVisualizer
 from netochi.visualization.visualize_clustering import ClusteringVisualizer
 from netochi.visualization.visualize_mapping_output import MappingOutputVisualizer
@@ -66,7 +67,7 @@ HW_CONFIGS = [
 ]
 
 MAPPERS = [
-    #SimAnnealingMapper(),
+    SimAnnealingMapper(),
     QAPPcaOptMapper(),
     RandomMapper(),
     GreedyMapper(),
@@ -77,6 +78,11 @@ MAPPERS = [
 SEED = 42
 
 PIPELINE_CONFIG = PipelineOutputConfig()
+
+HOOKS = [
+    Validator(config=PIPELINE_CONFIG)
+]
+
 
 CONSUMERS: List[PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]] = [
     SummaryReporter(config=PIPELINE_CONFIG),
@@ -113,9 +119,10 @@ def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, Mappi
     random_baseline = RandomMosaicBaselineProvider()
     gt_baseline = MosaicGroundTruthBaselineProvider()
     metrics = [ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]], objective)) for objective in OBJECTIVES]
+    hooks: List[Tuple[MappingStateConsumer[BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]], Optional[BaselineStorer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput]]]]] = [(hook, None) for hook in HOOKS]
 
-    mosaic_evaluator_baseline_bundles = EvaluatorBundle(metrics_w_baselines=[(metric, gt_baseline) for metric in metrics])
-    other_gen_evaluator_baseline_bundles = EvaluatorBundle(metrics_w_baselines=[(metric, random_baseline) for metric in metrics])
+    mosaic_evaluator_baseline_bundles = EvaluatorBundle(metrics_w_baselines=[(metric, gt_baseline) for metric in metrics], hooks=hooks)
+    other_gen_evaluator_baseline_bundles = EvaluatorBundle(metrics_w_baselines=[(metric, random_baseline) for metric in metrics], hooks=hooks)
 
     mosaic_task_runs = [ExperimentTaskRun(evaluator_bundle=mosaic_evaluator_baseline_bundles,
                                           mapper=mapper) for mapper in MAPPERS]

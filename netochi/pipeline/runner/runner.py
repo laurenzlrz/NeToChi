@@ -26,15 +26,9 @@ class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELI
     mapper: BaseMapper[MAPPING_STATE, INPUT] = Field(description="Mapper to execute for this task run.")
     evaluator_bundle: EvaluatorBundle[MAPPING_STATE, BASELINE_STATE, INPUT] = Field(description="Mapping of mappers to their corresponding evaluator bundles.")
 
-    #TODO
-
-    @property
-    def baseline_storers(self) -> List[BaselineStorer[INPUT, BASELINE_STATE]]:
-        return self.evaluator_bundle.get_baselines
-
     def run(self, input: INPUT) -> ExperimentResult:
+        self.evaluator_bundle.prepare(input)
         assert isinstance(input, MappingInput), "Each input must be an instance of HWBaseInputFactory"
-
         assert isinstance(self.mapper, BaseMapper), "Each mapper must be an instance of BaseMapper"
         assert isinstance(self.evaluator_bundle, EvaluatorBundle), "Each evaluator bundle must be an instance of EvaluatorBundle"
 
@@ -75,19 +69,11 @@ class ExperimentTaskBase(BaseModel, Generic[Input_co, MappingState_co, BaselineS
     def run(self) -> List[ExperimentResult]:
         results: List[ExperimentResult] = []
 
-        baselines_runner_list: List[BaselineStorer[Input_co, Any]] = [
-            storer
-            for evaluator_bundle in self.evaluator_mapper_bundles
-            for storer in evaluator_bundle.baseline_storers
-        ]
-
         for input in self.input_generators:
             assert isinstance(input, BaseInputFactory), "Each input generator must be an instance of BaseInputFactory"
             input_instance = input.generate() # TODO Make Sure No Altering!
             input_name = input.get_name()
             self.config.print_console(f"Evaluating input generator: {input_name}")
-            for storer in baselines_runner_list:
-                storer.run(input_instance)
             for evaluator_mapper_bundle in self.evaluator_mapper_bundles:
                 mapper_name = evaluator_mapper_bundle.mapper.get_name()
                 self.config.print_console(f"  --> Running mapper: {mapper_name}...")

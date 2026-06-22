@@ -4,7 +4,7 @@ from typing import Generic, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 from netochi.pipeline.config import PipelineOutputConfig
-
+from netochi.mapping.interfaces import MappingState
 from netochi.definitions.generics import Input_contra, MappingState_contra, BaselineState_contra, Input_co, \
     MappingState_co, BaselineState_co
 from netochi.pipeline.results import PipelineSummary
@@ -54,6 +54,16 @@ class PipelineConsumer(ABC, Generic[Input_contra, MappingState_contra, BaselineS
     def consume(self, data: PipelineSummary[Input_contra, MappingState_contra, BaselineState_contra]) -> None:
         """
         Consume the pipeline summary data.
+        This method must be implemented by subclasses.
+        """
+        pass
+
+class MappingStateConsumer[MAPPING_STATE: MappingState, BASELINE_STATE: MappingState](ABC):
+
+    @abstractmethod
+    def consume(self, state: MAPPING_STATE, baseline: Optional[BASELINE_STATE] = None) -> None:
+        """
+        Consume the mapping state and optional baseline.
         This method must be implemented by subclasses.
         """
         pass
