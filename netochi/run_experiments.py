@@ -19,6 +19,7 @@ from netochi.mapping.mcmc.joint_inference_mapper import JointInferenceMapper
 from netochi.mapping.three_step_mapping.hcd_pca_opt_three_step_mapper import HcdPcaOptThreeStepMapper
 from netochi.mapping.simulated_annealing_mapper import SimAnnealingMapper
 from netochi.mapping.three_step_mapping.qap_pca_opt_three_step_mapper import QAPPcaOptMapper
+from netochi.mapping.sa_ihw_mapper import SimAnnealingInferredHWMapper
 
 from netochi.objectives.obj_unused_connections import UnusedConnectionsObjective
 from netochi.pipeline import BasePipelineRunner
@@ -67,10 +68,11 @@ HW_CONFIGS = [
 ]
 
 MAPPERS = [
-    SimAnnealingMapper(),
-    QAPPcaOptMapper(),
+    SimAnnealingInferredHWMapper(),
+    #SimAnnealingMapper(),
+    #QAPPcaOptMapper(),
     RandomMapper(),
-    GreedyMapper(),
+    #GreedyMapper(),
     MosaicGroundTruthBaselineProvider()
     #ILPMapper(),
 ]

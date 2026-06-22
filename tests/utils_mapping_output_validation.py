@@ -106,7 +106,7 @@ def validate_mosaic_mapping(
     flat_hardware_indices = (state.c * config.neurons_per_core) + state.x
     unique_indices = np.unique(flat_hardware_indices)
 
-    if unique_indices.size != state.mapping_input.graph.num_vertices():
+    if unique_indices.size != state.c.size:
         raise ValueError(
             "Hardware collision detected: Multiple logical neurons are mapped to the same physical core and local index."
         )

@@ -100,10 +100,10 @@ class MosaicHardwareConfig(BaseModel):
     def verify_assignment(self, assignment: "MosaicAssignment") -> None:
 
         # Validation against hardware
-        if assignment.neuron_core_pre_assignment.size != self.total_neurons:
+        if assignment.neuron_core_pre_assignment.size > self.total_neurons:
             raise DimensionError(
                 f"Length of neuron_core_pre_assignment ({assignment.neuron_core_pre_assignment.size}) "
-                f"must match total neurons in hardware config ({self.total_neurons})."
+                f"cannot exceed total neurons in hardware config ({self.total_neurons})."
             )
 
         invalid_cores = (assignment.neuron_core_pre_assignment < 0) | (

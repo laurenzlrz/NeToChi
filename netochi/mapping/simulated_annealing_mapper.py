@@ -147,6 +147,7 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
 
 
     def _compute_inconsistencies(self, core_assignment, local_assignment, opt_slice_assignment, hw: MosaicHardwareConfig, graph: gt.Graph) -> int:
+        # TODO FUTURE USE EXISTING FUNCTION
         e_valid = 0
         for tgt in range(graph.num_vertices()):
             c_tgt = core_assignment[tgt]
