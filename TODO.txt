@@ -1,6 +1,8 @@
 30.04
 
-Understand deep connection between slices
+Wieso ist der Groundtruth mapper nicht perfekt?
+
+Understand deep connection between slices, noch einmal mit dem Baum beffasen, ansonsten a Day callen
 
 Try to combine mappers (ILP to hSBM?)
 
