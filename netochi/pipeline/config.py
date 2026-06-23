@@ -66,11 +66,9 @@ class PipelineOutput:
     """
 
     @icontract.require(lambda config: isinstance(config, PipelineOutputConfig))
+    @icontract.require(lambda config: PipelineOutput._validate(config))
     def __init__(self, config: PipelineOutputConfig) -> None:
         self.config = config
-
-        # Validate configuration values
-        self._validate(config)
 
         # Normalize and store configuration values
         self.plot_format = [
