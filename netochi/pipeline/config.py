@@ -93,7 +93,7 @@ class PipelineOutput:
             _CREATED_PATHS.add(self.run_path)
 
     @staticmethod
-    def _validate(config: PipelineOutputConfig) -> None:
+    def _validate(config: PipelineOutputConfig) -> bool:
         """
         Pure validation function to check config properties.
         """
@@ -110,6 +110,7 @@ class PipelineOutput:
 
         if "{metric}" not in config.plot_filename_pattern:
             raise InvalidConfigError("plot_filename_pattern must contain the '{metric}' placeholder.")
+        return True
 
     def create_run_directory(self) -> None:
         """

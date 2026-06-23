@@ -79,6 +79,7 @@ class SimAnnealingInferredHWMapper(BaseMapper[MosaicHWMappingState[MappingInput]
             initial_hw=init_hw,
             assignment=init_assignment
         )
+        self._state.unfreeze()
 
         # 3. Build DeltaOptimalSliceAssigner and link it to state
         self._opt_slice_assigner = DeltaOptimalSliceAssigner(
@@ -101,9 +102,11 @@ class SimAnnealingInferredHWMapper(BaseMapper[MosaicHWMappingState[MappingInput]
         self._state.update_assignment(best_assignment)
 
         # 5. Return MosaicHWMappingState
+        self._state.freeze()
+
         return MosaicHWMappingState(
-            _mapping_input=mapping_input,
-            _inferred_hw_config=self._state.hw_config,
+            mapping_input=mapping_input,
+            inferred_hw=self._state.hw_config,
             assignment=self._state.assignment
         )
 

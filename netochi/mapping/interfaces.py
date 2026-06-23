@@ -21,14 +21,9 @@ class MappingState[ANY_MAPPING_INPUT: MappingInput, HW_CONFIG: Any](Freezable):
     def __init__(
         self,
         mapping_input: Optional[ANY_MAPPING_INPUT] = None,
-        _mapping_input: Optional[ANY_MAPPING_INPUT] = None
     ) -> None:
-        actual_input = mapping_input if mapping_input is not None else _mapping_input
-        if actual_input is None:
-            raise ValueError("mapping_input or _mapping_input must be provided.")
-        self.mapping_input = actual_input
-        if self.__class__ is MappingState:
-            self.freeze()
+        self.mapping_input = mapping_input
+        self.freeze()
 
     @property
     @abstractmethod
@@ -46,17 +41,12 @@ class HWNetworkMappingState[ANY_MAPPING_INPUT: MappingInput, INFERRED_HW_CONFIG:
     def __init__(
         self,
         mapping_input: Optional[ANY_MAPPING_INPUT] = None,
-        _mapping_input: Optional[ANY_MAPPING_INPUT] = None,
         inferred_hw: Optional[INFERRED_HW_CONFIG] = None,
-        _inferred_hw_config: Optional[INFERRED_HW_CONFIG] = None
     ) -> None:
-        MappingState.__init__(self, mapping_input=mapping_input, _mapping_input=_mapping_input)
-        actual_hw = inferred_hw if inferred_hw is not None else _inferred_hw_config
-        if actual_hw is None:
-            raise ValueError("inferred_hw or _inferred_hw_config must be provided.")
-        self.inferred_hw = actual_hw
-        if self.__class__ is HWNetworkMappingState:
-            self.freeze()
+        super().__init__(mapping_input=mapping_input)
+        self.unfreeze()
+        self.inferred_hw = inferred_hw
+        self.freeze()
 
     @property
     def hw_to_evaluate(self) -> INFERRED_HW_CONFIG:
@@ -74,11 +64,8 @@ class NetworkAssignmentState[WITH_HW_INPUT: HWMappingInput, GT_HW_CONFIG: Any](M
     def __init__(
         self,
         mapping_input: Optional[WITH_HW_INPUT] = None,
-        _mapping_input: Optional[WITH_HW_INPUT] = None
     ) -> None:
-        MappingState.__init__(self, mapping_input=mapping_input, _mapping_input=_mapping_input)
-        if self.__class__ is NetworkAssignmentState:
-            self.freeze()
+        super().__init__(mapping_input=mapping_input)
 
     @property
     def gt_hw(self) -> GT_HW_CONFIG:
@@ -106,12 +93,11 @@ class BaseMosaicMappingState[ANY_MAPPING_INPUT: MappingInput](MappingState[ANY_M
         self,
         assignment: MosaicAssignment,
         mapping_input: Optional[ANY_MAPPING_INPUT] = None,
-        _mapping_input: Optional[ANY_MAPPING_INPUT] = None
     ) -> None:
-        MappingState.__init__(self, mapping_input=mapping_input, _mapping_input=_mapping_input)
+        MappingState.__init__(self, mapping_input=mapping_input)
+        self.unfreeze()
         self.assignment = assignment
-        if self.__class__ is BaseMosaicMappingState:
-            self.freeze()
+        self.freeze()
 
     @property
     def c(self) -> npt.NDArray[np.int_]:
@@ -138,12 +124,8 @@ class MosaicNetworkMappingState(BaseMosaicMappingState[MosaicMappingInput], Netw
         self,
         assignment: MosaicAssignment,
         mapping_input: Optional[MosaicMappingInput] = None,
-        _mapping_input: Optional[MosaicMappingInput] = None
     ) -> None:
-        BaseMosaicMappingState.__init__(self, mapping_input=mapping_input, _mapping_input=_mapping_input, assignment=assignment)
-        NetworkAssignmentState.__init__(self, mapping_input=mapping_input, _mapping_input=_mapping_input)
-        if self.__class__ is MosaicNetworkMappingState:
-            self.freeze()
+        super().__init__(assignment=assignment, mapping_input=mapping_input)
 
     def validate(self) -> bool:
         self.mapping_input.hw_config.verify_assignment(self.assignment)
@@ -177,20 +159,10 @@ class MosaicHWMappingState[ANY_MAPPING_INPUT: MappingInput](BaseMosaicMappingSta
         self,
         assignment: MosaicAssignment,
         mapping_input: Optional[ANY_MAPPING_INPUT] = None,
-        _mapping_input: Optional[ANY_MAPPING_INPUT] = None,
         inferred_hw: Optional[MosaicHardwareConfig] = None,
-        _inferred_hw_config: Optional[MosaicHardwareConfig] = None
     ) -> None:
-        BaseMosaicMappingState.__init__(self, mapping_input=mapping_input, _mapping_input=_mapping_input, assignment=assignment)
-        HWNetworkMappingState.__init__(
-            self,
-            mapping_input=mapping_input,
-            _mapping_input=_mapping_input,
-            inferred_hw=inferred_hw,
-            _inferred_hw_config=_inferred_hw_config
-        )
-        if self.__class__ is MosaicHWMappingState:
-            self.freeze()
+        BaseMosaicMappingState.__init__(self, assignment=assignment, mapping_input=mapping_input)
+        HWNetworkMappingState.__init__(self, mapping_input=mapping_input, inferred_hw=inferred_hw)
 
     @classmethod
     def from_guess_zero(cls, mapping_input: ANY_MAPPING_INPUT, initial_hw_guess: MosaicHardwareConfig) -> 'MosaicHWMappingState[ANY_MAPPING_INPUT]':

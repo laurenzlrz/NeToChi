@@ -27,9 +27,10 @@ class SAIHWState(SAState, BaseMosaicMappingState[MappingInput]):
         # Initialize BaseMosaicMappingState
         BaseMosaicMappingState.__init__(
             self,
-            _mapping_input=mapping_input,
+            mapping_input=mapping_input,
             assignment=assignment
         )
+        self.unfreeze()
 
         self.hw_config = initial_hw
         self.core_assignment = np.asarray(assignment.neuron_core_pre_assignment, dtype=np.int_)
@@ -38,6 +39,7 @@ class SAIHWState(SAState, BaseMosaicMappingState[MappingInput]):
         slot_to_node[self.core_assignment, self.local_assignment] = np.arange(len(self.core_assignment))
         self.slot_to_node = slot_to_node
         self._slice_assigner_val: Optional['DeltaOptimalSliceAssigner'] = None
+        self.freeze()
 
     @property
     def _slice_assigner(self) -> Optional['DeltaOptimalSliceAssigner']:
