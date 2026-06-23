@@ -179,16 +179,30 @@ def plot_hardware_mapping(
         plt.close(fig)
 
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict
+import icontract
 from netochi.pipeline.interfaces import PipelineConsumer
-from netochi.pipeline.config import PipelineOutputConfig
+from netochi.pipeline.config import PipelineOutput
 from netochi.pipeline.results import PipelineSummary
 from netochi.input_generator.interfaces import MosaicMappingInput
 from netochi.mapping.interfaces import BaseMosaicMappingState
 
-class MappingOutputVisualizer(BaseModel, PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]):
-    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
-    config: PipelineOutputConfig
+
+class MappingOutputVisualizerConfig(BaseModel):
+    model_config = ConfigDict(strict=True, arbitrary_types_allowed=True)
+
+    pipeline_output: PipelineOutput = Field(..., description="Pipeline output manager.")
+
+    def create(self) -> "MappingOutputVisualizer":
+        return MappingOutputVisualizer(config=self)
+
+
+class MappingOutputVisualizer(PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]):
+
+    @icontract.require(lambda config: isinstance(config, MappingOutputVisualizerConfig))
+    def __init__(self, config: MappingOutputVisualizerConfig) -> None:
+        self.config = config
+        self.pipeline_output = config.pipeline_output
 
     def consume(self, data: PipelineSummary[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]) -> None:
         for res in data.results:
@@ -199,5 +213,7 @@ class MappingOutputVisualizer(BaseModel, PipelineConsumer[MosaicMappingInput, Ba
                 name = f"hardware_mapping_{res.mapper_name}_{safe_meta}"
                 
                 plot_hardware_mapping(graph, res.state, hw_config)
-                self.config.save_plot(plt, name)
+                self.pipeline_output.save_plot(plt, name)
+
+
 

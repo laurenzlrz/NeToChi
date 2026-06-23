@@ -1,6 +1,7 @@
 import numpy as np
 from typing import Dict, Any
-from pydantic import BaseModel, PrivateAttr, ConfigDict
+from pydantic import BaseModel
+import icontract
 
 from netochi.mapping.interfaces import (
     BaseMosaicMappingState, 
@@ -8,18 +9,24 @@ from netochi.mapping.interfaces import (
 
 from netochi.definitions.constants import LL_INVALID_PENALTY_LOG, LL_LAPLACIAN_SMOOTHING_NUM, LL_LAPLACIAN_SMOOTHING_DEN
 from netochi.definitions.exceptions import BaselineMismatchError
-from netochi.objectives import ObjectiveInterface, MappingObjective
+from netochi.objectives.interfaces import ObjectiveInterface, MappingObjective, AbstractObjectiveConfig
 
 
-class LogLikelihoodObjective(BaseModel, MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]],
+class LogLikelihoodObjectiveConfig(AbstractObjectiveConfig):
+    def create(self) -> "LogLikelihoodObjective":
+        return LogLikelihoodObjective(config=self)
+
+
+class LogLikelihoodObjective(MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]],
                              ObjectiveInterface[BaseMosaicMappingState[Any]]):
     """
     SBM-based Log-Likelihood objective for neuromorphic mapping.
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    
-    # Internal cache for connectivity data (input_id -> graph_data)
-    _graph_cache: Dict[int, Any] = PrivateAttr(default_factory=dict)
+
+    @icontract.require(lambda config: isinstance(config, LogLikelihoodObjectiveConfig))
+    def __init__(self, config: LogLikelihoodObjectiveConfig) -> None:
+        self.config = config
+        self._graph_cache: Dict[int, Any] = {}
 
     def evaluate(self, state: BaseMosaicMappingState[Any]) -> float:
         """Returns Negative Log-Likelihood (Energy)."""

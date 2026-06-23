@@ -1,10 +1,18 @@
 from typing import Any, Dict
-
-from pydantic import PrivateAttr, ConfigDict
+from pydantic import BaseModel
+import icontract
 
 from netochi.mapping.interfaces import BaseMosaicMappingState
 from netochi.objectives.obj_inconsistency import InconsistencyObjectiveFabric
 from netochi.objectives.utils import compute_e_valid, compute_total_hw_connections
+
+
+from netochi.objectives.interfaces import AbstractObjectiveConfig
+
+
+class UnusedConnectionsObjectiveConfig(AbstractObjectiveConfig):
+    def create(self) -> "UnusedConnectionsObjective":
+        return UnusedConnectionsObjective(config=self)
 
 
 class UnusedConnectionsObjective(InconsistencyObjectiveFabric):
@@ -12,8 +20,11 @@ class UnusedConnectionsObjective(InconsistencyObjectiveFabric):
     Objective that measures the hardware size (core count).
     Supports relative evaluation against a baseline.
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    _graph_cache: Dict[int, Any] = PrivateAttr(default_factory=dict)
+
+    @icontract.require(lambda config: isinstance(config, UnusedConnectionsObjectiveConfig))
+    def __init__(self, config: UnusedConnectionsObjectiveConfig) -> None:
+        super().__init__()
+        self.config = config
 
     def evaluate(self, state: BaseMosaicMappingState[Any]) -> float:
         """Returns the total number of cores in the hardware configuration."""

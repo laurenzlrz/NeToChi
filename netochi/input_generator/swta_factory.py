@@ -1,16 +1,17 @@
 from typing import Optional
 import networkx as nx
 import numpy as np
-from pydantic import BaseModel, Field, ConfigDict, model_validator, PrivateAttr
-from pydantic.dataclasses import dataclass as pydantic_dataclass
+from pydantic import BaseModel, Field, ConfigDict
+import icontract
 
 from netochi.input_generator.interfaces import MosaicMappingInput, HWBaseInputFactory
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.utils import nx_to_gt
 
 
-@pydantic_dataclass(config=ConfigDict(strict=True))
-class SwtaGeneratorConfig:
+class SwtaGeneratorConfig(BaseModel):
+    model_config = ConfigDict(strict=True, arbitrary_types_allowed=True)
+    hw_config: MosaicHardwareConfig = Field(..., description="Hardware configuration.")
     num_clusters: int = Field(..., gt=0, description="Total number of clusters")
     neurons_per_cluster: int = Field(..., gt=0, description="Neurons within each cluster")
     inhibitory_ratio: float = Field(default=0.2, ge=0.0, le=1.0, description="20% of clusters are inhibitory")
@@ -31,33 +32,26 @@ class SwtaGeneratorConfig:
     def total_neurons(self) -> int:
         return self.num_clusters * self.neurons_per_cluster
 
+    def create(self) -> "SwtaFactory":
+        return SwtaFactory(config=self)
 
 
-
-class SwtaFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
+class SwtaFactory(HWBaseInputFactory[MosaicMappingInput]):
     """
     Factory generating soft Winner-Takes-All (sWTA) networks.
     """
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-        frozen=True,
-        strict=True
-    )
 
-    config: SwtaGeneratorConfig = Field(..., description="Blueprint for network generation")
-    hw_config: MosaicHardwareConfig = Field(..., description="Hardware configuration")
-    _rng: np.random.Generator = PrivateAttr()
+    @icontract.require(lambda config: isinstance(config, SwtaGeneratorConfig))
+    def __init__(self, config: SwtaGeneratorConfig) -> None:
+        self.config = config
+        self.hw_config = config.hw_config
+        self._rng = np.random.default_rng(config.seed)
+
 
     def get_name(self) -> str:
         """Returns a name reflecting size and configuration."""
         total_n = self.config.num_clusters * self.config.neurons_per_cluster
         return f"sWTA_{total_n}n_c{self.config.num_clusters}_npc{self.config.neurons_per_cluster}"
-
-    @model_validator(mode="after")
-    def initalize_rng(self) -> 'SwtaFactory':
-        """Initialize the private random number generator after Pydantic validates inputs."""
-        self.__setattr__("_rng", np.random.default_rng(self.config.seed))
-        return self
 
     def _get_cluster_id(self, neuron_idx: int) -> int:
         return neuron_idx // self.config.neurons_per_cluster

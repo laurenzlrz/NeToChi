@@ -4,6 +4,11 @@ class NeToChiException(Exception):
     """Base exception class for all NeToChi errors."""
     pass
 
+class FrozenError(NeToChiException, AttributeError):
+    """Raised when trying to modify a frozen object."""
+    pass
+
+
 class InputGenerationError(NeToChiException):
     """Base class for errors occurring during input generation."""
     pass

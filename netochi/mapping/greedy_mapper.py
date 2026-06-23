@@ -1,20 +1,27 @@
 from typing import Any
 import numpy as np
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
+import icontract
 from netochi.input_generator.interfaces import MosaicMappingInput, MosaicAssignment
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
 from netochi.definitions.exceptions import HardwareConstraintError
 from netochi.definitions.constants import HARDWARE_CAPACITY_EXCEEDED
 
 
-class GreedyMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
+class GreedyMapperConfig(BaseModel):
+    def create(self) -> "GreedyMapper":
+        return GreedyMapper(config=self)
+
+
+class GreedyMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
     """
     Mapper implementing an optimized dynamic-frontier greedy heuristic
     to maximize topological clustering on hardware cores.
-
-    Refactored to follow the "Großprojekt" Pydantic standard.
     """
-    model_config = ConfigDict(frozen=True)
+
+    @icontract.require(lambda config: isinstance(config, GreedyMapperConfig))
+    def __init__(self, config: GreedyMapperConfig) -> None:
+        self.config = config
 
     def run(self, mapping_input: MosaicMappingInput) -> MosaicNetworkMappingState:
         """
@@ -121,7 +128,7 @@ class GreedyMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappin
                 slice_assignments[target_node, d] = best_slice
 
         return MosaicNetworkMappingState(
-            _mapping_input=mapping_input,
+            mapping_input=mapping_input,
             assignment=MosaicAssignment(
                 hw=hw,
                 neuron_core_pre_assignment=core_assignments,

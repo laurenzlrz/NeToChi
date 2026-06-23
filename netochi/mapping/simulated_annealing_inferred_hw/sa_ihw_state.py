@@ -1,7 +1,6 @@
 from typing import Optional, TYPE_CHECKING, Any
 import numpy as np
 import numpy.typing as npt
-from pydantic import ConfigDict, PrivateAttr
 
 from netochi.input_generator.interfaces import MappingInput, MosaicAssignment
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
@@ -18,7 +17,6 @@ class SAIHWState(SAState, BaseMosaicMappingState[MappingInput]):
     Encapsulates a MosaicAssignment and the mapping input.
     Subclasses SAState and BaseMosaicMappingState for polymorphism.
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=False)
 
     def __init__(
         self,
@@ -33,22 +31,21 @@ class SAIHWState(SAState, BaseMosaicMappingState[MappingInput]):
             assignment=assignment
         )
 
-        object.__setattr__(self, 'hw_config', initial_hw)
-        object.__setattr__(self, 'core_assignment', np.asarray(assignment.neuron_core_pre_assignment, dtype=np.int_))
-        object.__setattr__(self, 'local_assignment', np.asarray(assignment.neuron_idx_pre_assignment, dtype=np.int_))
-
+        self.hw_config = initial_hw
+        self.core_assignment = np.asarray(assignment.neuron_core_pre_assignment, dtype=np.int_)
+        self.local_assignment = np.asarray(assignment.neuron_idx_pre_assignment, dtype=np.int_)
         slot_to_node = np.full((initial_hw.total_cores, initial_hw.neurons_per_core), -1, dtype=np.int_)
         slot_to_node[self.core_assignment, self.local_assignment] = np.arange(len(self.core_assignment))
-        object.__setattr__(self, 'slot_to_node', slot_to_node)
-        self._slice_assigner = None
+        self.slot_to_node = slot_to_node
+        self._slice_assigner_val: Optional['DeltaOptimalSliceAssigner'] = None
 
     @property
     def _slice_assigner(self) -> Optional['DeltaOptimalSliceAssigner']:
-        return getattr(self, '_slice_assigner_val', None)
+        return self._slice_assigner_val
 
     @_slice_assigner.setter
     def _slice_assigner(self, value: Optional['DeltaOptimalSliceAssigner']) -> None:
-        object.__setattr__(self, '_slice_assigner_val', value)
+        self._slice_assigner_val = value
 
     @property
     def K(self) -> int:
@@ -97,11 +94,11 @@ class SAIHWState(SAState, BaseMosaicMappingState[MappingInput]):
 
     def update_assignment(self, new_assignment: MosaicAssignment) -> None:
         """Updates the core/local/slice assignment."""
-        object.__setattr__(self, 'assignment', new_assignment)
-        object.__setattr__(self, 'hw_config', new_assignment.hw)
-        object.__setattr__(self, 'core_assignment', np.asarray(new_assignment.neuron_core_pre_assignment, dtype=np.int_))
-        object.__setattr__(self, 'local_assignment', np.asarray(new_assignment.neuron_idx_pre_assignment, dtype=np.int_))
+        self.assignment = new_assignment
+        self.hw_config = new_assignment.hw
+        self.core_assignment = np.asarray(new_assignment.neuron_core_pre_assignment, dtype=np.int_)
+        self.local_assignment = np.asarray(new_assignment.neuron_idx_pre_assignment, dtype=np.int_)
 
         slot_to_node = np.full((self.K, self.Nc), -1, dtype=np.int_)
         slot_to_node[self.core_assignment, self.local_assignment] = np.arange(len(self.core_assignment))
-        object.__setattr__(self, 'slot_to_node', slot_to_node)
+        self.slot_to_node = slot_to_node

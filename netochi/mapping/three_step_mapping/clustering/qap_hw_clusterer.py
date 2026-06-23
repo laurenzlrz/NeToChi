@@ -1,7 +1,6 @@
 from typing import Any, cast
 import graph_tool.all as gt
 import numpy as np
-from pydantic import BaseModel, ConfigDict
 from scipy.optimize import quadratic_assignment
 
 from netochi.input_generator.interfaces import MosaicMappingInput
@@ -12,9 +11,9 @@ class QapHwClusterer(ClustererFixedHw):
     """
     Mapper based on the Quadratic Assignment Problem (QAP).
 
-    Refactored to follow the "Großprojekt" Pydantic standard.
+    Refactored to be a plain Python class.
     """
-    model_config = ConfigDict(frozen=True)
+
 
     def cluster(self, input_data: MosaicMappingInput) -> ClusterAndHwOutput:
         """Find core and address allocations using QAP FAQ heuristic."""

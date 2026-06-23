@@ -2,7 +2,7 @@ import math
 import numpy as np
 import graph_tool.all as gt
 from typing import Any, Optional, Tuple
-from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
+import icontract
 
 from netochi.input_generator.interfaces import MappingInput, MosaicAssignment
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
@@ -23,21 +23,22 @@ from netochi.mapping.three_step_mapping.slice_assignment.delta_optimal_slice_ass
 from netochi.objectives.utils import compute_e_valid
 
 
-class SimAnnealingInferredHWMapper(BaseModel, BaseMapper[MosaicHWMappingState[MappingInput], MappingInput]):
+class SimAnnealingInferredHWMapper(BaseMapper[MosaicHWMappingState[MappingInput], MappingInput]):
     """
-    Pydantic-based Simulated Annealing Inferred Hardware Mapper.
+    Simulated Annealing Inferred Hardware Mapper.
     Input is purely the network (MappingInput).
     Output is the state and the optimized hardware (MosaicHWMappingState).
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
-    config: SimAnnealingIHWConfig = Field(default_factory=SimAnnealingIHWConfig)
+    @icontract.require(lambda config: config is None or isinstance(config, SimAnnealingIHWConfig))
+    def __init__(self, config: Optional[SimAnnealingIHWConfig] = None) -> None:
+        self.config = config or SimAnnealingIHWConfig()
+        self._state: Optional[SAIHWState] = None
+        self._opt_slice_assigner: Optional[DeltaOptimalSliceAssigner] = None
+        self._graph: Optional[gt.Graph] = None
+        self._rng: np.random.Generator = np.random.default_rng()
+        self._in_edges_data: dict[str, Any] = {}
 
-    _state: Optional[SAIHWState] = PrivateAttr(default=None)
-    _opt_slice_assigner: Optional[DeltaOptimalSliceAssigner] = PrivateAttr(default=None)
-    _graph: Optional[gt.Graph] = PrivateAttr(default=None)
-    _rng: np.random.Generator = PrivateAttr(default_factory=np.random.default_rng)
-    _in_edges_data: dict[str, Any] = PrivateAttr(default_factory=dict)
 
     @classmethod
     def _find_initial_hardware_config(cls, graph: gt.Graph, slice_factor: int) -> MosaicHardwareConfig:

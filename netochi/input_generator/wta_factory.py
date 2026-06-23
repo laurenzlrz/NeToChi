@@ -1,29 +1,42 @@
-from typing import Dict, Any, Optional
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional
 import networkx as nx
 import numpy as np
-import graph_tool.all as gt
-from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
-from netochi.input_generator.interfaces import BaseInputFactory, MosaicMappingInput, HWBaseInputFactory
+import icontract
+
+from netochi.input_generator.interfaces import MosaicMappingInput, HWBaseInputFactory
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.utils import nx_to_gt
 
-class WTAFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
+
+class WTAConfig(BaseModel):
+    model_config = ConfigDict(strict=True, arbitrary_types_allowed=True)
+
+    hw_config: MosaicHardwareConfig = Field(..., description="Hardware configuration.")
+    n: int = Field(..., ge=2, description="Total number of neurons (nodes).")
+    probability: float = Field(..., ge=0, le=1, description="Connectivity probability.")
+    seed: int = Field(default=42)
+
+    def create(self) -> "WTAFactory":
+        return WTAFactory(config=self)
+
+
+class WTAFactory(HWBaseInputFactory[MosaicMappingInput]):
     """
     Factory generating Winner-Takes-All (WTA) networks using a hub-and-spoke skeleton.
     - Excitatory Pool: n-1 nodes.
     - Inhibitory Hub: 1 node (the last node).
     """
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-        frozen=True
-    )
 
-    hw_config: MosaicHardwareConfig
-    n: int = Field(..., ge=2, description="Total number of neurons (nodes).")
-    probability: float = Field(..., ge=0, le=1, description="Connectivity probability.")
-    seed: int = 42
-    
-    _graph: Optional[nx.DiGraph] = PrivateAttr(default=None)
+    @icontract.require(lambda config: isinstance(config, WTAConfig))
+    def __init__(self, config: WTAConfig) -> None:
+        self.config = config
+        self.hw_config = config.hw_config
+        self.n = config.n
+        self.probability = config.probability
+        self.seed = config.seed
+        self._graph: Optional[nx.DiGraph] = None
+
 
     def generate(self) -> MosaicMappingInput:
         """Generate a single MosaicMappingInput with a WTA graph."""
@@ -45,7 +58,7 @@ class WTAFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
                 edges.append((inhibitory_hub, e_node))
         
         graph.add_edges_from(edges)
-        object.__setattr__(self, '_graph', graph)
+        self._graph = graph
         
         gt_graph = nx_to_gt(graph)
         

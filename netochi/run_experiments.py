@@ -1,6 +1,5 @@
 from typing import List, Any, Tuple, cast, Optional
 
-from netochi.mapping.ilp_mapper import ILPMapper
 from netochi.mapping.interfaces import (
     BaseMosaicMappingState,
     BaseMapper, MappingState
@@ -8,43 +7,46 @@ from netochi.mapping.interfaces import (
 from netochi.input_generator.interfaces import MosaicMappingInput, MappingInput, HWBaseInputFactory
 
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
-from netochi.input_generator.erdos_renyi_factory import ErdosRenyiFactory
-from netochi.input_generator.mosaic_network_factory import MosaicNetworkFactory
-from netochi.input_generator.swta_factory import SwtaFactory, SwtaGeneratorConfig
+from netochi.input_generator.erdos_renyi_factory import ErdosRenyiConfig
+from netochi.input_generator.mosaic_network_factory import MosaicNetworkConfig
+from netochi.input_generator.swta_factory import SwtaGeneratorConfig
 
-from netochi.mapping.random_mapper import RandomMapper
-from netochi.mapping.greedy_mapper import GreedyMapper
-from netochi.mapping.mcmc.mcmc_mapper import MCMCMapper
-from netochi.mapping.mcmc.joint_inference_mapper import JointInferenceMapper
-from netochi.mapping.three_step_mapping.hcd_pca_opt_three_step_mapper import HcdPcaOptThreeStepMapper
-from netochi.mapping.simulated_annealing_mapper import SimAnnealingMapper
-from netochi.mapping.three_step_mapping.qap_pca_opt_three_step_mapper import QAPPcaOptMapper
-from netochi.mapping.sa_ihw_mapper import SimAnnealingInferredHWMapper
+from netochi.mapping.random_mapper import RandomMapperConfig
+from netochi.mapping.greedy_mapper import GreedyMapperConfig
+from netochi.mapping.simulated_annealing_mapper import SimAnnealingMapperConfig
+from netochi.mapping.three_step_mapping.qap_pca_opt_three_step_mapper import QAPPcaOptMapperConfig
+from netochi.mapping.ilp_mapper import ILPMapperConfig
+from netochi.mapping.sa_ihw_config import SimAnnealingIHWConfig
 
-from netochi.objectives.obj_unused_connections import UnusedConnectionsObjective
+from netochi.objectives.obj_unused_connections import UnusedConnectionsObjectiveConfig
 from netochi.pipeline import BasePipelineRunner
-from netochi.pipeline.archiver import SummaryArchiver
-from netochi.pipeline.config import PipelineOutputConfig
+from netochi.pipeline.archiver import SummaryArchiverConfig
+from netochi.pipeline.config import PipelineOutputConfig, PipelineOutput
 from netochi.pipeline.interfaces import PipelineConsumer, MappingStateConsumer
-from netochi.pipeline.plotter import PipelinePlotter
-from netochi.pipeline.reporter import SummaryReporter
+from netochi.pipeline.plotter import PipelinePlotterConfig
+from netochi.pipeline.reporter import SummaryReporterConfig
 from netochi.pipeline.runner.runner import (
     PipelineRunner,
     ExperimentTaskBase,
     ExperimentTaskRun, TaskBundle,
 )
 from netochi.pipeline.runner.evaluator_bundle import EvaluatorBundle, BaselineStorer
-from netochi.pipeline.metrics import ObjectiveMetric
-from netochi.objectives.obj_log_likelihood import LogLikelihoodObjective
-from netochi.objectives.obj_inconsistency import InconsistencyObjective, InconsistencyRelativeObjective
-from netochi.objectives.obj_hardware_size import MosaicHardwareSizeObjective
+from netochi.pipeline.metrics import ObjectiveConfigMetricConfig
+from netochi.objectives.obj_log_likelihood import LogLikelihoodObjectiveConfig
+from netochi.objectives.obj_inconsistency import InconsistencyObjectiveConfig, InconsistencyRelativeObjectiveConfig
+from netochi.objectives.obj_hardware_size import MosaicHardwareSizeObjectiveConfig
 from netochi.objectives.interfaces import MappingObjective
-from netochi.pipeline.runner.baseline_provider import RandomMosaicBaselineProvider, MosaicGroundTruthBaselineProvider
-from netochi.pipeline.validator import Validator
-from netochi.visualization.visualize_adjacency_matrix import AdjacencyMatrixVisualizer
-from netochi.visualization.visualize_clustering import ClusteringVisualizer
-from netochi.visualization.visualize_mapping_output import MappingOutputVisualizer
-from netochi.visualization.visualize_routing_hierarchy import RoutingHierarchyVisualizer
+from netochi.pipeline.runner.baseline_provider import (
+    RandomMosaicBaselineProviderConfig,
+    MosaicGroundTruthBaselineProviderConfig
+)
+
+from netochi.pipeline.validator import ValidatorConfig
+
+from netochi.visualization.visualize_adjacency_matrix import AdjacencyMatrixVisualizerConfig
+from netochi.visualization.visualize_clustering import ClusteringVisualizerConfig
+from netochi.visualization.visualize_mapping_output import MappingOutputVisualizerConfig
+from netochi.visualization.visualize_routing_hierarchy import RoutingHierarchyVisualizerConfig
 
 # ======================= CONFIGURE PIPELINE HERE =============================
 
@@ -55,12 +57,12 @@ HW_SMALL = MosaicHardwareConfig(
     slice_factor=2
 )
 
-OBJECTIVES = [
-    InconsistencyObjective(),
-    InconsistencyRelativeObjective(),
-    MosaicHardwareSizeObjective(),
-    UnusedConnectionsObjective(),
-    LogLikelihoodObjective()
+OBJECTIVE_CONFIGS = [
+    InconsistencyObjectiveConfig(),
+    InconsistencyRelativeObjectiveConfig(),
+    MosaicHardwareSizeObjectiveConfig(),
+    UnusedConnectionsObjectiveConfig(),
+    LogLikelihoodObjectiveConfig()
 ]
 
 HW_CONFIGS = [
@@ -68,33 +70,36 @@ HW_CONFIGS = [
 ]
 
 MAPPERS = [
-    SimAnnealingInferredHWMapper(),
-    #SimAnnealingMapper(),
-    #QAPPcaOptMapper(),
-    RandomMapper(),
-    #GreedyMapper(),
-    MosaicGroundTruthBaselineProvider()
-    #ILPMapper(),
+    SimAnnealingIHWConfig(time_limit=2.0).create(),
+    #SimAnnealingMapperConfig().create(),
+    #QAPPcaOptMapperConfig().create(),
+    RandomMapperConfig().create(),
+    #GreedyMapperConfig().create(),
+    MosaicGroundTruthBaselineProviderConfig().create()
+
+    #ILPMapperConfig().create(),
 ]
 
 SEED = 42
 
-PIPELINE_CONFIG = PipelineOutputConfig()
+PIPELINE_OUTPUT = PipelineOutputConfig().create()
 
 HOOKS = [
-    Validator(config=PIPELINE_CONFIG)
+    ValidatorConfig(pipeline_output=PIPELINE_OUTPUT).create()
 ]
 
 
 CONSUMERS: List[PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]] = [
-    SummaryReporter(config=PIPELINE_CONFIG),
-    PipelinePlotter(config=PIPELINE_CONFIG),
-    SummaryArchiver(config=PIPELINE_CONFIG),
-    AdjacencyMatrixVisualizer(config=PIPELINE_CONFIG),
-    ClusteringVisualizer(config=PIPELINE_CONFIG),
-    MappingOutputVisualizer(config=PIPELINE_CONFIG),
-    RoutingHierarchyVisualizer(config=PIPELINE_CONFIG),
+    SummaryReporterConfig(pipeline_output=PIPELINE_OUTPUT).create(),
+    PipelinePlotterConfig(pipeline_output=PIPELINE_OUTPUT).create(),
+    SummaryArchiverConfig(pipeline_output=PIPELINE_OUTPUT).create(),
+    AdjacencyMatrixVisualizerConfig(pipeline_output=PIPELINE_OUTPUT).create(),
+    ClusteringVisualizerConfig(pipeline_output=PIPELINE_OUTPUT).create(),
+    MappingOutputVisualizerConfig(pipeline_output=PIPELINE_OUTPUT).create(),
+    RoutingHierarchyVisualizerConfig(pipeline_output=PIPELINE_OUTPUT).create(),
 ]
+
+
 
 # ==============================================================================
 
@@ -103,25 +108,28 @@ def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, Mappi
     # 1. Define the inputs (Factories)
     probabilities = [0.1, 0.5]
     mosaic_factories: List[HWBaseInputFactory[MosaicMappingInput]] = [
-        MosaicNetworkFactory(hw_config=HW_SMALL, probability=p, seed=SEED) for p in probabilities
+        MosaicNetworkConfig(hw_config=HW_SMALL, probability=p, seed=SEED).create() for p in probabilities
     ]
     er_factories: List[HWBaseInputFactory[MosaicMappingInput]] = [
-        ErdosRenyiFactory(hw_config=HW_SMALL, n=HW_SMALL.total_neurons, probability=p, seed=SEED) for p in probabilities
+        ErdosRenyiConfig(hw_config=HW_SMALL, n=HW_SMALL.total_neurons, probability=p, seed=SEED).create() for p in probabilities
     ]
     swta_factories: List[HWBaseInputFactory[MosaicMappingInput]] = [
-        SwtaFactory(hw_config=HW_SMALL, config=SwtaGeneratorConfig(num_clusters=10,
-                                                                   neurons_per_cluster=10,
-                                                                   inhibitory_ratio=0.2,
-                                                                   p_neighbor=0.1,
-                                                                   p_e_to_i=0.2,
-                                                                   p_i_to_e=0.8, seed=None, ))
+        SwtaGeneratorConfig(hw_config=HW_SMALL,
+                            num_clusters=10,
+                            neurons_per_cluster=10,
+                            inhibitory_ratio=0.2,
+                            p_neighbor=0.1,
+                            p_e_to_i=0.2,
+                            p_i_to_e=0.8, seed=None).create()
     ]
 
+
     # 2. Define Baseline Providers
-    random_baseline = RandomMosaicBaselineProvider()
-    gt_baseline = MosaicGroundTruthBaselineProvider()
-    metrics = [ObjectiveMetric(objective=cast(MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]], objective)) for objective in OBJECTIVES]
+    random_baseline = RandomMosaicBaselineProviderConfig().create()
+    gt_baseline = MosaicGroundTruthBaselineProviderConfig().create()
+    metrics = [ObjectiveConfigMetricConfig(objective_config=obj_config).create() for obj_config in OBJECTIVE_CONFIGS]
     hooks: List[Tuple[MappingStateConsumer[BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]], Optional[BaselineStorer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput]]]]] = [(hook, None) for hook in HOOKS]
+
 
     mosaic_evaluator_baseline_bundles = EvaluatorBundle(metrics_w_baselines=[(metric, gt_baseline) for metric in metrics], hooks=hooks)
     other_gen_evaluator_baseline_bundles = EvaluatorBundle(metrics_w_baselines=[(metric, random_baseline) for metric in metrics], hooks=hooks)
@@ -134,23 +142,23 @@ def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, Mappi
 
     mosaic_tasks = ExperimentTaskBase(input_generators=mosaic_factories,
                                        evaluator_mapper_bundles=mosaic_task_runs,
-                                       config=PIPELINE_CONFIG)
+                                       config=PIPELINE_OUTPUT)
 
     er_tasks = ExperimentTaskBase(input_generators=er_factories,
                                   evaluator_mapper_bundles=other_task_runs,
-                                  config=PIPELINE_CONFIG)
+                                  config=PIPELINE_OUTPUT)
 
     swta_tasks = ExperimentTaskBase(input_generators=swta_factories,
                                     evaluator_mapper_bundles=other_task_runs,
-                                    config=PIPELINE_CONFIG)
+                                    config=PIPELINE_OUTPUT)
     tasks: List[ExperimentTaskBase[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]] = [mosaic_tasks,
              #er_tasks,
              #swta_tasks
              ]
 
-    bundles: List[TaskBundle[MappingInput, MappingState, MappingState]] = [TaskBundle(tasks=[task], consumer=CONSUMERS, config=PIPELINE_CONFIG) for task in tasks]
+    bundles: List[TaskBundle[MappingInput, MappingState, MappingState]] = [TaskBundle(tasks=[task], consumer=CONSUMERS, config=PIPELINE_OUTPUT) for task in tasks]
 
-    runner: BasePipelineRunner[MappingInput, MappingState, MappingState] = PipelineRunner(bundles=bundles, config=PIPELINE_CONFIG)
+    runner: BasePipelineRunner[MappingInput, MappingState, MappingState] = PipelineRunner(bundles=bundles, config=PIPELINE_OUTPUT)
     return runner
 
 

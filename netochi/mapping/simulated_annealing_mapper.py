@@ -26,6 +26,17 @@ class BestStateData:
     slice_assignment: npt.NDArray[np.int64]
 
 
+from pydantic import BaseModel, Field
+import icontract
+
+
+class SimAnnealingMapperConfig(BaseModel):
+    verbose: bool = Field(default=False)
+
+    def create(self) -> "SimAnnealingMapper":
+        return SimAnnealingMapper(config=self)
+
+
 class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
     """
     Mapper using simulated annealing. Takes hw config as input.
@@ -35,12 +46,13 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
     Loss: Given a mapping, we can compute the optimal slice assignment efficiently. We can then compute the number of inconsistencies.
     """
 
-    def __init__(self, /, **data: Any):
-        super().__init__(**data)
+    @icontract.require(lambda config: isinstance(config, SimAnnealingMapperConfig))
+    def __init__(self, config: SimAnnealingMapperConfig):
+        self.config = config
         self.opt_slice_assigner: Optional[DeltaOptimalSliceAssigner] = None
         self.state: Optional[SAState] = None
         self.graph: Optional[gt.Graph] = None
-        self.verbose: Optional[bool] = False
+        self.verbose: bool = config.verbose
 
     def run(self, mapping_input: MosaicMappingInput) -> MosaicNetworkMappingState:
         # --- 1. initialize ---

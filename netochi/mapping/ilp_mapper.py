@@ -2,19 +2,31 @@ import pulp
 import numpy as np
 import graph_tool as gt
 from typing import Optional
-from pydantic import Field, BaseModel, ConfigDict
+from pydantic import BaseModel, Field
+import icontract
 
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
 from netochi.definitions.constants import MCMC_TIME_LIMIT_S
 
 from netochi.input_generator.interfaces import MosaicHardwareConfig, MosaicAssignment, MosaicMappingInput
 
-class ILPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
+
+class ILPMapperConfig(BaseModel):
+    time_limit_s: float = Field(default=MCMC_TIME_LIMIT_S, description="Time limit for the ILP solver in seconds.")
+
+    def create(self) -> "ILPMapper":
+        return ILPMapper(config=self)
+
+
+class ILPMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
     """
     Mapper formulating the problem as a Mixed Integer Linear Program (MILP).
     """
-    model_config = ConfigDict(frozen=True)
-    time_limit_s: float = Field(default=MCMC_TIME_LIMIT_S, description="Time limit for the ILP solver in seconds.")
+
+    @icontract.require(lambda config: isinstance(config, ILPMapperConfig))
+    def __init__(self, config: ILPMapperConfig) -> None:
+        self.config = config
+        self.time_limit_s = config.time_limit_s
 
     def run(
             self,
@@ -137,6 +149,6 @@ class ILPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingIn
             neuron_slice_assignment=neuron_slice_assignment.astype(np.int64)
         )
         return MosaicNetworkMappingState(
-            _mapping_input=mapping_input,
+            mapping_input=mapping_input,
             assignment=assignment
         )

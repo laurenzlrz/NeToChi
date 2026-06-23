@@ -1,38 +1,43 @@
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Any, Tuple, Optional
 
 import networkx as nx
 import numpy as np
 import numpy.typing as npt
-from pydantic import BaseModel, Field, ConfigDict, validate_call, model_validator, PrivateAttr
+import icontract
 
 from netochi.input_generator.interfaces import MosaicMappingInput, HWBaseInputFactory, MosaicAssignment
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.utils import nx_to_gt
 
 
-class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
-    """Factory generating synthetic networks for a fixed hardware configuration."""
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-        frozen=True,
-        strict=True
-    )
+class MosaicNetworkConfig(BaseModel):
+    model_config = ConfigDict(strict=True, arbitrary_types_allowed=True)
 
-    hw_config: MosaicHardwareConfig
+    hw_config: MosaicHardwareConfig = Field(..., description="Hardware configuration.")
     probability: float = Field(..., gt=0, le=1)
-    seed: int = 42
-    _rng: np.random.Generator = PrivateAttr()
+    seed: int = Field(default=42)
 
-    @model_validator(mode="after")
-    def initialize_rng(self) -> "MosaicNetworkFactory":
-        object.__setattr__(self, "_rng", np.random.default_rng(self.seed))
-        return self
+    def create(self) -> "MosaicNetworkFactory":
+        return MosaicNetworkFactory(config=self)
+
+
+class MosaicNetworkFactory(HWBaseInputFactory[MosaicMappingInput]):
+    """Factory generating synthetic networks for a fixed hardware configuration."""
+
+    @icontract.require(lambda config: isinstance(config, MosaicNetworkConfig))
+    def __init__(self, config: MosaicNetworkConfig) -> None:
+        self.config = config
+        self.hw_config = config.hw_config
+        self.probability = config.probability
+        self.seed = config.seed
+        self._rng = np.random.default_rng(self.seed)
+
 
     def get_name(self) -> str:
         """Returns a concise name reflecting size and probability."""
         return f"FeasibleMosaicNetwork_{self.hw_config.total_neurons}n_p{self.probability}"
 
-    @validate_call
     def generate(self) -> MosaicMappingInput:
         """Generate a single MosaicMappingInput."""
         graph, assignment = self._generate_network()
@@ -45,16 +50,14 @@ class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
             "edges": str(gt_graph.num_edges())
         }
 
-
         return MosaicMappingInput(
             id=self.get_id(),
             graph=gt_graph,
             descriptions=descriptions,
             hw_config=self.hw_config,
-            assignment=assignment # fully defines the ground truth (because core and local address assignment only depend on neuron id)
+            assignment=assignment
         )
 
-    @validate_call
     def _sample_slice_assignment(self) -> npt.NDArray[np.int64]:
         """Randomly assign fan-in slices to each target neuron at each router level."""
         total_neurons: int = self.hw_config.total_neurons
@@ -89,21 +92,18 @@ class MosaicNetworkFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
                 chosen_slice: int = int(slice_assignment[target_neuron, distance])
                 local_start, local_end = self.hw_config.get_slice_bounds(distance, chosen_slice)
 
-                #neuron idxs
                 source_candidates = np.arange(
                     source_core * neurons_per_core + local_start,
                     source_core * neurons_per_core + local_end,
                     dtype=np.int64,
                 )
 
-                # No self-loop; intra-core is otherwise fully connected at distance 0.
                 if source_core == target_core:
                     source_candidates = source_candidates[source_candidates != target_neuron]
 
                 if source_candidates.size == 0:
                     continue
 
-                # Sample edges based on probability
                 sampled = self._rng.random(source_candidates.size) < self.probability
                 selected_sources = source_candidates[sampled]
                 graph.add_edges_from((int(src), target_neuron) for src in selected_sources)

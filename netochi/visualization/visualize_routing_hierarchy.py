@@ -89,16 +89,30 @@ def plot_routing_hierarchy(hw_config: MosaicHardwareConfig, filename: Optional[s
         plt.close()
 
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict
+import icontract
 from netochi.pipeline.interfaces import PipelineConsumer
-from netochi.pipeline.config import PipelineOutputConfig
+from netochi.pipeline.config import PipelineOutput
 from netochi.pipeline.results import PipelineSummary
 from netochi.input_generator.interfaces import MosaicMappingInput
 from netochi.mapping.interfaces import BaseMosaicMappingState
 
-class RoutingHierarchyVisualizer(BaseModel, PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]):
-    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
-    config: PipelineOutputConfig
+
+class RoutingHierarchyVisualizerConfig(BaseModel):
+    model_config = ConfigDict(strict=True, arbitrary_types_allowed=True)
+
+    pipeline_output: PipelineOutput = Field(..., description="Pipeline output manager.")
+
+    def create(self) -> "RoutingHierarchyVisualizer":
+        return RoutingHierarchyVisualizer(config=self)
+
+
+class RoutingHierarchyVisualizer(PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]):
+
+    @icontract.require(lambda config: isinstance(config, RoutingHierarchyVisualizerConfig))
+    def __init__(self, config: RoutingHierarchyVisualizerConfig) -> None:
+        self.config = config
+        self.pipeline_output = config.pipeline_output
 
     def consume(self, data: PipelineSummary[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]) -> None:
         seen_hw_configs = set()
@@ -111,5 +125,7 @@ class RoutingHierarchyVisualizer(BaseModel, PipelineConsumer[MosaicMappingInput,
                     name = f"routing_hierarchy_{hw_config.nodes_per_router}_{hw_config.neurons_per_core}_{hw_config.router_levels}"
                     
                     plot_routing_hierarchy(hw_config)
-                    self.config.save_plot(plt, name)
+                    self.pipeline_output.save_plot(plt, name)
+
+
 

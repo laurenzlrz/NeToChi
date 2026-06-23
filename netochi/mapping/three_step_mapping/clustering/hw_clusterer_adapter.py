@@ -1,4 +1,3 @@
-from pydantic import PrivateAttr
 from netochi.input_generator.interfaces import MappingInput
 from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOutput, ClusterAndHwOutput, \
     HierarchicalClusterer, ClusteringAdapter, ClustererInferHw
@@ -17,13 +16,10 @@ class HwClustererAdapter(ClustererInferHw):
     output: ClusterAndHWOutput
     """
 
-    _clusterer: HierarchicalClusterer = PrivateAttr()
-    _adapter: ClusteringAdapter = PrivateAttr()
-
-    def __init__(self, clusterer: HierarchicalClusterer, adapter: ClusteringAdapter):
-        super().__init__()
+    def __init__(self, clusterer: HierarchicalClusterer, adapter: ClusteringAdapter) -> None:
         self._clusterer = clusterer
         self._adapter = adapter
+
 
     def cluster(self, input_data: MappingInput) -> ClusterAndHwOutput:
         clustering: HierarchicalClusterOutput = self._clusterer.cluster(input_data=input_data)

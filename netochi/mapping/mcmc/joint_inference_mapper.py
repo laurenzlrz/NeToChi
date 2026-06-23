@@ -4,8 +4,9 @@ import numpy as np
 import numpy.typing as npt
 import graph_tool.inference.mcmc as gt_mcmc
 from graph_tool.inference import MCMCState
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+import icontract
 from typing import List, Tuple, Optional, Generic, Any, Dict
+
 
 from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput, MosaicAssignment
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
@@ -415,25 +416,25 @@ class JointHardwareMCMCState(MCMCState):
         return self.mcmc_sweep(*args, **kwargs)
 
 
-class JointInferenceMapper(BaseModel, BaseMapper[MosaicHWMappingState[MappingInput], MappingInput]):
+class JointInferenceMapper(BaseMapper[MosaicHWMappingState[MappingInput], MappingInput]):
     """
-    Pydantic-based Joint Inference Mapper.
+    Joint Inference Mapper.
     Input is purely the network (MappingInput).
     Output is the state and the optimized hardware (MosaicHWMappingState).
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
-    objective: ObjectiveInterface[BaseMosaicMappingState[Any]]
-    config: JointInferenceConfig = Field(default_factory=JointInferenceConfig)
-    
-    slice_factor: int = Field(default=2)
-    
-    iterations: int = Field(default=MCMC_DEFAULT_ITERATIONS)
-    initial_temp: float = Field(default=MCMC_DEFAULT_INITIAL_TEMP)
-    seed: int = Field(default=MCMC_DEFAULT_SEED)
-    verbose: bool = Field(default=False)
-    time_limit_s: float = Field(default=MCMC_TIME_LIMIT_S)
-    
+    @icontract.require(lambda config: isinstance(config, JointInferenceConfig))
+    def __init__(self, config: JointInferenceConfig) -> None:
+        self.config = config
+        self.objective = config.objective
+        self.slice_factor = config.slice_factor
+        self.iterations = config.iterations
+        self.initial_temp = config.initial_temp
+        self.seed = config.seed
+        self.verbose = config.verbose
+        self.time_limit_s = config.time_limit_s
+
+
     def run(self, mapping_input: MappingInput) -> MosaicHWMappingState[MappingInput]:
         """Run joint inference by exploring the full hardware architecture."""
         # 1. Use heuristic to build initial hardware and placement
@@ -484,12 +485,11 @@ class JointInferenceMapper(BaseModel, BaseMapper[MosaicHWMappingState[MappingInp
 
         return state
 
-class MosaicHardwareMapper(BaseModel, BaseMapper[MosaicHWMappingState[MosaicMappingInput], MosaicMappingInput]):
+class MosaicHardwareMapper(BaseMapper[MosaicHWMappingState[MosaicMappingInput], MosaicMappingInput]):
     """
     A simple mapper that returns the ground truth hardware configuration from the input
     wrapped in a MosaicHWMappingState. Useful as a baseline for joint inference.
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
     def run(self, mapping_input: MosaicMappingInput) -> MosaicHWMappingState[MosaicMappingInput]:
         """Returns the hardware from the input in a MosaicHWMappingState."""
@@ -501,3 +501,4 @@ class MosaicHardwareMapper(BaseModel, BaseMapper[MosaicHWMappingState[MosaicMapp
             _inferred_hw_config=mapping_input.hw_config,
             assignment=random_state.assignment
         )
+

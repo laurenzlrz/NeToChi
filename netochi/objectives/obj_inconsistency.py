@@ -1,19 +1,32 @@
 from typing import Dict, Any
+from pydantic import BaseModel
+import icontract
 
-from pydantic import BaseModel, PrivateAttr, ConfigDict
-
-from netochi.definitions.exceptions import BaselineMismatchError
 from netochi.mapping.interfaces import (
     BaseMosaicMappingState,
 )
-from netochi.objectives.interfaces import MappingObjective
+from netochi.objectives.interfaces import MappingObjective, AbstractObjectiveConfig
 from netochi.objectives.utils import compute_e_valid
 
 
-class InconsistencyObjectiveFabric(BaseModel, MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]]):
-    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
+class InconsistencyObjectiveConfig(AbstractObjectiveConfig):
+    def create(self) -> "InconsistencyObjective":
+        return InconsistencyObjective(config=self)
 
-    _graph_cache: Dict[int, Any] = PrivateAttr(default_factory=dict)
+
+class InconsistencyRelativeObjectiveConfig(AbstractObjectiveConfig):
+    def create(self) -> "InconsistencyRelativeObjective":
+        return InconsistencyRelativeObjective(config=self)
+
+
+class InconsistencyPercentageMetricConfig(AbstractObjectiveConfig):
+    def create(self) -> "InconsistencyPercentageMetric":
+        return InconsistencyPercentageMetric(config=self)
+
+
+class InconsistencyObjectiveFabric(MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]]):
+    def __init__(self) -> None:
+        self._graph_cache: Dict[int, Any] = {}
 
     def _preload_graph(self, state: BaseMosaicMappingState) -> Dict[str, Any]:
         """Preload graph data into cache for faster evaluation."""
@@ -33,6 +46,10 @@ class InconsistencyObjective(InconsistencyObjectiveFabric):
     Objective that counts the number of invalid edges (edges violating hardware constraints).
     """
 
+    @icontract.require(lambda config: isinstance(config, InconsistencyObjectiveConfig))
+    def __init__(self, config: InconsistencyObjectiveConfig) -> None:
+        super().__init__()
+        self.config = config
 
     def evaluate(self, state: BaseMosaicMappingState[Any]) -> float:
         """Returns total number of invalid edges."""
@@ -50,6 +67,11 @@ class InconsistencyRelativeObjective(InconsistencyObjectiveFabric):
     Objective that counts the number of invalid edges (edges violating hardware constraints) relative to the total number of edges
     """
 
+    @icontract.require(lambda config: isinstance(config, InconsistencyRelativeObjectiveConfig))
+    def __init__(self, config: InconsistencyRelativeObjectiveConfig) -> None:
+        super().__init__()
+        self.config = config
+
     def evaluate(self, state: BaseMosaicMappingState[Any]) -> float:
         """Returns ratio of invalid edges to total edges."""
         inconsistencies = float(compute_e_valid(state, self._preload_graph(state)))
@@ -66,6 +88,11 @@ class InconsistencyPercentageMetric(InconsistencyObjectiveFabric):
     """
     Evaluates an inconsistency-based objective and returns it as a percentage of total edges.
     """
+
+    @icontract.require(lambda config: isinstance(config, InconsistencyPercentageMetricConfig))
+    def __init__(self, config: InconsistencyPercentageMetricConfig) -> None:
+        super().__init__()
+        self.config = config
 
     def evaluate(self, state: BaseMosaicMappingState[Any]) -> float:
         invalid_edges = float(compute_e_valid(state, self._preload_graph(state)))

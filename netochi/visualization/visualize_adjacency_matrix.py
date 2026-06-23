@@ -70,19 +70,34 @@ def plot_sorted_adjacency(graph: gt.Graph, state: BaseMosaicMappingState, filena
     plt.close()
 
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict
+import icontract
 from netochi.pipeline.interfaces import PipelineConsumer
-from netochi.pipeline.config import PipelineOutputConfig
+from netochi.pipeline.config import PipelineOutput
 from netochi.pipeline.results import PipelineSummary
 from netochi.input_generator.interfaces import MosaicMappingInput
 from netochi.mapping.interfaces import BaseMosaicMappingState
 
-class AdjacencyMatrixVisualizer(BaseModel, PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]):
-    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
-    config: PipelineOutputConfig
+
+class AdjacencyMatrixVisualizerConfig(BaseModel):
+    model_config = ConfigDict(strict=True, arbitrary_types_allowed=True)
+
+    pipeline_output: PipelineOutput = Field(..., description="Pipeline output manager.")
+
+    def create(self) -> "AdjacencyMatrixVisualizer":
+        return AdjacencyMatrixVisualizer(config=self)
+
+
+class AdjacencyMatrixVisualizer(PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]):
+
+    @icontract.require(lambda config: isinstance(config, AdjacencyMatrixVisualizerConfig))
+    def __init__(self, config: AdjacencyMatrixVisualizerConfig) -> None:
+        self.config = config
+        self.pipeline_output = config.pipeline_output
 
     def consume(self, data: PipelineSummary[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]) -> None:
         for res in data.results:
+
             if res.state is not None:
                 graph = res.state.mapping_input.graph
                 safe_meta = "_".join(f"{k}-{v}" for k, v in sorted(res.input_metadata.items()))[:50]
@@ -130,6 +145,6 @@ class AdjacencyMatrixVisualizer(BaseModel, PipelineConsumer[MosaicMappingInput, 
                 ax: Any = plt.gca()
                 ax.xaxis.tick_top()
                 ax.xaxis.set_label_position('top')
-                plt.tight_layout()
+                self.pipeline_output.save_plot(plt, name)
 
-                self.config.save_plot(plt, name)
+

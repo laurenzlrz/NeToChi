@@ -3,8 +3,9 @@ import numpy as np
 import numpy.typing as npt
 import graph_tool.inference.mcmc as gt_mcmc
 from graph_tool.inference import MCMCState
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+import icontract
 from typing import Optional, Generic, Tuple, List, Any, Dict
+
 
 from netochi.input_generator.interfaces import MosaicMappingInput, MosaicAssignment
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState, BaseMosaicMappingState
@@ -164,18 +165,42 @@ class HardwareMCMCState(MCMCState):  # type: ignore[misc]
 
 
 
-class MCMCMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
-    """
-    Pydantic-based MCMC Mapper using Simulated Annealing via graph-tool.
-    """
-    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+from pydantic import BaseModel, Field, ConfigDict
 
-    objective: ObjectiveInterface[BaseMosaicMappingState[Any]]
+
+class MCMCMapperConfig(BaseModel):
+    """
+    Configuration for MCMC Mapper.
+    """
+    model_config = ConfigDict(strict=True, arbitrary_types_allowed=True)
+
+    objective: ObjectiveInterface[BaseMosaicMappingState[Any]] = Field(..., description="The objective function for mapping optimization.")
     iterations: int = Field(default=MCMC_DEFAULT_ITERATIONS)
     initial_temp: float = Field(default=MCMC_DEFAULT_INITIAL_TEMP)
     seed: int = Field(default=MCMC_DEFAULT_SEED)
     time_limit_s: float = Field(default=MCMC_TIME_LIMIT_S)
     verbose: bool = Field(default=False)
+
+    def create(self) -> "MCMCMapper":
+        return MCMCMapper(config=self)
+
+
+class MCMCMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
+    """
+    MCMC Mapper using Simulated Annealing via graph-tool.
+    """
+
+    @icontract.require(lambda config: isinstance(config, MCMCMapperConfig))
+    def __init__(self, config: MCMCMapperConfig) -> None:
+        self.config = config
+        self.objective = config.objective
+        self.iterations = config.iterations
+        self.initial_temp = config.initial_temp
+        self.seed = config.seed
+        self.time_limit_s = config.time_limit_s
+        self.verbose = config.verbose
+
+
 
     def run(self, mapping_input: MosaicMappingInput) -> MosaicNetworkMappingState:
         """Run the optimization."""

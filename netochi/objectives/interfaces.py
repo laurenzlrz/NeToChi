@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import TypeVar, Generic, Any
+
 from pydantic import BaseModel, ConfigDict
 
 from netochi.mapping.interfaces import MappingState
@@ -7,6 +8,16 @@ from netochi.mapping.interfaces import MappingState
 # -----------------------------------------------------------------------------
 # Objective Interfaces
 # -----------------------------------------------------------------------------
+
+class AbstractObjectiveConfig(BaseModel, ABC):
+    """Abstract base configuration class for mapping objectives."""
+    model_config = ConfigDict(strict=True, arbitrary_types_allowed=True)
+
+    @abstractmethod
+    def create(self) -> "MappingObjective[Any, Any]":
+        """Instantiates the corresponding MappingObjective class."""
+        pass
+
 
 class MappingObjective[MAPPING_STATE: MappingState, MAPPING_STATE_BASELINE: MappingState](ABC):
     """

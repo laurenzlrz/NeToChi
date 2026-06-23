@@ -2,19 +2,17 @@ from typing import Any, cast
 import numpy as np
 import graph_tool.all as gt
 from scipy.optimize import quadratic_assignment
-from pydantic import BaseModel, ConfigDict
-
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
 from netochi.input_generator.interfaces import MosaicMappingInput, MosaicAssignment
 
 
-class QAPMapper(BaseModel, BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
+class QAPMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
     """
     Mapper based on the Quadratic Assignment Problem (QAP).
-    
-    Refactored to follow the "Großprojekt" Pydantic standard.
+
+    Refactored to be a plain Python class.
     """
-    model_config = ConfigDict(frozen=True)
+
 
     def run(self, mapping_input: MosaicMappingInput) -> MosaicNetworkMappingState:
         """Find core and address allocations using QAP FAQ heuristic."""

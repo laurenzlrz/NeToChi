@@ -72,17 +72,30 @@ def plot_clustering_comparison(
     )
 
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict
+import icontract
 from netochi.pipeline.interfaces import PipelineConsumer
-from netochi.pipeline.config import PipelineOutputConfig
+from netochi.pipeline.config import PipelineOutput
 from netochi.pipeline.results import PipelineSummary
 from netochi.mapping.interfaces import BaseMosaicMappingState
 from netochi.input_generator.interfaces import MosaicMappingInput
-from typing import Any
 
-class ClusteringVisualizer(BaseModel, PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]):
-    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
-    config: PipelineOutputConfig
+
+class ClusteringVisualizerConfig(BaseModel):
+    model_config = ConfigDict(strict=True, arbitrary_types_allowed=True)
+
+    pipeline_output: PipelineOutput = Field(..., description="Pipeline output manager.")
+
+    def create(self) -> "ClusteringVisualizer":
+        return ClusteringVisualizer(config=self)
+
+
+class ClusteringVisualizer(PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]):
+
+    @icontract.require(lambda config: isinstance(config, ClusteringVisualizerConfig))
+    def __init__(self, config: ClusteringVisualizerConfig) -> None:
+        self.config = config
+        self.pipeline_output = config.pipeline_output
 
     def consume(self, data: PipelineSummary[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]) -> None:
         for res in data.results:
@@ -105,4 +118,6 @@ class ClusteringVisualizer(BaseModel, PipelineConsumer[MosaicMappingInput, BaseM
                     def close(self):
                         pass
 
-                self.config.save_plot(GraphToolPlotWrapper(), name)
+                self.pipeline_output.save_plot(GraphToolPlotWrapper(), name)
+
+

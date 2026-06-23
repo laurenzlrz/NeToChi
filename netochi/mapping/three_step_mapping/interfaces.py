@@ -1,60 +1,71 @@
-
 from abc import ABC, abstractmethod
 from typing import Any
-from dataclasses import dataclass
 
 import numpy as np
 import numpy.typing as npt
-from hamcrest.core import description
-from pydantic import BaseModel, Field, model_validator, ConfigDict
+import icontract
 
 from netochi.definitions.exceptions import DimensionError
 from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput, HWMappingInput
+from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
+from netochi.definitions.freezable import freezable, Freezable
 
 import graph_tool as gt
-
-from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 
 
 # =============== Cluster Output ====================
 
-class ClusterOutput(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True, frozen=True)
+@freezable
+@icontract.invariant(lambda self: self.validate())
+class ClusterOutput(Freezable):
+    def __init__(self, cluster_assignment: npt.NDArray[np.int_], num_clusters: int) -> None:
+        self.cluster_assignment = cluster_assignment
+        self.num_clusters = num_clusters
+        if self.__class__ is ClusterOutput:
+            self.freeze()
 
-    cluster_assignment: npt.NDArray[np.int_] = Field(description="Node ID -> Cluster/Core ID")
-    num_clusters: int = Field(ge=0, description="number of clusters on LOWEST level (= nr cores)")
-
-    @model_validator(mode="after")
-    def validate_hierarchy(self: "ClusterOutput") -> "ClusterOutput":
-        if not (self.cluster_assignment.ndim == 1):
-           raise DimensionError(f"cluster_assignment must be 1D and cluster_parent length {self.cluster_assignment.shape[0]} must match num_clusters {self.num_clusters}")
-        higher_than_cluster_id = np.max(self.cluster_assignment)
+    def validate(self) -> bool:
+        if self.cluster_assignment.ndim != 1:
+            raise DimensionError(f"cluster_assignment must be 1D and cluster_parent length {self.cluster_assignment.shape[0]} must match num_clusters {self.num_clusters}")
+        higher_than_cluster_id = np.max(self.cluster_assignment) if self.cluster_assignment.size > 0 else -1
         if higher_than_cluster_id >= self.num_clusters:
             raise DimensionError(f"cluster_assignment contains cluster IDs higher than num_clusters. "
                                  f"Max cluster ID: {higher_than_cluster_id}, num_clusters: {self.num_clusters}")
-        return self
+        return True
 
+
+@freezable
+@icontract.invariant(lambda self: self.validate())
 class HierarchicalClusterOutput(ClusterOutput):
-    cluster_parent: npt.NDArray[np.int_] = Field(description="Cluster ID -> Parent Cluster ID (-1 for root)")
+    def __init__(self, cluster_assignment: npt.NDArray[np.int_], num_clusters: int, cluster_parent: npt.NDArray[np.int_]) -> None:
+        super().__init__(cluster_assignment, num_clusters)
+        self.cluster_parent = cluster_parent
+        if self.__class__ is HierarchicalClusterOutput:
+            self.freeze()
 
-    @model_validator(mode="after")
-    def validate_hierarchy(self: "HierarchicalClusterOutput") -> "HierarchicalClusterOutput":
+    def validate(self) -> bool:
+        super().validate()
         if not (self.cluster_parent.ndim == 1 and len(self.cluster_parent) == self.num_clusters):
              raise DimensionError(f"cluster_parent must be 1D and cluster_parent length {self.cluster_parent.shape[0]} must match num_clusters {self.num_clusters}")
-        return self
+        return True
 
+
+@freezable
+@icontract.invariant(lambda self: self.validate())
 class ClusterAndHwOutput(ClusterOutput):
-    hw: MosaicHardwareConfig = Field(description="Hardware configuration that the clustering fits on")
+    def __init__(self, cluster_assignment: npt.NDArray[np.int_], num_clusters: int, hw: MosaicHardwareConfig) -> None:
+        super().__init__(cluster_assignment, num_clusters)
+        self.hw = hw
+        if self.__class__ is ClusterAndHwOutput:
+            self.freeze()
 
-    @model_validator(mode="after")
-    def validate_hardware_fit(self: "ClusterAndHwOutput") -> "ClusterAndHwOutput":
+    def validate(self) -> bool:
+        super().validate()
         if self.num_clusters > self.hw.total_cores:
             raise DimensionError(f"Number of clusters {self.num_clusters} exceeds total cores {self.hw.total_cores} in hardware config.")
 
-        cluster_sizes = np.bincount(self.cluster_assignment, minlength=self.num_clusters)
-
-        # Find the largest cluster size
-        max_cluster_size = np.max(cluster_sizes)
+        cluster_sizes = np.bincount(self.cluster_assignment, minlength=self.num_clusters) if self.cluster_assignment.size > 0 else np.array([], dtype=np.int_)
+        max_cluster_size = np.max(cluster_sizes) if cluster_sizes.size > 0 else 0
 
         # Check against the hardware constraint
         if max_cluster_size > self.hw.neurons_per_core:
@@ -63,88 +74,80 @@ class ClusterAndHwOutput(ClusterOutput):
                 f"of neurons per core ({self.hw.neurons_per_core})."
             )
 
-        return self
+        return True
 
 
 # =============== Clusterer ========================
 
-class Clusterer[ANY_MAPPING_INPUT: MappingInput](BaseModel, ABC):
-    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
-
+class Clusterer[ANY_MAPPING_INPUT: MappingInput](ABC):
     @abstractmethod
     def cluster(self, input_data: ANY_MAPPING_INPUT) -> ClusterOutput:
         pass
 
 
-class HierarchicalClusterer(BaseModel, ABC):
+class HierarchicalClusterer(ABC):
     """
     infers a hierarchical clustering
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
-
     @abstractmethod
     def cluster(self, input_data: MappingInput) -> HierarchicalClusterOutput:
         pass
 
-class ClustererOutputsHw[ANY_MAPPING_INPUT: MappingInput](Clusterer[ANY_MAPPING_INPUT]):
+
+class ClustererOutputsHw[ANY_MAPPING_INPUT: MappingInput](Clusterer[ANY_MAPPING_INPUT], ABC):
     """
     outputs a clustering that fits onto the given hardware
     """
-
     @abstractmethod
     def cluster(self, input_data: ANY_MAPPING_INPUT) -> ClusterAndHwOutput:
         pass
 
 
-class ClustererFixedHw[WITH_HW_INPUT: HWMappingInput](ClustererOutputsHw[WITH_HW_INPUT]):
+class ClustererFixedHw[WITH_HW_INPUT: HWMappingInput](ClustererOutputsHw[WITH_HW_INPUT], ABC):
     """
     outputs a clustering that fits onto the given hardware
     """
-
     @abstractmethod
     def cluster(self, input_data: WITH_HW_INPUT) -> ClusterAndHwOutput:
         pass
 
-class ClustererInferHw(ClustererOutputsHw[MappingInput]):
+
+class ClustererInferHw(ClustererOutputsHw[MappingInput], ABC):
     """
     outputs a clustering and the corresponding hardware
     Clustering needs to fit on the outputted hardware!!!
     """
-
     @abstractmethod
     def cluster(self, input_data: MappingInput) -> ClusterAndHwOutput:
         pass
 
-class ClusteringAdapter(BaseModel, ):
+
+class ClusteringAdapter(ABC):
     """
     given a hierarchical clustering, it infers hardware and adapts clustering so that it fits the hardware
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
-
     @abstractmethod
     def adapt_clustering(self, clustering: HierarchicalClusterOutput) -> ClusterAndHwOutput:
         pass
 
-class ClusteringAdapterFixedHw(BaseModel, ):
+
+class ClusteringAdapterFixedHw(ABC):
     """
     given a hierarchical clustering, and hardware, it adapts clustering so that it fits the hardware
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
-
     @abstractmethod
     def adapt_clustering(self, clustering: HierarchicalClusterOutput, hw_config: MosaicHardwareConfig) -> ClusterAndHwOutput:
         pass
 
+
 # ============== Local Address Assigner =======================
 
-class LocalAddressAssigner(BaseModel, ABC):
+class LocalAddressAssigner(ABC):
     """
     given a clustering and a hardware, assigns each neuron a local index within the core
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
-
     @abstractmethod
-    def assign_addresses(self, graph: gt.Graph, clustering: ClusterAndHwOutput) -> npt.NDArray[np.int_] :
+    def assign_addresses(self, graph: gt.Graph, clustering: ClusterAndHwOutput) -> npt.NDArray[np.int_]:
         """
         neuron_id -> local_idx
         """
@@ -153,13 +156,10 @@ class LocalAddressAssigner(BaseModel, ABC):
 
 # ============== Slice Assigner =======================
 
-class SliceAssigner(BaseModel, ABC):
+class SliceAssigner(ABC):
     """
     given a clustering, a hardware, and a local address assignment, assigns each (neuron,dist) a slice index
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
-
     @abstractmethod
     def assign_slices(self, clustering: ClusterAndHwOutput, graph: gt.Graph, local_assignment: npt.NDArray[np.int_]) -> np.ndarray[tuple[Any, Any], np.dtype[np.int_]]:
         pass
-

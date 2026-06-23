@@ -3,44 +3,83 @@ from typing import TypeVar, Optional, Any
 
 import numpy as np
 import numpy.typing as npt
-from pydantic import BaseModel, Field, ConfigDict, model_validator, PrivateAttr
+import icontract
 
+from netochi.definitions.freezable import freezable, Freezable
 from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput, HWMappingInput, MosaicAssignment
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 
-#TODO: Refactor init assignment to Assignment class, Mosaic Random Init to MosaicAssignment
 
 # -----------------------------------------------------------------------------
 # Base Mapping State Interfaces
 # -----------------------------------------------------------------------------
 
-class MappingState[ANY_MAPPING_INPUT: MappingInput, HW_CONFIG: Any](BaseModel):
+@freezable
+class MappingState[ANY_MAPPING_INPUT: MappingInput, HW_CONFIG: Any](Freezable):
     """Base class for all mapping results."""
-    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=False, strict=True, populate_by_name=True)
-    mapping_input: ANY_MAPPING_INPUT = Field(alias="_mapping_input", frozen=True)
+    
+    def __init__(
+        self,
+        mapping_input: Optional[ANY_MAPPING_INPUT] = None,
+        _mapping_input: Optional[ANY_MAPPING_INPUT] = None
+    ) -> None:
+        actual_input = mapping_input if mapping_input is not None else _mapping_input
+        if actual_input is None:
+            raise ValueError("mapping_input or _mapping_input must be provided.")
+        self.mapping_input = actual_input
+        if self.__class__ is MappingState:
+            self.freeze()
 
     @property
     @abstractmethod
     def hw_to_evaluate(self) -> HW_CONFIG:
         pass
 
+
+@freezable
 class HWNetworkMappingState[ANY_MAPPING_INPUT: MappingInput, INFERRED_HW_CONFIG: Any](MappingState[ANY_MAPPING_INPUT, INFERRED_HW_CONFIG]):
     """
     Base class for states that infer hardware. 
     Does not strictly require hardware parameters in input, but provides/infers them.
     """
-    inferred_hw: INFERRED_HW_CONFIG = Field(alias="_inferred_hw_config", frozen=False)
+    
+    def __init__(
+        self,
+        mapping_input: Optional[ANY_MAPPING_INPUT] = None,
+        _mapping_input: Optional[ANY_MAPPING_INPUT] = None,
+        inferred_hw: Optional[INFERRED_HW_CONFIG] = None,
+        _inferred_hw_config: Optional[INFERRED_HW_CONFIG] = None
+    ) -> None:
+        MappingState.__init__(self, mapping_input=mapping_input, _mapping_input=_mapping_input)
+        actual_hw = inferred_hw if inferred_hw is not None else _inferred_hw_config
+        if actual_hw is None:
+            raise ValueError("inferred_hw or _inferred_hw_config must be provided.")
+        self.inferred_hw = actual_hw
+        if self.__class__ is HWNetworkMappingState:
+            self.freeze()
 
     @property
     def hw_to_evaluate(self) -> INFERRED_HW_CONFIG:
         """For HW-aware mappers, the hardware to evaluate is the inferred hardware."""
         return self.inferred_hw
 
+
+@freezable
 class NetworkAssignmentState[WITH_HW_INPUT: HWMappingInput, GT_HW_CONFIG: Any](MappingState[WITH_HW_INPUT, GT_HW_CONFIG]):
     """
     State for hardware-aware partitioning.
     Requires specific hardware parameters in the input (WITH_HW_INPUT).
     """
+    
+    def __init__(
+        self,
+        mapping_input: Optional[WITH_HW_INPUT] = None,
+        _mapping_input: Optional[WITH_HW_INPUT] = None
+    ) -> None:
+        MappingState.__init__(self, mapping_input=mapping_input, _mapping_input=_mapping_input)
+        if self.__class__ is NetworkAssignmentState:
+            self.freeze()
+
     @property
     def gt_hw(self) -> GT_HW_CONFIG:
         """Convenience property to access hardware config directly from the input."""
@@ -51,44 +90,70 @@ class NetworkAssignmentState[WITH_HW_INPUT: HWMappingInput, GT_HW_CONFIG: Any](M
         """For hardware-aware mappers, the hardware to evaluate is the ground truth hardware from the input."""
         return self.gt_hw
 
+
 # -----------------------------------------------------------------------------
 # Mosaic Specific Interfaces
 # -----------------------------------------------------------------------------
 
+@freezable
 class BaseMosaicMappingState[ANY_MAPPING_INPUT: MappingInput](MappingState[ANY_MAPPING_INPUT, MosaicHardwareConfig]):
     """
-    Abstract base state for all Mosaic mappers.  Infers HW
+    Abstract base state for all Mosaic mappers. Infers HW.
     Contains the assignment arrays and uses HWNetworkMappingState to ensure mapping_input exists.
     """
-    assignment: MosaicAssignment = Field(description="The current found assignment of neurons to cores and slices.")
+    
+    def __init__(
+        self,
+        assignment: MosaicAssignment,
+        mapping_input: Optional[ANY_MAPPING_INPUT] = None,
+        _mapping_input: Optional[ANY_MAPPING_INPUT] = None
+    ) -> None:
+        MappingState.__init__(self, mapping_input=mapping_input, _mapping_input=_mapping_input)
+        self.assignment = assignment
+        if self.__class__ is BaseMosaicMappingState:
+            self.freeze()
 
     @property
-    def c(self) -> npt.NDArray[np.int_]: return self.assignment.neuron_core_pre_assignment
+    def c(self) -> npt.NDArray[np.int_]:
+        return self.assignment.neuron_core_pre_assignment
 
     @property
-    def x(self) -> npt.NDArray[np.int_]: return self.assignment.neuron_idx_pre_assignment
+    def x(self) -> npt.NDArray[np.int_]:
+        return self.assignment.neuron_idx_pre_assignment
     
     @property
-    def s(self) -> np.ndarray[tuple[Any, Any], np.dtype[np.int_]]: return self.assignment.neuron_slice_assignment
+    def s(self) -> np.ndarray[tuple[Any, Any], np.dtype[np.int_]]:
+        return self.assignment.neuron_slice_assignment
 
 
+@freezable
+@icontract.invariant(lambda self: self.validate())
 class MosaicNetworkMappingState(BaseMosaicMappingState[MosaicMappingInput], NetworkAssignmentState[MosaicMappingInput, MosaicHardwareConfig]):
     """
     State for pure partitioning/assignment mappers. 
     Input MUST contain the hardware configuration (MosaicMappingInput).
     """
 
-    @model_validator(mode="after")
-    def validate_assignment_to_hw(self) -> 'MosaicNetworkMappingState':
-        self.mapping_input.hw_config.verify_assignment(self.assignment)
-        return self
+    def __init__(
+        self,
+        assignment: MosaicAssignment,
+        mapping_input: Optional[MosaicMappingInput] = None,
+        _mapping_input: Optional[MosaicMappingInput] = None
+    ) -> None:
+        BaseMosaicMappingState.__init__(self, mapping_input=mapping_input, _mapping_input=_mapping_input, assignment=assignment)
+        NetworkAssignmentState.__init__(self, mapping_input=mapping_input, _mapping_input=_mapping_input)
+        if self.__class__ is MosaicNetworkMappingState:
+            self.freeze()
 
+    def validate(self) -> bool:
+        self.mapping_input.hw_config.verify_assignment(self.assignment)
+        return True
 
     @classmethod
     def from_input_zero(cls, mapping_input: MosaicMappingInput) -> 'MosaicNetworkMappingState':
         hw = mapping_input.hw_config
         return cls(
-            _mapping_input=mapping_input,
+            mapping_input=mapping_input,
             assignment=MosaicAssignment.spread(num_neurons=mapping_input.graph.num_vertices(), hw=hw)
         )
 
@@ -96,16 +161,36 @@ class MosaicNetworkMappingState(BaseMosaicMappingState[MosaicMappingInput], Netw
     def from_input_random(cls, mapping_input: MosaicMappingInput, seed: Optional[int] = None) -> 'MosaicNetworkMappingState':
         hw = mapping_input.hw_config
         return cls(
-            _mapping_input=mapping_input,
+            mapping_input=mapping_input,
             assignment=MosaicAssignment.random(num_neurons=mapping_input.graph.num_vertices(), hw=hw, seed=seed)
         )
 
 
+@freezable
 class MosaicHWMappingState[ANY_MAPPING_INPUT: MappingInput](BaseMosaicMappingState[ANY_MAPPING_INPUT], HWNetworkMappingState[ANY_MAPPING_INPUT, MosaicHardwareConfig]):
     """
     State for joint inference mappers. 
     Input is purely the network (MappingInput), but output includes the optimized hardware.
     """
+
+    def __init__(
+        self,
+        assignment: MosaicAssignment,
+        mapping_input: Optional[ANY_MAPPING_INPUT] = None,
+        _mapping_input: Optional[ANY_MAPPING_INPUT] = None,
+        inferred_hw: Optional[MosaicHardwareConfig] = None,
+        _inferred_hw_config: Optional[MosaicHardwareConfig] = None
+    ) -> None:
+        BaseMosaicMappingState.__init__(self, mapping_input=mapping_input, _mapping_input=_mapping_input, assignment=assignment)
+        HWNetworkMappingState.__init__(
+            self,
+            mapping_input=mapping_input,
+            _mapping_input=_mapping_input,
+            inferred_hw=inferred_hw,
+            _inferred_hw_config=_inferred_hw_config
+        )
+        if self.__class__ is MosaicHWMappingState:
+            self.freeze()
 
     @classmethod
     def from_guess_zero(cls, mapping_input: ANY_MAPPING_INPUT, initial_hw_guess: MosaicHardwareConfig) -> 'MosaicHWMappingState[ANY_MAPPING_INPUT]':
@@ -114,10 +199,10 @@ class MosaicHWMappingState[ANY_MAPPING_INPUT: MappingInput](BaseMosaicMappingSta
         This guess is generated by the mapper and does NOT leak ground truth information.
         """
         return cls(
-            _mapping_input=mapping_input,
-            _inferred_hw_config=initial_hw_guess,
+            mapping_input=mapping_input,
+            inferred_hw=initial_hw_guess,
             assignment=MosaicAssignment.spread(
-                hw = initial_hw_guess,
+                hw=initial_hw_guess,
                 num_neurons=mapping_input.graph.num_vertices()
             )
         )
@@ -125,8 +210,8 @@ class MosaicHWMappingState[ANY_MAPPING_INPUT: MappingInput](BaseMosaicMappingSta
     @classmethod
     def from_guess_random(cls, mapping_input: ANY_MAPPING_INPUT, initial_hw_guess: MosaicHardwareConfig, seed: Optional[int]) -> 'MosaicHWMappingState[ANY_MAPPING_INPUT]':
         return cls(
-            _mapping_input=mapping_input,
-            _inferred_hw_config=initial_hw_guess,
+            mapping_input=mapping_input,
+            inferred_hw=initial_hw_guess,
             assignment=MosaicAssignment.random(num_neurons=mapping_input.graph.num_vertices(), hw=initial_hw_guess, seed=seed)
         )
 

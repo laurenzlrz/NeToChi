@@ -1,10 +1,14 @@
-from netochi.mapping.interfaces import MosaicHWMappingState
-from typing import Any
-from netochi.objectives.interfaces import MappingObjective
+from pydantic import BaseModel
+import icontract
 from typing import Any
 
 from netochi.mapping.interfaces import MosaicHWMappingState
-from netochi.objectives.interfaces import MappingObjective
+from netochi.objectives.interfaces import MappingObjective, AbstractObjectiveConfig
+
+
+class MosaicHardwareSizeObjectiveConfig(AbstractObjectiveConfig):
+    def create(self) -> "MosaicHardwareSizeObjective":
+        return MosaicHardwareSizeObjective(config=self)
 
 
 class MosaicHardwareSizeObjective(MappingObjective[MosaicHWMappingState[Any], MosaicHWMappingState[Any]]):
@@ -12,6 +16,10 @@ class MosaicHardwareSizeObjective(MappingObjective[MosaicHWMappingState[Any], Mo
     Objective that measures the hardware size (core count).
     Supports relative evaluation against a baseline.
     """
+
+    @icontract.require(lambda config: isinstance(config, MosaicHardwareSizeObjectiveConfig))
+    def __init__(self, config: MosaicHardwareSizeObjectiveConfig) -> None:
+        self.config = config
     def evaluate(self, state: MosaicHWMappingState[Any]) -> float:
         """Returns the total number of cores in the hardware configuration."""
         # TODO: Improve calculation to mirror more closely hardware costs

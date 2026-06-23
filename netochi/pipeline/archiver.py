@@ -1,28 +1,42 @@
 
 from pydantic import BaseModel, Field, ConfigDict
 import pandas as pd
-
 from typing import Any
-from netochi.pipeline.config import PipelineOutputConfig
+import icontract
+
+from netochi.pipeline.config import PipelineOutput
 from netochi.pipeline.interfaces import PipelineConsumer
 from netochi.input_generator.interfaces import MappingInput
 from netochi.mapping.interfaces import MappingState
 from netochi.pipeline.results import PipelineSummary
 
 
-class SummaryArchiver(BaseModel, PipelineConsumer[MappingInput, MappingState[Any, Any], MappingState[Any, Any]]):
+class SummaryArchiverConfig(BaseModel):
+    model_config = ConfigDict(strict=True, arbitrary_types_allowed=True)
+
+    pipeline_output: PipelineOutput = Field(..., description="Pipeline output manager.")
+    csv_filename: str = Field(default="results.csv", description="Filename for the archived results CSV.")
+
+    def create(self) -> "SummaryArchiver":
+        return SummaryArchiver(config=self)
+
+
+class SummaryArchiver(PipelineConsumer[MappingInput, MappingState[Any, Any], MappingState[Any, Any]]):
     """
     Handles the generation and printing of experiment reports.
     Automatically discovers metrics and formats tables dynamically.
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
-    config: PipelineOutputConfig = Field(description="Configuration for report output formatting and behavior.")
 
-    csv_filename: str = Field(default="results.csv")
+    @icontract.require(lambda config: isinstance(config, SummaryArchiverConfig))
+    def __init__(self, config: SummaryArchiverConfig) -> None:
+        self.config = config
+        self.pipeline_output = config.pipeline_output
+        self.csv_filename = config.csv_filename
 
     def consume(self, data: PipelineSummary) -> None:
         df = self.create_summary_dataframe(data)
-        self.config.save_to_csv(df, self.csv_filename)
+        self.pipeline_output.save_to_csv(df, self.csv_filename)
+
 
     def create_summary_dataframe(self, summary: PipelineSummary) -> pd.DataFrame:
         """

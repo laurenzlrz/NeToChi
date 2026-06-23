@@ -1,29 +1,40 @@
+from pydantic import BaseModel, Field, ConfigDict
 import networkx as nx
-from pydantic import BaseModel, Field, ConfigDict, validate_call
+import icontract
 
 from netochi.input_generator.interfaces import MosaicMappingInput, HWBaseInputFactory
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.utils import nx_to_gt
 
 
-class ErdosRenyiFactory(BaseModel, HWBaseInputFactory[MosaicMappingInput]):
-    """Factory generating Erdős-Rényi networks for a fixed hardware configuration."""
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-        frozen=True,
-        strict=True
-    )
+class ErdosRenyiConfig(BaseModel):
+    model_config = ConfigDict(strict=True, arbitrary_types_allowed=True)
 
-    hw_config: MosaicHardwareConfig
+    hw_config: MosaicHardwareConfig = Field(..., description="Hardware configuration.")
     n: int = Field(gt=0, description="Number of nodes.")
     probability: float = Field(ge=0, le=1, description="Edge creation probability.")
     seed: int = Field(default=42, description="Random seed for reproducibility.")
+
+    def create(self) -> "ErdosRenyiFactory":
+        return ErdosRenyiFactory(config=self)
+
+
+class ErdosRenyiFactory(HWBaseInputFactory[MosaicMappingInput]):
+    """Factory generating Erdős-Rényi networks for a fixed hardware configuration."""
+
+    @icontract.require(lambda config: isinstance(config, ErdosRenyiConfig))
+    def __init__(self, config: ErdosRenyiConfig) -> None:
+        self.config = config
+        self.hw_config = config.hw_config
+        self.n = config.n
+        self.probability = config.probability
+        self.seed = config.seed
+
 
     def get_name(self) -> str:
         """Returns a concise name reflecting size and probability."""
         return f"ER_{self.n}n_p{self.probability}"
 
-    @validate_call
     def generate(self) -> MosaicMappingInput:
         """Generate a single MosaicMappingInput with an Erdős-Rényi graph."""
         graph = nx.fast_gnp_random_graph(self.n, self.probability, seed=self.seed, directed=True)

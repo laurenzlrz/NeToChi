@@ -9,16 +9,30 @@ import matplotlib.pyplot as plt # type: ignore[import-untyped]
 import numpy as np
 from pathlib import Path
 from typing import Dict, Set, List, Any
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict
+import icontract
 from netochi.pipeline.results import PipelineSummary, ExperimentResult
-from netochi.pipeline.config import PipelineOutputConfig
+from netochi.pipeline.config import PipelineOutput
 
-class PipelinePlotter(BaseModel, PipelineConsumer[MappingInput, MappingState[Any, Any], MappingState[Any, Any]]):
+
+class PipelinePlotterConfig(BaseModel):
+    model_config = ConfigDict(strict=True, arbitrary_types_allowed=True)
+
+    pipeline_output: PipelineOutput = Field(..., description="Pipeline output manager.")
+
+    def create(self) -> "PipelinePlotter":
+        return PipelinePlotter(config=self)
+
+
+class PipelinePlotter(PipelineConsumer[MappingInput, MappingState[Any, Any], MappingState[Any, Any]]):
     """
     Generates interpretable plots from pipeline results.
     """
-    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, strict=True)
-    config: PipelineOutputConfig
+
+    @icontract.require(lambda config: isinstance(config, PipelinePlotterConfig))
+    def __init__(self, config: PipelinePlotterConfig) -> None:
+        self.config = config
+        self.pipeline_output = config.pipeline_output
 
     def consume(self, data: PipelineSummary) -> None:
         self.plot_all(data)
@@ -84,7 +98,7 @@ class PipelinePlotter(BaseModel, PipelineConsumer[MappingInput, MappingState[Any
         for i, mapper in enumerate(sorted_mappers):
             values = [data[gt].get(mapper, 0.0) for gt in graph_types]
             offset = (i - (len(sorted_mappers) - 1) / 2) * width
-            ax.bar(x + offset, values, width, label=mapper, color=self.config.palette[i % len(self.config.palette)])
+            ax.bar(x + offset, values, width, label=mapper, color=self.pipeline_output.palette[i % len(self.pipeline_output.palette)])
             
         ax.set_ylabel("Metric Value")
         suffix = " (Absolute)" if is_raw else " (Relative to Baseline)"
@@ -96,8 +110,8 @@ class PipelinePlotter(BaseModel, PipelineConsumer[MappingInput, MappingState[Any
         
         plt.tight_layout()
         suffix_file = "raw" if is_raw else "rel"
-        filename = self.config.plot_filename_pattern.format(metric=metric) + f"_{suffix_file}"
-        self.config.save_plot(plt, filename)
+        filename = self.pipeline_output.plot_filename_pattern.format(metric=metric) + f"_{suffix_file}"
+        self.pipeline_output.save_plot(plt, filename)
 
     def _plot_execution_times(self, summary: PipelineSummary) -> None:
         # Organize data: mapper -> average execution time
@@ -115,7 +129,7 @@ class PipelinePlotter(BaseModel, PipelineConsumer[MappingInput, MappingState[Any
         
         fig, ax = plt.subplots(figsize=(10, 6))
         ax: Any = ax
-        bars = ax.barh(sorted_mappers, avg_times, color=self.config.palette[0])
+        bars = ax.barh(sorted_mappers, avg_times, color=self.pipeline_output.palette[0])
         
         ax.set_xlabel("Average Execution Time (s)")
         ax.set_title("Mapper Performance (Lower is Faster)", fontsize=14, fontweight='bold')
@@ -127,7 +141,7 @@ class PipelinePlotter(BaseModel, PipelineConsumer[MappingInput, MappingState[Any
             ax.text(width, bar.get_y() + bar.get_height()/2, f' {width:.2f}s', va='center')
             
         plt.tight_layout()
-        self.config.save_plot(plt, "execution_times")
+        self.pipeline_output.save_plot(plt, "execution_times")
 
     def _plot_individual_networks(self, summary: PipelineSummary) -> None:
         """
@@ -157,7 +171,7 @@ class PipelinePlotter(BaseModel, PipelineConsumer[MappingInput, MappingState[Any
                 
                 fig, ax = plt.subplots(figsize=(10, 6))
                 ax: Any = ax
-                bars = ax.bar(mappers, values, color=self.config.palette[:len(mappers)])
+                bars = ax.bar(mappers, values, color=self.pipeline_output.palette[:len(mappers)])
                 
                 ax.set_ylabel(metric)
                 ax.set_title(f"Network: {ident}\nMetric: {metric}", fontsize=10)
@@ -171,4 +185,4 @@ class PipelinePlotter(BaseModel, PipelineConsumer[MappingInput, MappingState[Any
                 plt.tight_layout()
                 safe_ident = ident.replace(" ", "_").replace(":", "-").replace("|", "_")[:50]
                 filename = f"net_{safe_ident}_{metric}"
-                self.config.save_plot(plt, filename)
+                self.pipeline_output.save_plot(plt, filename)

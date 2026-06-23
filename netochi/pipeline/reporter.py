@@ -1,8 +1,8 @@
 from typing import List, Set, Dict, Any
+from pydantic import BaseModel, ConfigDict
+import icontract
 
-from pydantic import BaseModel, Field, ConfigDict
-
-from netochi.pipeline.config import PipelineOutputConfig
+from netochi.pipeline.config import PipelineOutput
 from netochi.pipeline.interfaces import PipelineConsumer
 from netochi.input_generator.interfaces import MappingInput
 from netochi.mapping.interfaces import MappingState
@@ -11,13 +11,28 @@ from netochi.definitions.constants import KEY_GRAPH_TYPE, KEY_UNKNOWN, REPORT_DI
     REPORT_HEADER_BASELINE, REPORT_HEADER_PURE
 
 
-class SummaryReporter(BaseModel, PipelineConsumer[MappingInput, MappingState[Any, Any], MappingState[Any, Any]]):
+from pydantic import Field
+
+
+class SummaryReporterConfig(BaseModel):
+    model_config = ConfigDict(strict=True, arbitrary_types_allowed=True)
+
+    pipeline_output: PipelineOutput = Field(..., description="Pipeline output manager.")
+
+    def create(self) -> "SummaryReporter":
+        return SummaryReporter(config=self)
+
+
+class SummaryReporter(PipelineConsumer[MappingInput, MappingState[Any, Any], MappingState[Any, Any]]):
     """
     Handles the generation and printing of experiment reports.
     Automatically discovers metrics and formats tables dynamically.
     """
-    model_config = ConfigDict(arbitrary_types_allowed=True, strict=True)
-    config: PipelineOutputConfig = Field(description="Configuration for report output formatting and behavior.")
+
+    @icontract.require(lambda config: isinstance(config, SummaryReporterConfig))
+    def __init__(self, config: SummaryReporterConfig) -> None:
+        self.config = config
+        self.pipeline_output = config.pipeline_output
 
     def consume(self, data: PipelineSummary) -> None:
         self.generate_report_string(data)
@@ -27,7 +42,7 @@ class SummaryReporter(BaseModel, PipelineConsumer[MappingInput, MappingState[Any
         Generates the full summary report as a string.
         """
         if not summary.results:
-            self.config.print_console("\nNo results to report.")
+            self.pipeline_output.print_console("\nNo results to report.")
 
         report_lines = []
         all_metric_names = SummaryReporter._discover_metrics(summary.results)
@@ -50,7 +65,8 @@ class SummaryReporter(BaseModel, PipelineConsumer[MappingInput, MappingState[Any
         report_lines.append("Experiment Complete.")
 
         final_report_str = "\n".join(report_lines)
-        self.config.print_console(final_report_str, "summary_report")
+        self.pipeline_output.print_console(final_report_str, "summary_report")
+
 
     def _get_table_string(self, results: List[ExperimentResult], metric_names: List[str], use_raw: bool) -> str:
         """

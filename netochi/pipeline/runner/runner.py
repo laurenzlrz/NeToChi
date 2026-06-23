@@ -2,7 +2,7 @@ import time
 from typing import List, Dict, Optional, Any, Sequence, TypeVar, Generic
 from pydantic import BaseModel, ConfigDict, Field
 
-from netochi.pipeline.config import PipelineOutputConfig
+from netochi.pipeline.config import PipelineOutput
 
 from netochi.definitions.generics import Input_co, MappingState_co, BaselineState_co
 from netochi.mapping.interfaces import MappingState
@@ -64,7 +64,7 @@ class ExperimentTaskBase(BaseModel, Generic[Input_co, MappingState_co, BaselineS
         description="List of input factories to generate mapping inputs.")
     evaluator_mapper_bundles: Sequence[ExperimentTaskRun[Any, Any, Any]] = Field(
         description="Mapping of mappers to their corresponding evaluator bundles.")
-    config: PipelineOutputConfig = Field(description="Configuration for pipeline outputs.")
+    config: PipelineOutput = Field(description="Configuration for pipeline outputs.")
 
     def run(self) -> List[ExperimentResult]:
         results: List[ExperimentResult] = []
@@ -97,7 +97,7 @@ class TaskBundle(BaseModel, Generic[Input_co, MappingState_co, BaselineState_co]
         description="List of experiment tasks to execute in the pipeline.")
     consumer: Sequence[PipelineConsumer[Any, Any, Any]] = Field(
         description="List of consumers to process the pipeline summary after execution.")
-    config: PipelineOutputConfig = Field(description="Configuration for pipeline outputs.")
+    config: PipelineOutput = Field(description="Configuration for pipeline outputs.")
 
     def run(self):
         results = []
