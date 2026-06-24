@@ -114,6 +114,7 @@ class MosaicMappingInput(HWMappingInput[MosaicHardwareConfig]):
         id: str = "MappingInputPlaceholder"
     ) -> None:
         super().__init__(graph, descriptions, hw_config, id)
+        self.unfreeze()
         self.assignment = assignment
         self.freeze()
 

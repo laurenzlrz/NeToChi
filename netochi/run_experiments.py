@@ -49,6 +49,7 @@ from netochi.visualization.visualize_mapping_output import MappingOutputVisualiz
 from netochi.visualization.visualize_routing_hierarchy import RoutingHierarchyVisualizerConfig
 
 # ======================= CONFIGURE PIPELINE HERE =============================
+PIPELINE_OUTPUT = PipelineOutputConfig().create()
 
 HW_SMALL = MosaicHardwareConfig(
     nodes_per_router=2,
@@ -70,19 +71,16 @@ HW_CONFIGS = [
 ]
 
 MAPPERS = [
-    SimAnnealingIHWConfig(time_limit=2.0).create(),
+    SimAnnealingIHWConfig(time_limit=2.0, pipeline_output=PIPELINE_OUTPUT).create(),
     #SimAnnealingMapperConfig().create(),
     #QAPPcaOptMapperConfig().create(),
     RandomMapperConfig().create(),
     #GreedyMapperConfig().create(),
     MosaicGroundTruthBaselineProviderConfig().create()
-
     #ILPMapperConfig().create(),
 ]
 
 SEED = 42
-
-PIPELINE_OUTPUT = PipelineOutputConfig().create()
 
 HOOKS = [
     ValidatorConfig(pipeline_output=PIPELINE_OUTPUT).create()

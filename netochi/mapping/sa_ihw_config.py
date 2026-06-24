@@ -1,10 +1,17 @@
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
+
+from netochi.pipeline.config import PipelineOutput
+
 
 class SimAnnealingIHWConfig(BaseModel):
     """
     Configuration for Inferred Hardware Simulated Annealing Mapper.
     """
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    pipeline_output: PipelineOutput = Field(..., description="Pipeline output configuration.")
+
     # Move Probabilities
     p_swap: float = Field(default=0.55, description="Probability of swapping two neurons.")
     p_move: float = Field(default=0.20, description="Probability of moving a neuron to an empty slot.")
@@ -24,7 +31,7 @@ class SimAnnealingIHWConfig(BaseModel):
     T_start: float = Field(default=50.0)
     T_min: float = Field(default=0.01)
     alpha_temp: float = Field(default=0.98)
-    steps_per_T: Optional[int] = Field(default=None)
+    steps_per_T: int = Field(default=10)
     time_limit: Optional[float] = Field(default=10, description="Time limit in seconds for simulated annealing.")
     slice_factor: int = Field(default=2)
     seed: Optional[int] = Field(default=42)

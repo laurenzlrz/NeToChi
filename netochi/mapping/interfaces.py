@@ -149,6 +149,7 @@ class MosaicNetworkMappingState(BaseMosaicMappingState[MosaicMappingInput], Netw
 
 
 @freezable
+@icontract.invariant(lambda self: self.validate())
 class MosaicHWMappingState[ANY_MAPPING_INPUT: MappingInput](BaseMosaicMappingState[ANY_MAPPING_INPUT], HWNetworkMappingState[ANY_MAPPING_INPUT, MosaicHardwareConfig]):
     """
     State for joint inference mappers. 
@@ -163,6 +164,10 @@ class MosaicHWMappingState[ANY_MAPPING_INPUT: MappingInput](BaseMosaicMappingSta
     ) -> None:
         BaseMosaicMappingState.__init__(self, assignment=assignment, mapping_input=mapping_input)
         HWNetworkMappingState.__init__(self, mapping_input=mapping_input, inferred_hw=inferred_hw)
+
+    def validate(self) -> bool:
+        self.inferred_hw.verify_assignment(self.assignment)
+        return True
 
     @classmethod
     def from_guess_zero(cls, mapping_input: ANY_MAPPING_INPUT, initial_hw_guess: MosaicHardwareConfig) -> 'MosaicHWMappingState[ANY_MAPPING_INPUT]':

@@ -12,7 +12,7 @@ from netochi.mapping.three_step_mapping.slice_assignment.delta_optimal_slice_ass
 class IHWMutation:
     """Base class for Inferred Hardware Mutations."""
     
-    def do(self, state: SAIHWState, slice_assigner: DeltaOptimalSliceAssigner, graph: gt.Graph) -> DeltaOptimalSliceAssigner:
+    def do(self, state: SAIHWState) -> DeltaOptimalSliceAssigner:
         raise NotImplementedError()
 
     def undo(self, state: SAIHWState, slice_assigner: DeltaOptimalSliceAssigner) -> DeltaOptimalSliceAssigner:
@@ -28,7 +28,10 @@ class IHWSwapMutation(IHWMutation):
         self.node_a = node_a
         self.node_b = node_b
 
-    def do(self, state: SAIHWState, slice_assigner: DeltaOptimalSliceAssigner, graph: gt.Graph) -> DeltaOptimalSliceAssigner:
+    def do(self, state: SAIHWState) -> DeltaOptimalSliceAssigner:
+        slice_assigner = state._slice_assigner
+        graph = state.mapping_input.graph
+
         core_a, local_a = int(state.c[self.node_a]), int(state.x[self.node_a])
         core_b, local_b = int(state.c[self.node_b]), int(state.x[self.node_b])
         
@@ -73,7 +76,10 @@ class IHWMoveMutation(IHWMutation):
         self.old_core: int = -1
         self.old_local: int = -1
 
-    def do(self, state: SAIHWState, slice_assigner: DeltaOptimalSliceAssigner, graph: gt.Graph) -> DeltaOptimalSliceAssigner:
+    def do(self, state: SAIHWState) -> DeltaOptimalSliceAssigner:
+        slice_assigner = state._slice_assigner
+        graph = state.mapping_input.graph
+
         self.old_core = int(state.c[self.node])
         self.old_local = int(state.x[self.node])
         
@@ -122,7 +128,10 @@ class IHWAddCoreMutation(IHWMutation):
         self.old_assignment: Optional[MosaicAssignment] = None
         self.old_assigner: Optional[DeltaOptimalSliceAssigner] = None
 
-    def do(self, state: SAIHWState, slice_assigner: DeltaOptimalSliceAssigner, graph: gt.Graph) -> DeltaOptimalSliceAssigner:
+    def do(self, state: SAIHWState) -> DeltaOptimalSliceAssigner:
+        slice_assigner = state._slice_assigner
+        graph = state.mapping_input.graph
+
         self.old_hw = state.hw_config
         self.old_assignment = state.assignment
         self.old_assigner = slice_assigner
@@ -182,7 +191,10 @@ class IHWRemoveCoreMutation(IHWMutation):
         self.old_assignment: Optional[MosaicAssignment] = None
         self.old_assigner: Optional[DeltaOptimalSliceAssigner] = None
 
-    def do(self, state: SAIHWState, slice_assigner: DeltaOptimalSliceAssigner, graph: gt.Graph) -> DeltaOptimalSliceAssigner:
+    def do(self, state: SAIHWState) -> DeltaOptimalSliceAssigner:
+        slice_assigner = state._slice_assigner
+        graph = state.mapping_input.graph
+
         self.old_assignment = state.assignment
         self.old_assigner = slice_assigner
 
@@ -242,7 +254,10 @@ class IHWIncrementNcMutation(IHWMutation):
         self.old_assignment: Optional[MosaicAssignment] = None
         self.old_assigner: Optional[DeltaOptimalSliceAssigner] = None
 
-    def do(self, state: SAIHWState, slice_assigner: DeltaOptimalSliceAssigner, graph: gt.Graph) -> DeltaOptimalSliceAssigner:
+    def do(self, state: SAIHWState) -> DeltaOptimalSliceAssigner:
+        slice_assigner = state._slice_assigner
+        graph = state.mapping_input.graph
+
         self.old_assignment = state.assignment
         self.old_assigner = slice_assigner
 
@@ -301,7 +316,10 @@ class IHWDecrementNcMutation(IHWMutation):
         self.old_assignment: Optional[MosaicAssignment] = None
         self.old_assigner: Optional[DeltaOptimalSliceAssigner] = None
 
-    def do(self, state: SAIHWState, slice_assigner: DeltaOptimalSliceAssigner, graph: gt.Graph) -> DeltaOptimalSliceAssigner:
+    def do(self, state: SAIHWState) -> DeltaOptimalSliceAssigner:
+        slice_assigner = state._slice_assigner
+        graph = state.mapping_input.graph
+
         self.old_assignment = state.assignment
         self.old_assigner = slice_assigner
 
@@ -374,7 +392,9 @@ class IHWSwapCoresMutation(IHWMutation):
         self.core_a = core_a
         self.core_b = core_b
 
-    def do(self, state: SAIHWState, slice_assigner: DeltaOptimalSliceAssigner, graph: gt.Graph) -> DeltaOptimalSliceAssigner:
+    def do(self, state: SAIHWState) -> DeltaOptimalSliceAssigner:
+        slice_assigner = state._slice_assigner
+        graph = state.mapping_input.graph
         mask_a = (state.c == self.core_a)
         mask_b = (state.c == self.core_b)
         
