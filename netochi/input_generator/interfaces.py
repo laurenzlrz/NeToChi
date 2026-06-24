@@ -8,6 +8,7 @@ import icontract
 
 from netochi.definitions.exceptions import DimensionError, InvalidAssignmentError
 from netochi.definitions.constants import INEQUAL_ASSIGNMENT_OBJECTS, TOO_MANY_NEURONS
+from netochi.definitions.icontract import func_ensure, Criticality
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.definitions.freezable import freezable, Freezable
 
@@ -32,8 +33,9 @@ class HWMappingInput[HW_CONFIG](MappingInput):
 
 
 @freezable
-@icontract.invariant(lambda self: self.validate())
 class MosaicAssignment(Freezable):
+
+    @func_ensure(lambda self: self.validate(), criticality=Criticality.MEDIUM)
     def __init__(
         self,
         hw: MosaicHardwareConfig,
@@ -103,8 +105,9 @@ class MosaicAssignment(Freezable):
 
 
 @freezable
-@icontract.invariant(lambda self: self.validate())
 class MosaicMappingInput(HWMappingInput[MosaicHardwareConfig]):
+
+    @func_ensure(lambda self: self.validate(), criticality=Criticality.MEDIUM)
     def __init__(
         self,
         graph: gt.Graph,

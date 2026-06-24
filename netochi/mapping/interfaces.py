@@ -6,6 +6,7 @@ import numpy.typing as npt
 import icontract
 
 from netochi.definitions.freezable import freezable, Freezable
+from netochi.definitions.icontract import class_invariant, Criticality, func_ensure
 from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput, HWMappingInput, MosaicAssignment
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 
@@ -113,13 +114,13 @@ class BaseMosaicMappingState[ANY_MAPPING_INPUT: MappingInput](MappingState[ANY_M
 
 
 @freezable
-@icontract.invariant(lambda self: self.validate())
 class MosaicNetworkMappingState(BaseMosaicMappingState[MosaicMappingInput], NetworkAssignmentState[MosaicMappingInput, MosaicHardwareConfig]):
     """
     State for pure partitioning/assignment mappers. 
     Input MUST contain the hardware configuration (MosaicMappingInput).
     """
 
+    @func_ensure(lambda self: self.validate(), criticality=Criticality.MEDIUM)
     def __init__(
         self,
         assignment: MosaicAssignment,
@@ -149,13 +150,13 @@ class MosaicNetworkMappingState(BaseMosaicMappingState[MosaicMappingInput], Netw
 
 
 @freezable
-@icontract.invariant(lambda self: self.validate())
 class MosaicHWMappingState[ANY_MAPPING_INPUT: MappingInput](BaseMosaicMappingState[ANY_MAPPING_INPUT], HWNetworkMappingState[ANY_MAPPING_INPUT, MosaicHardwareConfig]):
     """
     State for joint inference mappers. 
     Input is purely the network (MappingInput), but output includes the optimized hardware.
     """
 
+    @func_ensure(lambda self: self.validate(), criticality=Criticality.HIGH)
     def __init__(
         self,
         assignment: MosaicAssignment,
