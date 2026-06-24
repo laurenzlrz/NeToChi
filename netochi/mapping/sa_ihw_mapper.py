@@ -36,7 +36,6 @@ class SimAnnealingInferredHWMapper(BaseMapper[MosaicHWMappingState[MappingInput]
         self._state: Optional[SAIHWState] = None
         self._opt_slice_assigner: Optional[DeltaOptimalSliceAssigner] = None
         self._graph: Optional[gt.Graph] = None
-        self._rng: np.random.Generator = np.random.default_rng()
         self._in_edges_data: dict[str, Any] = {}
         self._rng = np.random.default_rng(self.config.seed)
         self._pipeline_config = config.pipeline_output
