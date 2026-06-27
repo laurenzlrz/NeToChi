@@ -5,6 +5,8 @@ import graph_tool.all as gt
 
 from netochi.input_generator.interfaces import MosaicMappingInput
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
+from netochi.mapping.three_step_mapping.clustering.clusterer.kaHyPar_hyperedges_clusterer import \
+    KaHyParHyperedgesClusterer
 from netochi.mapping.three_step_mapping.interfaces import ClustererFixedHw
 from netochi.mapping.three_step_mapping.clustering.clusterer.kaMinPar_cluster import KaMinParHierarchicalClusterer
 from netochi.mapping.three_step_mapping.clustering.clusterer.kaHyPar_cluster import KaHyParHierarchicalClusterer
@@ -12,10 +14,11 @@ from netochi.visualization.visualize_clustering import plot_clustering_compariso
 
 
 def get_clusterer() -> ClustererFixedHw:
-    return KaMinParHierarchicalClusterer()
+    return KaHyParHyperedgesClusterer()
+    #return KaMinParHierarchicalClusterer()
     #return KaHyParHierarchicalClusterer()
 
-def test_kaminpar_hierarchical_clustering_structure():
+def test_hierarchical_clustering_structure():
     # 1. Setup the Hardware Config
     # 2 nodes per router, 2 router levels = 4 total cores.
     # 2 neurons per core limit.

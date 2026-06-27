@@ -30,14 +30,6 @@ class KaMinParHierarchicalClusterer(ClustererFixedHw):
         graph = input_data.graph
         num_nodes = graph.num_vertices()
 
-        # Handle empty or trivial graph edges gracefully
-        if num_nodes == 0:
-            return ClusterAndHwOutput(
-                cluster_assignment=np.array([], dtype=np.int_),
-                num_clusters=1,
-                hw=input_data.hw_config
-            )
-
         # Structure to hold our hierarchy tree
         # Root cluster is index 0, parent is -1
         cluster_parent = [-1]
@@ -61,8 +53,8 @@ class KaMinParHierarchicalClusterer(ClustererFixedHw):
 
             # Ensure the split was successful and non-trivial
             populated_partitions = sum(1 for p in partitions if len(p) > 0)
-            if populated_partitions < 2:
-                continue
+            if populated_partitions != input_data.hw_config.nodes_per_router:
+                raise RuntimeError("kyHyPar did not return exactly k partitions")
 
             # Mark current node as no longer a leaf
             is_leaf[c] = False
