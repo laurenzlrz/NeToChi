@@ -1,11 +1,15 @@
-numpy
-networkx
-scikit-learn
-pulp
-pydantic
+numpy~=2.4.4
+networkx~=3.6.1
+scikit-learn~=1.8.0
+pulp~=2.8.0
+pydantic~=2.13.2
 mypy
 # graph-tool should be installed separately via conda or system packages
 
 
-scipy
+scipy~=1.17.1
 matplotlib
+pytest~=9.0.3
+kaminpar~=3.7.3
+pandas~=3.0.2
+typing_extensions~=4.15.0
