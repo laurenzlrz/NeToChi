@@ -11,7 +11,6 @@ from netochi.mapping.three_step_mapping.interfaces import ClustererFixedHw, Clus
 import kaminpar
 
 
-
 class KaMinParHierarchicalClusterer(ClustererFixedHw):
     """
     An implementation of HierarchicalClusterer that performs top-down
@@ -21,7 +20,6 @@ class KaMinParHierarchicalClusterer(ClustererFixedHw):
     def __init__(self, imbalance: float = 0.03, num_threads: int = 1) -> None:
         """
         Args:
-            target_leaves: The maximum number of leaf clusters to split into.
             imbalance: The maximum allowed load imbalance factor for KaMinPar (e.g., 0.03 = 3%).
             num_threads: Number of parallel threads for KaMinPar to use.
         """
@@ -46,7 +44,7 @@ class KaMinParHierarchicalClusterer(ClustererFixedHw):
         cluster_nodes = {0: list(range(num_nodes))}
         is_leaf = {0: True}
 
-        # Queue to handle top-down cluster bisections
+        # Queue to handle top-down cluster partitions
         queue = collections.deque([0])
         current_leaves = 1
 
@@ -58,34 +56,33 @@ class KaMinParHierarchicalClusterer(ClustererFixedHw):
             if len(nodes_in_cluster) <= 1:
                 continue
 
-            # Bisect the current cluster using KaMinPar
-            left_nodes, right_nodes = self._bisect_cluster(graph, nodes_in_cluster)
+            # Partition the current cluster using KaMinPar
+            partitions = self._partition_cluster(graph, nodes_in_cluster, input_data)
 
             # Ensure the split was successful and non-trivial
-            if not left_nodes or not right_nodes:
+            populated_partitions = sum(1 for p in partitions if len(p) > 0)
+            if populated_partitions < 2:
                 continue
 
-            # Allocate new unique indices for the child clusters
-            child_left = len(cluster_parent)
-            child_right = child_left + 1
-
-            # Register parents
-            cluster_parent.append(c)
-            cluster_parent.append(c)
-
-            # Assign nodes to child layers
-            cluster_nodes[child_left] = left_nodes
-            cluster_nodes[child_right] = right_nodes
-
-            # Update leaf statuses
+            # Mark current node as no longer a leaf
             is_leaf[c] = False
-            is_leaf[child_left] = True
-            is_leaf[child_right] = True
 
-            # Queue children for further possible splits
-            queue.append(child_left)
-            queue.append(child_right)
-            current_leaves += 1
+            # Assign nodes to child layers dynamically
+            for p_nodes in partitions:
+                child_id = len(cluster_parent)
+
+                # Register parent
+                cluster_parent.append(c)
+
+                # Assign nodes and leaf status
+                cluster_nodes[child_id] = p_nodes
+                is_leaf[child_id] = True
+
+                # Queue child for further possible splits
+                queue.append(child_id)
+
+            # Update leaf count: removed 1 leaf (parent), added k leaves (children)
+            current_leaves += (len(partitions) - 1)
 
         # ====== Map to ClusterAndHwOutput
         # 1. Reconstruct the tree's children for top-down traversal
@@ -121,17 +118,20 @@ class KaMinParHierarchicalClusterer(ClustererFixedHw):
             hw=input_data.hw_config
         )
 
-
-    def _bisect_cluster(self, graph: gt.Graph, nodes_in_cluster: List[int]) -> tuple[List[int], List[int]]:
+    def _partition_cluster(self, graph: gt.Graph, nodes_in_cluster: List[int], mapping_input: MosaicMappingInput) -> \
+    List[List[int]]:
         """
         Extracts an induced cluster subgraph, encodes it to METIS format,
-        and calls KaMinPar to compute a 2-way bisection.
+        and calls KaMinPar to compute a k-way partition.
         """
         ordered_nodes = list(set(nodes_in_cluster))
         local_map = {v_id: i + 1 for i, v_id in enumerate(ordered_nodes)}  # METIS requires 1-based indexing
 
         metis_lines = []
         total_edges = 0
+
+        # Target k partitions
+        k = mapping_input.hw_config.nodes_per_router
 
         # Build local adjacency lists relative only to nodes within this cluster
         for v_id in ordered_nodes:
@@ -144,10 +144,16 @@ class KaMinParHierarchicalClusterer(ClustererFixedHw):
         num_vertices = len(ordered_nodes)
         num_edges = total_edges // 2  # Undirected tracking fallback
 
-        # Robustness fallback: If sub-graph has no edges, split arbitrarily/evenly
+        # Robustness fallback function for trivial splits
+        def build_fallback():
+            fallback = [[] for _ in range(k)]
+            for i, node in enumerate(ordered_nodes):
+                fallback[i % k].append(node)
+            return fallback
+
+        # If sub-graph has no edges, split as evenly as possible into k chunks
         if num_edges == 0:
-            mid = num_vertices // 2
-            return ordered_nodes[:mid], ordered_nodes[mid:]
+            return build_fallback()
 
         # Write out to a transient file descriptor safely managed by the OS
         with tempfile.NamedTemporaryFile(mode="w", suffix=".metis", delete=False) as tmp:
@@ -158,29 +164,30 @@ class KaMinParHierarchicalClusterer(ClustererFixedHw):
         try:
             # Configure and instantiate the wrapper runtime
             ctx = kaminpar.default_context()
+            # Note: Depending on your KaMinPar Python bindings, you might be able
+            # to pass ctx.quiet = True or similar here to suppress C++ output!
             instance = kaminpar.KaMinPar(num_threads=self.num_threads, ctx=ctx)
 
             # Load METIS stream data cleanly into native C++ structures
             kp_graph = kaminpar.load_graph(tmp_path, kaminpar.GraphFileFormat.METIS, compress=False)
 
-            # Partition with k=2 blocks (bisection)
-            partition = instance.compute_partition(kp_graph, k=2, eps=self.imbalance)
+            # Partition with k blocks
+            partition = instance.compute_partition(kp_graph, k=k, eps=self.imbalance)
 
-            # Sort native results back into global graph scope groups
-            left_nodes = []
-            right_nodes = []
+            # Sort native results back into global graph scope dynamically
+            partitions = [[] for _ in range(k)]
             for local_idx, block_id in enumerate(partition):
-                if block_id == 0:
-                    left_nodes.append(ordered_nodes[local_idx])
+                if 0 <= block_id < k:
+                    partitions[block_id].append(ordered_nodes[local_idx])
                 else:
-                    right_nodes.append(ordered_nodes[local_idx])
+                    # Safety net in case KaMinPar yields an out-of-bounds block ID
+                    partitions[0].append(ordered_nodes[local_idx])
 
-            return left_nodes, right_nodes
+            return partitions
 
         except Exception as e:
-            # Fallback execution to avoid pipeline breaking if an underlying binary issue pops up
-            mid = num_vertices // 2
-            return ordered_nodes[:mid], ordered_nodes[mid:]
+            print(f"KaMinPar partitioning failed: {e}. Falling back to naive k-split.")
+            return build_fallback()
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)

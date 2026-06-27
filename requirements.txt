@@ -13,3 +13,5 @@ pytest~=9.0.3
 kaminpar~=3.7.3
 pandas~=3.0.2
 typing_extensions~=4.15.0
+icontract~=2.7.3
+kahypar~=1.3.7
