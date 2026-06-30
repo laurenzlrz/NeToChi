@@ -90,13 +90,19 @@ def plot_results_summary(summary: PipelineSummary):
             plt.close()  # Prevents runtime warnings about having too many active figures open
 
 
-def plot_results_csv(run_id: str, metrics: List[str], mappers: List[str] | None, inputs: List[str]):
-    run_path = find_repo_root() / OUTPUT_DIR_RESULTS / f"{RUN_PREFIX}{run_id}"
-    csv_path = run_path / f"{FILENAME_EVALUATION_CSV}.csv"
-    output_path = run_path / OUTPUT_DIR_REL_RUN_PLOTS
-    output_path.mkdir(parents=True, exist_ok=True)
+def plot_results_csv(output_path: str, csv_path: str, metrics: List[str] | None = None, mappers: List[str] | None = None, inputs: List[str] | None = None):
 
     df = pd.read_csv(csv_path)
+
+    if metrics is None:
+        metrics = df["metric"].unique()
+
+    if inputs is None:
+        inputs = df["input_id"].unique()
+
+    if mappers is None:
+        mappers = df["mapper"].unique()
+
 
     for metric in metrics:
         for input_id in inputs:
@@ -104,10 +110,9 @@ def plot_results_csv(run_id: str, metrics: List[str], mappers: List[str] | None,
             # Filter the dataframe for the current metric, input_id, and requested mappers
             mask = (
                     (df['metric'] == metric) &
-                    (df['input_id'] == input_id)
+                    (df['input_id'] == input_id) &
+                    (df['mapper'].isin(mappers))
             )
-            if mappers is not None:
-                mask = mask & df['mapper'].isin(mappers)
 
             plot_data = df[mask]
 
@@ -150,4 +155,13 @@ def plot_results_csv(run_id: str, metrics: List[str], mappers: List[str] | None,
     print(f"Successfully generated plots in {output_path}")
 
 if __name__ == "__main__":
-    plot_results_csv("020", metrics=["Inconsistencies", NAME_OBJ_EXECUTION_TIME], mappers=None, inputs=["Mosaic_R=3_l=3_N=20_p=0.5_seed=42", "ErdosRenyi_n=60_p=0.1_seed=42"])
+    run_id = "020"
+    run_path = find_repo_root() / OUTPUT_DIR_RESULTS / f"{RUN_PREFIX}{run_id}"
+    csv_path = run_path / f"{FILENAME_EVALUATION_CSV}.csv"
+    output_path = run_path / OUTPUT_DIR_REL_RUN_PLOTS
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    plot_results_csv(output_path, csv_path,
+                     metrics=["Inconsistencies", NAME_OBJ_EXECUTION_TIME],
+                     mappers=None,
+                     inputs=["Mosaic_R=3_l=3_N=20_p=0.5_seed=42", "ErdosRenyi_n=60_p=0.1_seed=42"])

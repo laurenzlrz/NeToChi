@@ -74,7 +74,7 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
 
 
 
-    def _run_simulated_annealing(self, T_start=50.0, T_min=0.01, alpha=0.98, steps_per_T=100) -> BestStateData: # gemini: T_start = 10000, alpha=0.98
+    def _run_simulated_annealing(self, T_start=50.0, T_min=0.01, alpha=0.98, steps_per_T=10) -> BestStateData: # gemini: T_start = 10000, alpha=0.98
         """
         invariant: slice assigner is always in same state as SA state
         """
