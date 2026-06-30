@@ -16,7 +16,7 @@ class KaHyParHierarchicalClusterer(ClustererFixedHw):
     hierarchical graph clustering using the KaHyPar hypergraph partitioning algorithm.
     """
 
-    def __init__(self, imbalance: float = 0.03) -> None:
+    def __init__(self, imbalance: float = 0.00) -> None:
         """
         Args:
             imbalance: The maximum allowed load imbalance factor (e.g., 0.03 = 3%).

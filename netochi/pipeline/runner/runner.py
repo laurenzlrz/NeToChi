@@ -119,15 +119,11 @@ class PipelineRunner(BasePipelineRunner[Input_co, MappingState_co, BaselineState
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, strict=True, frozen=True)
     
-    bundles: Sequence[TaskBundle[
-        Input_co, MappingState_co, BaselineState_co]] = Field(description="List of task bundles to execute in the pipeline.")
+    task_bundle: TaskBundle[Input_co, MappingState_co, BaselineState_co] = Field(description="Task bundle to execute in the pipeline.")
 
-    def run(self) -> List[PipelineSummary]:
-        overall_results = []
-        for bundle in self.bundles:
-            bundle_summary = bundle.run()
-            overall_results.append(bundle_summary)
-        return overall_results
+    def run(self) -> PipelineSummary:
+        bundle_summary = self.task_bundle.run()
+        return bundle_summary
 
 
 
