@@ -1,7 +1,7 @@
-from typing import Any, Dict
-from pydantic import BaseModel
+from typing import Any
 import icontract
 
+from netochi.definitions.constants import NAME_OBJ_UNUSED_CONNECTIONS
 from netochi.mapping.interfaces import BaseMosaicMappingState
 from netochi.objectives.obj_inconsistency import InconsistencyObjectiveFabric
 from netochi.objectives.utils import compute_e_valid, compute_total_hw_connections
@@ -40,4 +40,4 @@ class UnusedConnectionsObjective(InconsistencyObjectiveFabric):
         return self.evaluate(state) / baseline_size
 
     def get_name(self) -> str:
-        return "Unused Connections"
+        return NAME_OBJ_UNUSED_CONNECTIONS

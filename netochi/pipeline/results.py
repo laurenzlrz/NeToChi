@@ -16,7 +16,6 @@ class ExperimentResult[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELIN
     input_metadata: Dict[str, str] = Field(default_factory=dict, description="Metadata about the input graph, e.g., graph type, size.")
     metrics: Dict[str, float] = Field(default_factory=dict, description="Relative metrics compared to baseline (e.g., improvement percentages).")
     raw_metrics: Dict[str, float] = Field(default_factory=dict, description="Absolute metric values for the mapping result.")
-    execution_time_s: float = Field(0.0, description="Execution time in seconds for this mapping.")
     error: Optional[str] = Field(None, description="Error message if the mapping failed, otherwise None.")
     state: Optional[MAPPING_STATE] = Field(default=None, description="The mapping state object.")
     input: Optional[INPUT] = Field(default=None, description="The input that was mapped.")

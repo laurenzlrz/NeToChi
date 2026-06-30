@@ -1,19 +1,18 @@
 import time
-from typing import List, Dict, Optional, Any, Sequence, TypeVar, Generic
+from typing import List, Optional, Any, Sequence, Generic
+
 from pydantic import BaseModel, ConfigDict, Field
 
-from netochi.pipeline.config import PipelineOutput
-
+from netochi.definitions.constants import NAME_OBJ_EXECUTION_TIME
 from netochi.definitions.generics import Input_co, MappingState_co, BaselineState_co
-from netochi.mapping.interfaces import MappingState
 from netochi.input_generator.interfaces import BaseInputFactory
-
+from netochi.input_generator.interfaces import MappingInput
+from netochi.mapping.interfaces import BaseMapper
+from netochi.mapping.interfaces import MappingState
+from netochi.pipeline.config import PipelineOutput
 from netochi.pipeline.interfaces import BasePipelineRunner, PipelineConsumer
 from netochi.pipeline.results import ExperimentResult, PipelineSummary
-from netochi.mapping.interfaces import BaseMapper
-from netochi.input_generator.interfaces import MappingInput
 from netochi.pipeline.runner.evaluator_bundle import EvaluatorBundle
-from netochi.pipeline.runner.evaluator_bundle import BaselineStorer
 
 
 class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELINE_STATE: MappingState](BaseModel):
@@ -37,6 +36,7 @@ class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELI
         state = self.mapper.run(input)
         elapsed = time.time() - t0
         raw_metrics, rel_metrics = self.evaluator_bundle.evaluate_all(state)
+        raw_metrics[NAME_OBJ_EXECUTION_TIME] = elapsed
 
         error_msg: Optional[str] = None
         mapper_name = self.mapper.get_name()
@@ -47,7 +47,6 @@ class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELI
             input_metadata=input.descriptions,
             metrics=rel_metrics,
             raw_metrics=raw_metrics,
-            execution_time_s=elapsed,
             error=error_msg,
             state=state
         )
@@ -81,7 +80,7 @@ class ExperimentTaskBase(BaseModel, Generic[Input_co, MappingState_co, BaselineS
                 if result.error:
                     self.config.print_console(f"  --> Mapper failed: {result.error}")
                 else:
-                    self.config.print_console(f"  --> Mapper completed successfully in {result.execution_time_s:.4f}s")
+                    self.config.print_console(f"  --> Mapper completed successfully in {result.raw_metrics[NAME_OBJ_EXECUTION_TIME]:.4f}s")
                 results.append(result)
 
         return results

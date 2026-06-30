@@ -64,7 +64,7 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
         # --- 2. run simulated annealing ---
         best_state_data: BestStateData = self._run_simulated_annealing()
 
-        return MosaicNetworkMappingState(_mapping_input=mapping_input,
+        return MosaicNetworkMappingState(mapping_input=mapping_input,
                                          assignment=MosaicAssignment(
                                             neuron_idx_pre_assignment=best_state_data.local_assignment.astype(np.int64),
                                             neuron_core_pre_assignment=best_state_data.core_assignment.astype(np.int64),

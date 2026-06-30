@@ -7,6 +7,7 @@ from collections import defaultdict
 
 import pandas as pd
 
+from netochi.definitions.constants import NAME_OBJ_EXECUTION_TIME
 from netochi.pipeline import PipelineSummary
 from netochi.pipeline.config import find_repo_root
 from netochi.result_processing.config import OUTPUT_DIR_PLOTS, FILENAME_EVALUATION_CSV, OUTPUT_DIR_REL_RUN_PLOTS, \
@@ -149,4 +150,4 @@ def plot_results_csv(run_id: str, metrics: List[str], mappers: List[str] | None,
     print(f"Successfully generated plots in {output_path}")
 
 if __name__ == "__main__":
-    plot_results_csv("016", metrics=["Inconsistencies", "execution_time_s"], mappers=None, inputs=["Mosaic_R=3_l=3_N=20_p=0.5_seed=42", "ErdosRenyi_n=60_p=0.1_seed=42"])
+    plot_results_csv("020", metrics=["Inconsistencies", NAME_OBJ_EXECUTION_TIME], mappers=None, inputs=["Mosaic_R=3_l=3_N=20_p=0.5_seed=42", "ErdosRenyi_n=60_p=0.1_seed=42"])

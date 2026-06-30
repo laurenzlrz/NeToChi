@@ -1,5 +1,6 @@
-import matplotlib # type: ignore[import-untyped]
+import matplotlib
 
+from netochi.definitions.constants import NAME_OBJ_EXECUTION_TIME
 from netochi.pipeline.interfaces import PipelineConsumer
 from netochi.input_generator.interfaces import MappingInput
 from netochi.mapping.interfaces import MappingState
@@ -119,7 +120,7 @@ class PipelinePlotter(PipelineConsumer[MappingInput, MappingState[Any, Any], Map
         for res in summary.results:
             if res.mapper_name not in times:
                 times[res.mapper_name] = []
-            times[res.mapper_name].append(res.execution_time_s)
+            times[res.mapper_name].append(res.raw_metrics[NAME_OBJ_EXECUTION_TIME])
             
         if not times:
             return

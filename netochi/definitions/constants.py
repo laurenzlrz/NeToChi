@@ -2,6 +2,15 @@
 INEQUAL_ASSIGNMENT_OBJECTS = "The hardware configuration in the assignment does not match the hardware configuration in the input."
 TOO_MANY_NEURONS = "Graph has more neurons than the hardware can accommodate."
 
+# objective names
+NAME_OBJ_INCONSISTENCIES = "Inconsistencies"
+NAME_OBJ_INCONSISTENCIES_FRACTION = "Inconsistencies (Fraction)"
+NAME_OBJ_INCONSISTENCIES_PERCENTAGE = "Inconsistencies (%)"
+NAME_OBJ_HARDWARE_SIZE = "Hardware Size"
+NAME_OBJ_LOG_LIKELIHOOD = "Log-Likelihood"
+NAME_OBJ_UNUSED_CONNECTIONS = "Unused Connections"
+NAME_OBJ_EXECUTION_TIME = "Time (s)"
+
 # Error Message Constants for Mapping
 CORE_ASSIGNMENT_NOT_1D = "neuron_core_idxs_assignment must be a 1D array."
 CORE_ASSIGNMENT_SIZE_MISMATCH = "Core assignment size ({actual}) does not match graph vertices ({expected})."

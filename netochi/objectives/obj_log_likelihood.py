@@ -7,7 +7,8 @@ from netochi.mapping.interfaces import (
     BaseMosaicMappingState, 
 )
 
-from netochi.definitions.constants import LL_INVALID_PENALTY_LOG, LL_LAPLACIAN_SMOOTHING_NUM, LL_LAPLACIAN_SMOOTHING_DEN
+from netochi.definitions.constants import LL_INVALID_PENALTY_LOG, LL_LAPLACIAN_SMOOTHING_NUM, \
+    LL_LAPLACIAN_SMOOTHING_DEN, NAME_OBJ_LOG_LIKELIHOOD
 from netochi.definitions.exceptions import BaselineMismatchError
 from netochi.objectives.interfaces import ObjectiveInterface, MappingObjective, AbstractObjectiveConfig
 
@@ -79,4 +80,4 @@ class LogLikelihoodObjective(MappingObjective[BaseMosaicMappingState[Any], BaseM
         return e_valid
 
     def get_name(self) -> str:
-        return "Log-Likelihood"
+        return NAME_OBJ_LOG_LIKELIHOOD
