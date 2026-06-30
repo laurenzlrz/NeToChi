@@ -2,6 +2,8 @@ from typing import Dict, Any
 from pydantic import BaseModel
 import icontract
 
+from netochi.definitions.constants import NAME_OBJ_INCONSISTENCIES, NAME_OBJ_INCONSISTENCIES_FRACTION, \
+    NAME_OBJ_INCONSISTENCIES_PERCENTAGE
 from netochi.mapping.interfaces import (
     BaseMosaicMappingState,
 )
@@ -59,7 +61,7 @@ class InconsistencyObjective(InconsistencyObjectiveFabric):
         return self.evaluate(state) - self.evaluate(baseline)
 
     def get_name(self) -> str:
-        return "Inconsistencies"
+        return NAME_OBJ_INCONSISTENCIES
 
 
 class InconsistencyRelativeObjective(InconsistencyObjectiveFabric):
@@ -81,7 +83,7 @@ class InconsistencyRelativeObjective(InconsistencyObjectiveFabric):
         return self.evaluate(state) / self.evaluate(baseline)
 
     def get_name(self) -> str:
-        return "Inconsistencies (Fraction)"
+        return NAME_OBJ_INCONSISTENCIES_FRACTION
 
 
 class InconsistencyPercentageMetric(InconsistencyObjectiveFabric):
@@ -109,4 +111,4 @@ class InconsistencyPercentageMetric(InconsistencyObjectiveFabric):
         return self.evaluate(state) / baseline_val
 
     def get_name(self) -> str:
-        return "Inconsistencies (%)"
+        return NAME_OBJ_INCONSISTENCIES_PERCENTAGE

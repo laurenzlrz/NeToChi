@@ -2,6 +2,7 @@ from pydantic import BaseModel
 import icontract
 from typing import Any
 
+from netochi.definitions.constants import NAME_OBJ_HARDWARE_SIZE
 from netochi.mapping.interfaces import MosaicHWMappingState
 from netochi.objectives.interfaces import MappingObjective, AbstractObjectiveConfig
 
@@ -36,5 +37,5 @@ class MosaicHardwareSizeObjective(MappingObjective[MosaicHWMappingState[Any], Mo
         return self.evaluate(state) / baseline_size
 
     def get_name(self) -> str:
-        return "Hardware Size"
+        return NAME_OBJ_HARDWARE_SIZE
 

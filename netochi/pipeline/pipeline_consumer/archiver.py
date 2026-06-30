@@ -4,6 +4,7 @@ import pandas as pd
 from typing import Any
 import icontract
 
+from netochi.definitions.constants import NAME_OBJ_EXECUTION_TIME
 from netochi.pipeline.config import PipelineOutput
 from netochi.pipeline.interfaces import PipelineConsumer
 from netochi.input_generator.interfaces import MappingInput
@@ -46,7 +47,7 @@ class SummaryArchiver(PipelineConsumer[MappingInput, MappingState[Any, Any], Map
             return pd.DataFrame()
 
         # Collect all possible headers to ensure consistency across rows
-        headers = {"mapper", "execution_time_s", "error"}
+        headers = {"mapper", "error"}
         for res in summary.results:
             headers.update(res.input_metadata.keys())
             headers.update({f"metric_{k}" for k in res.metrics.keys()})
@@ -59,7 +60,6 @@ class SummaryArchiver(PipelineConsumer[MappingInput, MappingState[Any, Any], Map
             # Build the base row dictionary
             row = {
                 "mapper": res.mapper_name,
-                "execution_time_s": str(res.execution_time_s),
                 "error": str(res.error) if res.error else "",
             }
             row.update(res.input_metadata)

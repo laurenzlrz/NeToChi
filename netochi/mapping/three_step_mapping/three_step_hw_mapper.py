@@ -1,3 +1,4 @@
+from pydantic import BaseModel, Field, ConfigDict
 
 from netochi.mapping.three_step_mapping.interfaces import LocalAddressAssigner, SliceAssigner, \
     ClusterAndHwOutput, ClustererFixedHw
@@ -5,6 +6,15 @@ from netochi.mapping.three_step_mapping.interfaces import LocalAddressAssigner, 
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
 from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput, MosaicAssignment
 import numpy as np
+
+class ThreeStepHwMapperConfig(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    clusterer: ClustererFixedHw = Field()
+    address_assigner: LocalAddressAssigner = Field()
+    slice_assigner: SliceAssigner = Field()
+
+    def create(self) -> "ThreeStepHwMapper":
+        return ThreeStepHwMapper(self.clusterer, self.address_assigner, self.slice_assigner)
 
 
 class ThreeStepHwMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
@@ -44,7 +54,7 @@ class ThreeStepHwMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput
             neuron_slice_assignment=neuron_slice_assignment.astype(np.int64)
         )
         state = MosaicNetworkMappingState(
-            _mapping_input=mapping_input,
+            mapping_input=mapping_input,
             assignment=assignment
         )
         return state

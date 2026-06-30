@@ -1,3 +1,4 @@
+from pydantic import BaseModel, Field, ConfigDict
 
 from netochi.mapping.three_step_mapping.interfaces import LocalAddressAssigner, SliceAssigner, \
     ClusterAndHwOutput, ClustererInferHw
@@ -5,6 +6,15 @@ from netochi.mapping.three_step_mapping.interfaces import LocalAddressAssigner, 
 from netochi.mapping.interfaces import MosaicHWMappingState, BaseMapper
 from netochi.input_generator.interfaces import MappingInput, MosaicAssignment
 import numpy as np
+
+class ThreeStepMapperConfig(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    clusterer: ClustererInferHw = Field(default=False)
+    address_assigner: LocalAddressAssigner = Field(default=False)
+    slice_assigner: SliceAssigner = Field(default=False)
+
+    def create(self) -> "ThreeStepMapper":
+        return ThreeStepMapper(self.clusterer, self.address_assigner, self.slice_assigner)
 
 
 class ThreeStepMapper(BaseMapper[MosaicHWMappingState, MappingInput]):

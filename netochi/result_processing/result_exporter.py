@@ -26,7 +26,6 @@ def export_summary_to_csv(summary: PipelineSummary) -> None:
         "input_metadata",
         "metrics",
         "raw_metrics",
-        "execution_time_s",
         "error"
     ]
 
@@ -42,7 +41,6 @@ def export_summary_to_csv(summary: PipelineSummary) -> None:
                 "input_metadata": json.dumps(res.input_metadata),
                 "metrics": json.dumps(res.metrics),
                 "raw_metrics": json.dumps(res.raw_metrics),
-                "execution_time_s": res.execution_time_s,
                 # Handle the Optional string safely
                 "error": res.error if res.error is not None else ""
             }
@@ -62,8 +60,6 @@ def import_summary_from_csv(filepath: str) -> PipelineSummary:
         reader = csv.DictReader(f)
 
         for row in reader:
-            exec_time = float(row["execution_time_s"])
-            total_time += exec_time
 
             error_val = row["error"]
 
@@ -75,11 +71,10 @@ def import_summary_from_csv(filepath: str) -> PipelineSummary:
                 input_metadata=json.loads(row["input_metadata"]),
                 metrics=json.loads(row["metrics"]),
                 raw_metrics=json.loads(row["raw_metrics"]),
-                execution_time_s=exec_time,
                 error=error_val if error_val != "" else None
             )
             results.append(result)
 
     # Note: total_time_s is reconstructed as the sum of individual execution times.
     # If your original pipeline had global overhead time, it won't be captured here.
-    return PipelineSummary(results=results, total_time_s=total_time)
+    return PipelineSummary(results=results, total_time_s=None)

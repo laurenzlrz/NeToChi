@@ -8,8 +8,7 @@ from netochi.input_generator.interfaces import MappingInput
 from netochi.mapping.interfaces import MappingState
 from netochi.pipeline.results import PipelineSummary, ExperimentResult
 from netochi.definitions.constants import KEY_GRAPH_TYPE, KEY_UNKNOWN, REPORT_DIVIDER, REPORT_SUBDIVIDER, \
-    REPORT_HEADER_BASELINE, REPORT_HEADER_PURE
-
+    REPORT_HEADER_BASELINE, REPORT_HEADER_PURE, NAME_OBJ_EXECUTION_TIME
 
 from pydantic import Field
 
@@ -101,7 +100,7 @@ class SummaryReporter(PipelineConsumer[MappingInput, MappingState[Any, Any], Map
                 val = metrics_dict.get(name, -1.0)
                 row += f" | {val:<{metric_width}.2f}"
 
-            row += f" | {res.execution_time_s:<{time_width}.3f}"
+            row += f" | {res.raw_metrics[NAME_OBJ_EXECUTION_TIME]:<{time_width}.3f}"
             table_lines.append(row)
 
         return "\n".join(table_lines)

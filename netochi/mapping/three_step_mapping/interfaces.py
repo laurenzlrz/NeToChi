@@ -38,8 +38,8 @@ class ClusterOutput(Freezable):
 @icontract.invariant(lambda self: self.validate())
 class HierarchicalClusterOutput(ClusterOutput):
     def __init__(self, cluster_assignment: npt.NDArray[np.int_], num_clusters: int, cluster_parent: npt.NDArray[np.int_]) -> None:
-        super().__init__(cluster_assignment, num_clusters)
         self.cluster_parent = cluster_parent
+        super().__init__(cluster_assignment, num_clusters)
         if self.__class__ is HierarchicalClusterOutput:
             self.freeze()
 
@@ -53,9 +53,12 @@ class HierarchicalClusterOutput(ClusterOutput):
 @freezable
 @icontract.invariant(lambda self: self.validate())
 class ClusterAndHwOutput(ClusterOutput):
+    """
+    the cluster assignment already fits onto hardware: cluster ids are incremented from left to right on hardware
+    """
     def __init__(self, cluster_assignment: npt.NDArray[np.int_], num_clusters: int, hw: MosaicHardwareConfig) -> None:
-        super().__init__(cluster_assignment, num_clusters)
         self.hw = hw
+        super().__init__(cluster_assignment, num_clusters)
         if self.__class__ is ClusterAndHwOutput:
             self.freeze()
 

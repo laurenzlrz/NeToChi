@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import Self
 
 from netochi.definitions.exceptions import InvalidConfigError
+from netochi.result_processing.config import RUN_PREFIX, OUTPUT_DIR_RESULTS
 
 
 def find_repo_root(start_path: Path = Path(__file__).resolve()) -> Path:
@@ -33,11 +34,11 @@ class PipelineOutputConfig(BaseModel):
     model_config = ConfigDict(frozen=True, strict=True, arbitrary_types_allowed=True)
 
     base_dir_name: Path = Field(
-        default=Path("results"),
+        default=Path(OUTPUT_DIR_RESULTS),
         description="Base directory for storing pipeline outputs (relative to repo root)."
     )
     run_prefix: str = Field(
-        default="run_",
+        default=RUN_PREFIX,
         description="Prefix for individual run directories."
     )
     plot_format: List[str] = Field(
