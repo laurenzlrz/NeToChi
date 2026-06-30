@@ -9,3 +9,6 @@ Try to combine mappers (ILP to hSBM?)
 Force Google to look into MCMC methods of the Graphtools
 
 Try to formulate SBM without Degreeconnection
+
+30.06
+Verstehen, wie die perfekte Hardware aussähe für verschiedene ps auf den hSBM Ebenen
