@@ -431,7 +431,7 @@ def estimate_parameters_with_b(g: gt.Graph, b: float) -> dict:
         raise ValueError("Der Verzweigungsfaktor b must größer als 1 sein.")
 
     # 1. GraphView ungerichtet machen & Adjazenzmatrix holen
-    g_undir = gt.GraphView(g, directed=False)
+    g_undir = gt.GraphView(g, directed=True)
     adj_matrix = gt.adjacency(g_undir).astype(float)
 
     # 2. Berechne die größten Eigenwerte (top 100 oder N-2)
@@ -476,9 +476,9 @@ def run_estimator_validation():
     true_n0 = 60.0
     true_b = 2.0
     true_H = 4
-    true_p0 = 0.7
+    true_p0 = 0.3
 
-    g = generate_verification_graph(n0=int(true_n0), b=int(true_b), H=true_H, p0=true_p0, p_active=0.8)
+    g = generate_verification_graph(n0=int(true_n0), b=int(true_b), H=true_H, p0=true_p0, p_active=1.0)
 
     print("\n==========================================")
     print("RUNNING BLIND SPECTRAL INVERSION VALIDATION")
