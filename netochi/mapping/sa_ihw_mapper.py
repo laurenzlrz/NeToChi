@@ -200,7 +200,6 @@ class SimAnnealingInferredHWMapper(BaseMapper[MosaicHWMappingState[MappingInput]
 
     @icontract.require(lambda self: self._state is not None and self._opt_slice_assigner is not None and self._graph is not None)
     def _compute_energy(self) -> float:
-        # Compute inconsistencies using the official utilities function
         e_valid = compute_e_valid(self._state, self._in_edges_data)
         inconsistencies = self._graph.num_edges() - e_valid
 

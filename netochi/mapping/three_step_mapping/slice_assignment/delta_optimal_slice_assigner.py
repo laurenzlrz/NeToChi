@@ -73,6 +73,8 @@ class DeltaOptimalSliceAssigner:
             self.connection_counts[tgt].fill(0)  # Clear out completely: fully recompute
             tgt_core = int(state.core_assignment[tgt])
 
+            #Hier werden die mopved nodes als srcs betrachtet, also ggf. ändern sich alle ihre Verbindungen die Distanz
+            # Man könnte auch überlegen nur die distanzen zu betrachten, wo sich ndoes geändert haben
             for src in graph.get_in_neighbors(tgt):
                 src_core = int(state.core_assignment[src])
                 dist = state.hw_config.core_distance(src_core, tgt_core)
@@ -90,23 +92,26 @@ class DeltaOptimalSliceAssigner:
 
         # --- 3. update target nodes of moved nodes ---
         for src in moved_nodes:
+            old_core_src, old_local_src = old_core_and_local_of_moved_nodes[src]
+
             for tgt in graph.get_out_neighbors(src):
 
                 if tgt in moved_nodes:
                     continue  # Skip; handled entirely in Phase 2
 
-                old_core_src, old_local_src = old_core_and_local_of_moved_nodes[src]
-
                 old_dist = state.hw_config.core_distance(int(old_core_src), int(state.core_assignment[tgt]))
                 new_dist = state.hw_config.core_distance(int(state.core_assignment[src]), int(state.core_assignment[tgt]))
 
+                # Hier vorher ändern
                 if old_dist > 0:
                     old_slice_src = state.hw_config.get_slice_idx(old_dist, old_local_src)
                     self.connection_counts[tgt][old_dist][old_slice_src] -= 1
                     # update slice assignment for old distance
                     n_slices_old = state.hw_config.num_slices_at_distance(old_dist)
+                    # DAs könnte theoretisch noch schneller gehen, in dem man die argmax nur am Ende testet, aber glaube ich nicht so relevant
                     self.slice_assignment[tgt, old_dist] = np.argmax(self.connection_counts[tgt, old_dist, :n_slices_old])
 
+                # Hier nachher ändern
                 if new_dist > 0:
                     new_slice_src = state.hw_config.get_slice_idx(new_dist, state.local_assignment[src])
                     self.connection_counts[tgt][new_dist][new_slice_src] += 1
