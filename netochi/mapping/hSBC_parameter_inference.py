@@ -408,8 +408,8 @@ def estimate_parameters_spectral(g: gt.Graph) -> dict:
     p0_est = np.clip(d_obs / (n0_est * _K_factor(best_b, best_h)), 0.0, 1.0)
 
     return {
-        "n0": float(n0_est),
-        "b": float(best_b),
+        "n0": int(n0_est),
+        "b": int(best_b),
         "H_inferred": int(best_h),
         "p0": float(p0_est),
         "nc_guess": int(np.round(nc_guess))
@@ -464,8 +464,8 @@ def estimate_parameters_with_b(g: gt.Graph, b: float) -> dict:
     p0_est = float(np.clip(p0_est, 0.0, 1.0))
 
     return {
-        "n0": float(n0_est),
-        "b": float(b),
+        "n0": int(n0_est),
+        "b": int(b),
         "H_inferred": int(H_est),
         "p0": p0_est,
         "nc_guess": int(np.round(n0_est))
