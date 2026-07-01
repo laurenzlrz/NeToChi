@@ -1,5 +1,4 @@
 from typing import Dict, Any
-from pydantic import BaseModel
 import icontract
 
 from netochi.definitions.constants import NAME_OBJ_INCONSISTENCIES, NAME_OBJ_INCONSISTENCIES_FRACTION, \
@@ -8,7 +7,7 @@ from netochi.mapping.interfaces import (
     BaseMosaicMappingState,
 )
 from netochi.objectives.interfaces import MappingObjective, AbstractObjectiveConfig
-from netochi.objectives.utils import compute_e_valid
+from netochi.objectives.utils import compute_inconsistencies
 
 
 class InconsistencyObjectiveConfig(AbstractObjectiveConfig):
@@ -55,7 +54,7 @@ class InconsistencyObjective(InconsistencyObjectiveFabric):
 
     def evaluate(self, state: BaseMosaicMappingState[Any]) -> float:
         """Returns total number of invalid edges."""
-        return float(compute_e_valid(state, self._preload_graph(state)))
+        return float(compute_inconsistencies(state, self._preload_graph(state)))
 
     def evaluate_against_baseline(self, state: BaseMosaicMappingState[Any], baseline: BaseMosaicMappingState[Any]) -> float:
         return self.evaluate(state) - self.evaluate(baseline)
@@ -76,7 +75,7 @@ class InconsistencyRelativeObjective(InconsistencyObjectiveFabric):
 
     def evaluate(self, state: BaseMosaicMappingState[Any]) -> float:
         """Returns ratio of invalid edges to total edges."""
-        inconsistencies = float(compute_e_valid(state, self._preload_graph(state)))
+        inconsistencies = float(compute_inconsistencies(state, self._preload_graph(state)))
         return float(inconsistencies) / float(self._graph_cache[id(state.mapping_input)]['m'])
 
     def evaluate_against_baseline(self, state: BaseMosaicMappingState[Any], baseline: BaseMosaicMappingState[Any]) -> float:
@@ -97,7 +96,7 @@ class InconsistencyPercentageMetric(InconsistencyObjectiveFabric):
         self.config = config
 
     def evaluate(self, state: BaseMosaicMappingState[Any]) -> float:
-        invalid_edges = float(compute_e_valid(state, self._preload_graph(state)))
+        invalid_edges = float(compute_inconsistencies(state, self._preload_graph(state)))
         total_edges = state.mapping_input.graph.num_edges()
 
         if total_edges == 0:

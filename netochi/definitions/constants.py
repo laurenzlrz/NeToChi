@@ -12,6 +12,7 @@ NAME_OBJ_UNUSED_CONNECTIONS = "Unused Connections"
 NAME_OBJ_EXECUTION_TIME = "Time (s)"
 NAME_OBJ_CLUSTERING_ARI = "ARI (Clustering)"
 NAME_OBJ_CLUSTERING_ACCURACY = "Accuracy (Clustering)"
+NAME_OBJ_VALID_EDGES = "Valid Edges"
 
 # Error Message Constants for Mapping
 CORE_ASSIGNMENT_NOT_1D = "neuron_core_idxs_assignment must be a 1D array."
