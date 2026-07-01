@@ -88,8 +88,8 @@ HW_CONFIGS = [
 ]
 
 MAPPERS = [
-    #SimAnnealingIHWConfig(time_limit=2.0, pipeline_output=PIPELINE_OUTPUT).create(),
-    SimAnnealingMapperConfig().create(),
+    SimAnnealingIHWConfig(time_limit=2.0, pipeline_output=PIPELINE_OUTPUT).create(),
+    #SimAnnealingMapperConfig().create(),
     #SimulatedAnnealingMapperClusterInitConfig().create(),
     ThreeStepHwMapperConfig(clusterer=KaHyParHyperedgesClusterer(), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
     QAPPcaOptMapperConfig().create(),
