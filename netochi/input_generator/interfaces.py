@@ -20,9 +20,13 @@ from netochi.definitions.freezable import freezable, Freezable
 @freezable
 class MappingInput(Freezable):
     def __init__(self, graph: gt.Graph, descriptions: Dict[str, str], id: str = "MappingInputPlaceholder") -> None:
-        self.graph = graph
-        self.descriptions = descriptions
+        self.graph: gt.Graph = graph
+        self.descriptions: Dict[str, str] = descriptions
         self.id = id
+
+    @property
+    def num_neurons(self) -> int:
+        return self.graph.num_vertices()
 
 
 @freezable
@@ -86,6 +90,10 @@ class MosaicAssignment(Freezable):
         ass.freeze()
         return ass
 
+    def validate_graph(self, g):
+        if not len(self.neuron_idx_pre_assignment) == g.num_vertices():
+            raise DimensionError("Assignment length does not match number of neurons in the graph.")
+
     def _init_random_self(self, seed: Optional[int] = None) -> None:
         """In-place random initialization of the assignment arrays."""
         rng = np.random.default_rng(seed)
@@ -102,6 +110,7 @@ class MosaicAssignment(Freezable):
         for d in range(1, self.hw.max_distance + 1):
             n_sl: int = self.hw.num_slices_at_distance(d)
             self.neuron_slice_assignment[:, d] = rng.integers(0, n_sl, size=num_neurons)
+
 
 
 @freezable
@@ -129,6 +138,8 @@ class MosaicMappingInput(HWMappingInput[MosaicHardwareConfig]):
             if not self.assignment.hw is self.hw_config:  # Ensure the assignment's hardware config matches the input's hardware config
                 raise InvalidAssignmentError(INEQUAL_ASSIGNMENT_OBJECTS)
             self.hw_config.verify_assignment(self.assignment)
+            self.assignment.validate_graph(self.graph)
+
         return True
 
 
