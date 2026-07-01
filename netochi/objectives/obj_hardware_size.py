@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import icontract
 from typing import Any
 
@@ -39,3 +39,34 @@ class MosaicHardwareSizeObjective(MappingObjective[MosaicHWMappingState[Any], Mo
     def get_name(self) -> str:
         return NAME_OBJ_HARDWARE_SIZE
 
+
+class MosaicHardwareSizeObjectiveConfig2(MosaicHardwareSizeObjectiveConfig):
+
+    alpha: float = Field(gt=0, description="Weight for core area cost")
+    beta: float = Field(gt=0, description="Weight for router area cost")
+    gamma: float = Field(default=0, gt=0, description="Weight for utilization penalty")
+
+    def create(self) -> "MosaicHardwareSizeObjective":
+        return MosaicHardwareSizeObjective(config=self)
+
+
+class MosaicHardwareSizeObjective2(MosaicHardwareSizeObjective):
+
+    def __init__(self, config: MosaicHardwareSizeObjectiveConfig2) -> None:
+        super().__init__(config=config)
+        self.config = config
+
+    def evaluate(self, state: MosaicHWMappingState[Any]) -> float:
+        hw = state.hw_to_evaluate
+
+        K = hw.total_cores
+        Nc = hw.neurons_per_core
+        Nr = hw.nodes_per_router
+        graph = state.mapping_input.graph
+        core_area_cost = self.config.alpha * (K * Nc * Nc)
+        router_area_cost = self.config.beta * (Nc * ((Nr - 1) / (K - 1)))
+        num_neurons = graph.num_vertices()
+
+        wasted_space = (K * Nc) - num_neurons
+        utilization_penalty = self.config.gamma * max(0, wasted_space)
+        return core_area_cost + router_area_cost + utilization_penalty
