@@ -17,6 +17,10 @@ class HcdClusterer(HierarchicalClusterer):
         A_directed = cast(csr_matrix, sparse.csr_matrix(cast(Any, gt.adjacency(input_data.graph))))
         A_symmetric = cast(csr_matrix, A_directed + A_directed.T)
         A_symmetric.data = np.ones_like(A_symmetric.data)
+
+        A_symmetric.setdiag(0)
+        A_symmetric.eliminate_zeros()
+
         A_sparse = A_symmetric
 
         # --- Run Hierarchical Inference ---

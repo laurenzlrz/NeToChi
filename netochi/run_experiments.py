@@ -41,7 +41,7 @@ from netochi.pipeline.runner.runner import (
     ExperimentTaskRun, TaskBundle,
 )
 from netochi.pipeline.runner.evaluator_bundle import EvaluatorBundle, BaselineStorer
-from netochi.pipeline.metrics import ObjectiveConfigMetricConfig
+from netochi.pipeline.metrics import ObjectiveMetricConfig
 from netochi.objectives.obj_log_likelihood import LogLikelihoodObjectiveConfig
 from netochi.objectives.obj_inconsistency import InconsistencyObjectiveConfig, InconsistencyRelativeObjectiveConfig
 from netochi.objectives.obj_hardware_size import MosaicHardwareSizeObjectiveConfig
@@ -146,7 +146,7 @@ def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, Mappi
     # 2. Define Baseline Providers
     random_baseline = RandomMosaicBaselineProviderConfig().create()
     gt_baseline = MosaicGroundTruthBaselineProviderConfig().create()
-    metrics = [ObjectiveConfigMetricConfig(objective_config=obj_config).create() for obj_config in OBJECTIVE_CONFIGS]
+    metrics = [ObjectiveMetricConfig(objective_config=obj_config).create() for obj_config in OBJECTIVE_CONFIGS]
     hooks: List[Tuple[MappingStateConsumer[BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]], Optional[BaselineStorer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput]]]]] = [(hook, None) for hook in HOOKS]
 
 

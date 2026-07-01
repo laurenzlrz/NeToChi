@@ -216,3 +216,6 @@ class KaHyParHierarchicalClusterer(ClustererFixedHw):
             print(f"KaHyPar bisection failed: {e}. Falling back to mid-split.")
             mid = num_vertices // 2
             return ordered_nodes[:mid], ordered_nodes[mid:]
+
+    def get_name(self):
+        return "KaHyPar"

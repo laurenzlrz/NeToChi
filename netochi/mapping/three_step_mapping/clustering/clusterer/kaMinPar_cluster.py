@@ -17,7 +17,7 @@ class KaMinParHierarchicalClusterer(ClustererFixedHw):
     hierarchical graph clustering using the parallel KaMinPar algorithm.
     """
 
-    def __init__(self, imbalance: float = 0.03, num_threads: int = 1) -> None:
+    def __init__(self, imbalance: float = 0.001, num_threads: int = 1) -> None:
         """
         Args:
             imbalance: The maximum allowed load imbalance factor for KaMinPar (e.g., 0.03 = 3%).
@@ -110,8 +110,7 @@ class KaMinParHierarchicalClusterer(ClustererFixedHw):
             hw=input_data.hw_config
         )
 
-    def _partition_cluster(self, graph: gt.Graph, nodes_in_cluster: List[int], mapping_input: MosaicMappingInput) -> \
-    List[List[int]]:
+    def _partition_cluster(self, graph: gt.Graph, nodes_in_cluster: List[int], mapping_input: MosaicMappingInput) -> List[List[int]]:
         """
         Extracts an induced cluster subgraph, encodes it to METIS format,
         and calls KaMinPar to compute a k-way partition.
@@ -128,7 +127,12 @@ class KaMinParHierarchicalClusterer(ClustererFixedHw):
         # Build local adjacency lists relative only to nodes within this cluster
         for v_id in ordered_nodes:
             v_obj = graph.vertex(v_id)
-            neighbors = [int(n) for n in v_obj.out_neighbors()]
+
+            # symmetrize graph: undirected
+            neighbors = set(int(n) for n in v_obj.out_neighbors()) | set(int(n) for n in v_obj.in_neighbors())
+            # Remove self-loops
+            neighbors.discard(v_id)
+
             cluster_neighbors = [local_map[n] for n in neighbors if n in local_map]
             total_edges += len(cluster_neighbors)
             metis_lines.append(" ".join(map(str, cluster_neighbors)))
@@ -183,3 +187,6 @@ class KaMinParHierarchicalClusterer(ClustererFixedHw):
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
+
+    def get_name(self) -> str:
+        return "KaMinPar"

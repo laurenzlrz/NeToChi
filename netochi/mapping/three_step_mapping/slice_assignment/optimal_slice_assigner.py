@@ -45,4 +45,5 @@ class OptimalSliceAssigner(SliceAssigner):
         return s_assignment
 
 
-
+    def get_name(self) -> str:
+        return "Opt"

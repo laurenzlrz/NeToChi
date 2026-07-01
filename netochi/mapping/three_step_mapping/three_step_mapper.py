@@ -54,9 +54,11 @@ class ThreeStepMapper(BaseMapper[MosaicHWMappingState, MappingInput]):
             neuron_slice_assignment=neuron_slice_assignment.astype(np.int64)
         )
         state = MosaicHWMappingState(
-            _mapping_input=mapping_input,
-            _inferred_hw_config=clustering.hw,
+            mapping_input=mapping_input,
+            inferred_hw=clustering.hw,
             assignment=assignment
         )
         return state
 
+    def get_name(self) -> str:
+        return f"3step_{self._clusterer.get_name()}_{self._address_assigner.get_name()}_{self._slice_assigner.get_name()}"

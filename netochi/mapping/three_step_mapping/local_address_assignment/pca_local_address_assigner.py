@@ -44,3 +44,6 @@ class PcaLocalAddressAssigner(LocalAddressAssigner):
             neuron_local_assignment[sorted_actual_nodes] = np.arange(len(nodes))
 
         return neuron_local_assignment
+
+    def get_name(self) -> str:
+        return "PCA"

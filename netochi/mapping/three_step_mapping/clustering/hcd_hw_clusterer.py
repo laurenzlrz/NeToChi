@@ -18,3 +18,5 @@ class HcdHwClusterer(ClustererInferHw):
     def cluster(self, input_data: MappingInput) -> ClusterAndHwOutput:
         return self._clusterer.cluster(input_data)
 
+    def get_name(self) -> str:
+        return "HCD"

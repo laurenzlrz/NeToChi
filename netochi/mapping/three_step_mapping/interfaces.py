@@ -45,8 +45,8 @@ class HierarchicalClusterOutput(ClusterOutput):
 
     def validate(self) -> bool:
         super().validate()
-        if not (self.cluster_parent.ndim == 1 and len(self.cluster_parent) == self.num_clusters):
-             raise DimensionError(f"cluster_parent must be 1D and cluster_parent length {self.cluster_parent.shape[0]} must match num_clusters {self.num_clusters}")
+        if not (self.cluster_parent.ndim == 1 and len(set(self.cluster_assignment)) == self.num_clusters):
+             raise DimensionError(f"cluster_parent must be 1D and number distinct clusters {len(set(self.cluster_assignment))} must match num_clusters {self.num_clusters}")
         return True
 
 
@@ -114,6 +114,10 @@ class ClustererFixedHw[WITH_HW_INPUT: HWMappingInput](ClustererOutputsHw[WITH_HW
     def cluster(self, input_data: WITH_HW_INPUT) -> ClusterAndHwOutput:
         pass
 
+    def get_name(self) -> str:
+        return self.__class__.__name__
+
+
 
 class ClustererInferHw(ClustererOutputsHw[MappingInput], ABC):
     """
@@ -123,6 +127,9 @@ class ClustererInferHw(ClustererOutputsHw[MappingInput], ABC):
     @abstractmethod
     def cluster(self, input_data: MappingInput) -> ClusterAndHwOutput:
         pass
+
+    def get_name(self) -> str:
+        return self.__class__.__name__
 
 
 class ClusteringAdapter(ABC):
@@ -156,6 +163,9 @@ class LocalAddressAssigner(ABC):
         """
         pass
 
+    def get_name(self) -> str:
+        return self.__class__.__name__
+
 
 # ============== Slice Assigner =======================
 
@@ -166,3 +176,7 @@ class SliceAssigner(ABC):
     @abstractmethod
     def assign_slices(self, clustering: ClusterAndHwOutput, graph: gt.Graph, local_assignment: npt.NDArray[np.int_]) -> np.ndarray[tuple[Any, Any], np.dtype[np.int_]]:
         pass
+
+    def get_name(self) -> str:
+        return self.__class__.__name__
+
