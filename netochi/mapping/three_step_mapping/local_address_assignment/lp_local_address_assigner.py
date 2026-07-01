@@ -106,7 +106,8 @@ class PipageRoundingAssigner(LocalAddressAssigner):
         proxy_to_idx = {p: i for i, p in enumerate(unique_proxies)}
 
         num_edges = len(filtered_edges)
-        c_max = math.ceil((local_addr_end - local_addr_start) / 2.0)
+        L = math.ceil((local_addr_end - local_addr_start) / 2.0)
+        R = (local_addr_end - local_addr_start) - L
 
         # Mapping: Welche aktiven Neuronen liegen in welchem Core
         cores_to_neurons_idx = {}
@@ -119,7 +120,7 @@ class PipageRoundingAssigner(LocalAddressAssigner):
             y = np.zeros(num_neurons)
             for c, neurons_in_core_idx in cores_to_neurons_idx.items():
                 for i, u_idx in enumerate(neurons_in_core_idx):
-                    if i >= c_max:
+                    if i >= L:
                         y[u_idx] = 1.0
             z_rounded = np.zeros(0, dtype=np.int_)
         else:
@@ -155,12 +156,12 @@ class PipageRoundingAssigner(LocalAddressAssigner):
             for c, neurons_in_core_idx in cores_to_neurons_idx.items():
                 for u_idx in neurons_in_core_idx:
                     A_ub[row_idx, u_idx] = 1
-                b_ub[row_idx] = c_max
+                b_ub[row_idx] = R
                 row_idx += 1
 
                 for u_idx in neurons_in_core_idx:
                     A_ub[row_idx, u_idx] = -1
-                b_ub[row_idx] = c_max - len(neurons_in_core_idx)
+                b_ub[row_idx] = L - len(neurons_in_core_idx)
                 row_idx += 1
 
             res = opt.linprog(c_obj, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method='highs')
@@ -170,7 +171,7 @@ class PipageRoundingAssigner(LocalAddressAssigner):
                 y = np.zeros(num_neurons)
                 for c, neurons_in_core_idx in cores_to_neurons_idx.items():
                     for i, u_idx in enumerate(neurons_in_core_idx):
-                        if i >= c_max: y[u_idx] = 1.0
+                        if i >= L: y[u_idx] = 1.0
                 z = np.zeros(num_proxies)
             else:
                 y = res.x[:num_neurons].copy()
@@ -237,7 +238,7 @@ class PipageRoundingAssigner(LocalAddressAssigner):
                 elif y[u_idx] >= 0.5 and z_rounded[p_idx] == 1:
                     edges_right.append((u, p))
 
-        mid_addr = local_addr_start + c_max
+        mid_addr = local_addr_start + L
 
         # Rekursiver Abstieg
         self.recursive_assign_addresses_and_slices(
