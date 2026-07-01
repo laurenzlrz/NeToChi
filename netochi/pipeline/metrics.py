@@ -1,5 +1,4 @@
 from typing import Optional, Any
-from abc import ABC, abstractmethod
 from pydantic import BaseModel, Field, ConfigDict
 import icontract
 
@@ -9,23 +8,8 @@ from netochi.objectives.interfaces import MappingObjective, AbstractObjectiveCon
 from netochi.pipeline.interfaces import MappingMetric
 
 
-class AbstractObjectiveMetricConfig(BaseModel, ABC):
+class ObjectiveMetricConfig(BaseModel):
     model_config = ConfigDict(strict=True, arbitrary_types_allowed=True)
-
-    @abstractmethod
-    def create(self) -> "ObjectiveMetric":
-        """Instantiates the ObjectiveMetric adapter."""
-        pass
-
-
-class ObjectiveMetricConfig(AbstractObjectiveMetricConfig):
-    objective: MappingObjective[Any, Any] = Field(..., description="The underlying objective to evaluate.")
-
-    def create(self) -> "ObjectiveMetric":
-        return ObjectiveMetric(config=self, objective=self.objective)
-
-
-class ObjectiveConfigMetricConfig(AbstractObjectiveMetricConfig):
     objective_config: AbstractObjectiveConfig = Field(..., description="The configuration for the objective to evaluate.")
 
     def create(self) -> "ObjectiveMetric":
@@ -38,8 +22,8 @@ class ObjectiveMetric[MAPPING_STATE: MappingState, BASELINE_STATE: MappingState]
     Adapter that shifts Objectives into the Pipeline Metric interface.
     """
 
-    @icontract.require(lambda config, objective: isinstance(config, AbstractObjectiveMetricConfig) and isinstance(objective, MappingObjective))
-    def __init__(self, config: AbstractObjectiveMetricConfig, objective: MappingObjective[Any, Any]) -> None:
+    @icontract.require(lambda config, objective: isinstance(config, ObjectiveMetricConfig) and isinstance(objective, MappingObjective))
+    def __init__(self, config: ObjectiveMetricConfig, objective: MappingObjective[Any, Any]) -> None:
         self.config = config
         self.objective = objective
 
