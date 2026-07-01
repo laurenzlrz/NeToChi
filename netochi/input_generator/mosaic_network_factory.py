@@ -17,6 +17,7 @@ class MosaicNetworkConfig(BaseModel):
     hw_config: MosaicHardwareConfig = Field(..., description="Hardware configuration.")
     probability: float = Field(..., gt=0, le=1)
     seed: int = Field(default=42)
+    permute: bool = Field(default=True, description="Whether to permute the graph node IDs after generation.")
 
     def create(self) -> "MosaicNetworkFactory":
         return MosaicNetworkFactory(config=self)
@@ -32,6 +33,7 @@ class MosaicNetworkFactory(HWBaseInputFactory[MosaicMappingInput]):
         self.probability = config.probability
         self.seed = config.seed
         self._rng = np.random.default_rng(self.seed)
+        self.permute = config.permute
 
 
     def get_name(self) -> str:
@@ -83,6 +85,14 @@ class MosaicNetworkFactory(HWBaseInputFactory[MosaicMappingInput]):
         neurons_per_core: int = self.hw_config.neurons_per_core
         total_cores: int = self.hw_config.total_cores
 
+        # --- NEW: Define permutation maps ---
+        if self.permute:
+            perm = self._rng.permutation(total_neurons)
+            inv_perm = np.argsort(perm)
+        else:
+            perm = np.arange(total_neurons)
+            inv_perm = perm
+
         for target_neuron in range(total_neurons):
             target_core: int = target_neuron // neurons_per_core
 
@@ -106,12 +116,16 @@ class MosaicNetworkFactory(HWBaseInputFactory[MosaicMappingInput]):
 
                 sampled = self._rng.random(source_candidates.size) < self.probability
                 selected_sources = source_candidates[sampled]
-                graph.add_edges_from((int(src), target_neuron) for src in selected_sources)
+
+                # --- CHANGED: Apply perturbation to external graph node IDs ---
+                graph.add_edges_from((int(perm[src]), int(perm[target_neuron])) for src in selected_sources)
+
+        # --- CHANGED: Align assignments with perturbed graph IDs via inv_perm ---
         assignment: MosaicAssignment = MosaicAssignment(
             hw=self.hw_config,
-            neuron_core_pre_assignment=np.arange(total_neurons) // neurons_per_core,
-            neuron_idx_pre_assignment=np.arange(total_neurons) % neurons_per_core,
-            neuron_slice_assignment=slice_assignment
+            neuron_core_pre_assignment=inv_perm // neurons_per_core,
+            neuron_idx_pre_assignment=inv_perm % neurons_per_core,
+            neuron_slice_assignment=slice_assignment[inv_perm]
         )
         return graph, assignment
 
