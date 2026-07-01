@@ -36,7 +36,7 @@ class MosaicNetworkFactory(HWBaseInputFactory[MosaicMappingInput]):
 
     def get_name(self) -> str:
         """Returns a concise name reflecting size and probability."""
-        return f"FeasibleMosaicNetwork_{self.hw_config.total_neurons}n_p{self.probability}"
+        return f"FeasibleMosaic_{self.hw_config.total_neurons}n_p{self.probability}"
 
     def generate(self) -> MosaicMappingInput:
         """Generate a single MosaicMappingInput."""

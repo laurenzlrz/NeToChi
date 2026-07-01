@@ -27,6 +27,33 @@ def compute_e_valid(state: BaseMosaicMappingState[Any], data: Dict[str, Any]) ->
     return e_valid
 
 
+def compute_inconsistencies(state: BaseMosaicMappingState[Any], data: Dict[str, Any]) -> int:
+    """
+    data needs to have:
+    - N: num nodes
+    - in_edges for every target node (adjacency list of incoming edges)
+    """
+    hw = state.hw_to_evaluate
+    c, x, s = state.c, state.x, state.s
+    inconsistencies = 0
+
+    for tgt in range(data['N']):
+        c_tgt = c[tgt]
+        for src in data['in_edges'][tgt]:
+            c_src = c[src]
+            dist = hw.core_distance(int(c_tgt), int(c_src))
+
+            # Distance 0 is always valid (fully connected), so we only check dist > 0
+            if dist > 0:
+                chosen_slice = s[tgt][dist]
+                lower_bound, upper_bound = hw.get_slice_bounds(dist, chosen_slice)
+
+                # If the source intra-core index is OUTSIDE the bounds, it's an inconsistency
+                if not (lower_bound <= x[src] < upper_bound):
+                    inconsistencies += 1
+
+    return inconsistencies
+
 def compute_total_hw_connections(hw_config: MosaicHardwareConfig) -> int:
     """Computes the total number of hardware connections on the chip."""
     R = hw_config.nodes_per_router
