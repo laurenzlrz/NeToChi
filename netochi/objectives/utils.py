@@ -6,13 +6,14 @@ from netochi.mapping.interfaces import BaseMosaicMappingState
 
 
 def compute_e_valid(state: BaseMosaicMappingState[Any], data: Dict[str, Any]) -> int:
+    return compute_valid(state.hw_to_evaluate, state.c, state.x, state.s, data)
+
+def compute_valid(hw, c, x, s, data) -> int:
     """
     data needs to have:
     - N: num nodes
     - in_edges for every target node
     """
-    hw = state.hw_to_evaluate
-    c, x, s = state.c, state.x, state.s
     e_valid = 0
     for tgt in range(data['N']):
         c_tgt = c[tgt]
