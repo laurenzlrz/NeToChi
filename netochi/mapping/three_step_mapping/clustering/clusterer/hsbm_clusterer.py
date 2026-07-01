@@ -17,26 +17,48 @@ class HsbmClusterer(HierarchicalClusterer):
     def _convert_to_hierarchical_output(self, nested_state: NestedBlockState) -> HierarchicalClusterOutput:
         hierarchy = nested_state.get_bs()
 
-        # 1. Extract Labels (Node ID -> Cluster ID): take the finest level (level 0) as the base labels
-        finest_level = hierarchy[0]
-        labels = np.array(finest_level, dtype=np.int_)
+        # ===== remap hierarchy: cluster indices are continuously from 0, 1, ..., X
+        remapped_hierarchy = []
+        active_old_ids = None
+
+        for level_idx, pvec in enumerate(hierarchy):
+            if level_idx == 0:
+                # Base level: remap non-contiguous node labels to 0, 1, 2...
+                # np.unique returns the active old IDs, and the new contiguous assignments
+                unique_blocks, new_labels = np.unique(pvec, return_inverse=True)
+                remapped_hierarchy.append(new_labels)
+                active_old_ids = unique_blocks
+            else:
+                # Higher levels: extract the parent IDs, but ONLY for the active blocks
+                # from the previous level.
+                active_parents_old_ids = np.array(pvec)[active_old_ids]
+
+                # Remap these parent IDs to new contiguous IDs for this level
+                unique_parents, new_parents = np.unique(active_parents_old_ids, return_inverse=True)
+                remapped_hierarchy.append(new_parents)
+                active_old_ids = unique_parents
+
+        # =====================================================================
+        # Now we can safely build the output using the clean remapped_hierarchy
+        # =====================================================================
+
+        # 1. Extract Labels (Node ID -> Cluster ID): take the finest level (level 0)
+        labels = np.array(remapped_hierarchy[0], dtype=np.int_)
 
         # 2. Extract Cluster Hierarchy (Parent Mapping)
         cluster_offset = 0
         cluster_parent = np.array([], dtype=np.int_)
-        for level_idx in range(1, len(hierarchy)): # skip level 0, because we only want the cluster hierarchy, without the neuron labels
-            # for every level: for every child cluster on this level, infer parent cluster
-            pvec = np.array(hierarchy[level_idx], dtype=np.int_)
+
+        for level_idx in range(1, len(remapped_hierarchy)):
+            pvec = remapped_hierarchy[level_idx]
             nr_child_clusters = len(pvec)
             level_parent_ids = pvec + cluster_offset + nr_child_clusters
-            # Dynamically append/resize the array to include this level's parents
+
             cluster_parent = np.append(cluster_parent, level_parent_ids)
-            # Update the running offset
             cluster_offset += nr_child_clusters
 
-
-        # 3. Add root entry. check: if last hierarchy has more than one clusters, add additional root cluster
-        unique_roots = set(hierarchy[len(hierarchy) - 1])
+        # 3. Add root entry
+        unique_roots = set(remapped_hierarchy[-1])
         if len(unique_roots) > 1:
             root_id = cluster_offset + len(unique_roots)
             extension_size = len(unique_roots) + 1  # elements for unique roots + 1 for the ultra-root
@@ -50,7 +72,7 @@ class HsbmClusterer(HierarchicalClusterer):
             cluster_parent = np.append(cluster_parent, -1)
 
         # 4. compute num_clusters
-        num_clusters = nested_state.get_levels()[0].get_nonempty_B()
+        num_clusters = len(set(remapped_hierarchy[0]))
 
         return HierarchicalClusterOutput(cluster_assignment=labels, cluster_parent=cluster_parent, num_clusters=num_clusters)
 

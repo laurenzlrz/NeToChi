@@ -59,3 +59,5 @@ class ThreeStepHwMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput
         )
         return state
 
+    def get_name(self) -> str:
+        return f"3stepHw_{self._clusterer.get_name()}_{self._address_assigner.get_name()}_{self._slice_assigner.get_name()}"

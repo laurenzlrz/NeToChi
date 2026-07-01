@@ -110,3 +110,6 @@ class KaHyParHyperedgesClusterer(KaHyParHierarchicalClusterer):
         except Exception as e:
             print(f"KaHyPar partitioning failed: {e}. Falling back to naive k-split.")
             return build_fallback()
+
+    def get_name(self):
+        return "KaHyParHyperedges"

@@ -79,7 +79,6 @@ class SummaryReporter(PipelineConsumer[MappingInput, MappingState[Any, Any], Map
         for name in metric_names:
             display_name = SummaryReporter._truncate(name, metric_width)
             header += f" | {display_name:<{metric_width}}"
-        header += f" | {'Time (s)':<{time_width}}"
 
         table_lines.append(header)
         table_lines.append("-" * len(header))
@@ -100,7 +99,6 @@ class SummaryReporter(PipelineConsumer[MappingInput, MappingState[Any, Any], Map
                 val = metrics_dict.get(name, -1.0)
                 row += f" | {val:<{metric_width}.2f}"
 
-            row += f" | {res.raw_metrics[NAME_OBJ_EXECUTION_TIME]:<{time_width}.3f}"
             table_lines.append(row)
 
         return "\n".join(table_lines)

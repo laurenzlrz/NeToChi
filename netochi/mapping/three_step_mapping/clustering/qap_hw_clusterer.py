@@ -53,3 +53,6 @@ class QapHwClusterer(ClustererFixedHw):
             core_assignment[node] = local_tuple[0]
 
         return ClusterAndHwOutput(cluster_assignment=core_assignment.astype(np.int_), num_clusters=num_clusters, hw=input_data.hw_config)
+
+    def get_name(self) -> str:
+        return "QAP"
