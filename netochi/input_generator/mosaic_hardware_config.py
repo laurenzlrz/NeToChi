@@ -39,6 +39,32 @@ class MosaicHardwareConfig(BaseModel):
     def max_distance(self) -> int:
         return self.router_levels
 
+    @property
+    def total_hardware_edges(self) -> int:
+        """
+        Calculate the total number of configurable hardware connections
+        available across the entire chip.
+        """
+        connections_per_neuron = 0
+
+        for d in range(self.max_distance + 1):
+            # 1. Compute number of cores at this distance
+            if d == 0:
+                cores_at_dist = 1
+            else:
+                cores_at_dist = (self.nodes_per_router - 1) * (self.nodes_per_router ** (d - 1))
+
+            # 2. Compute the uniform size of a slice at this distance
+            # (Slice index 0 is used as a proxy since all slices have identical sizes)
+            start, end = self.get_slice_bounds(d, 0)
+            slice_width = end - start
+
+            # Accumulate fan-in capacity for this distance
+            connections_per_neuron += cores_at_dist * slice_width
+
+        # Every neuron has the same capacity, so multiply by total neurons
+        return self.total_neurons * connections_per_neuron
+
     def local_to_global_neuron(self, core_idx: int, local_idx: int) -> int:
         """Convert (core_idx, local_idx) to a global neuron index."""
         if core_idx < 0 or core_idx >= self.total_cores:

@@ -7,7 +7,7 @@ from netochi.mapping.interfaces import (
     BaseMosaicMappingState,
 )
 from netochi.objectives.interfaces import MappingObjective, AbstractObjectiveConfig
-from netochi.objectives.utils import compute_inconsistencies
+from netochi.objectives.utils import compute_inconsistencies, compute_e_valid
 
 
 class InconsistencyObjectiveConfig(AbstractObjectiveConfig):
