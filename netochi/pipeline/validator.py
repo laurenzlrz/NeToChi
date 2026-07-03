@@ -28,6 +28,6 @@ class Validator(MappingStateConsumer[BaseMosaicMappingState[MosaicMappingInput],
     def consume(self, state: BaseMosaicMappingState[MosaicMappingInput], baseline: Optional[BaseMosaicMappingState[MosaicMappingInput]] = None) -> None:
         try:
             validate_mosaic_mapping(state.hw_to_evaluate, state)
-            self.pipeline_output.print_console("Validation successful!", name="validation_metric")
+            self.pipeline_output.print_console("  --> Validation successful!", name="validation_metric")
         except Exception as e:
             self.pipeline_output.print_console(str(e), name="validation_metric")

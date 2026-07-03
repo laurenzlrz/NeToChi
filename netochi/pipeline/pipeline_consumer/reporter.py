@@ -48,10 +48,10 @@ class SummaryReporter(PipelineConsumer[MappingInput, MappingState[Any, Any], Map
         divider = SummaryReporter._get_divider(all_metric_names)
 
         # 1. Relative Improvement Table
-        report_lines.append(f"\n{divider}")
-        report_lines.append(REPORT_HEADER_BASELINE)
-        report_lines.append(divider)
-        report_lines.append(self._get_table_string(summary.results, all_metric_names, use_raw=False))
+        # report_lines.append(f"\n{divider}")
+        # report_lines.append(REPORT_HEADER_BASELINE)
+        # report_lines.append(divider)
+        # report_lines.append(self._get_table_string(summary.results, all_metric_names, use_raw=False))
 
         # 2. Absolute Values Table
         report_lines.append(f"\n{divider}")

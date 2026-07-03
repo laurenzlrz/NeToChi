@@ -139,7 +139,7 @@ def cluster_with_BetheHessian(A, num_groups=-1, regularizer='BHa',
         combined_evecs = np.hstack([cast(Any, BH_pos.evecs), cast(Any, BH_neg.evecs)])
 
         num_groups = Kpos + Kneg
-        print(f'HCD: number of groups = {num_groups}')
+        #print(f'HCD: number of groups = {num_groups}')
 
         if num_groups == 0:
             print("no indication for grouping -- return all in one partition")
