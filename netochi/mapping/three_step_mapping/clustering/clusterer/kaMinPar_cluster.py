@@ -3,13 +3,53 @@ import tempfile
 import collections
 from typing import List
 import numpy as np
-import graph_tool as gt
+import graph_tool.all as gt
 
 from netochi.input_generator.interfaces import MosaicMappingInput
 from netochi.mapping.three_step_mapping.interfaces import ClustererFixedHw, ClusterAndHwOutput
 
 import kaminpar
 
+import numpy as np
+from scipy.sparse import csr_matrix
+import numpy.typing as npt
+
+
+def compute_normalized_cut(adj_matrix: csr_matrix, labels: npt.NDArray[np.int_]) -> float:
+    """
+    Computes the Normalized Cut for a given graph and cluster assignment.
+
+    :param adj_matrix: A SciPy sparse adjacency matrix of the graph.
+    :param labels: A NumPy array of cluster labels for each node.
+    :return: The total Normalized Cut score (lower is better).
+    """
+    unique_labels = np.unique(labels)
+    total_ncut = 0.0
+
+    # Precompute the degree of each node (sum across rows)
+    # .A1 flattens the matrix into a 1D NumPy array
+    degrees = adj_matrix.sum(axis=1).A1
+
+    for k in unique_labels:
+        # Boolean masks for nodes inside and outside the current cluster
+        in_cluster = (labels == k)
+        out_cluster = (labels != k)
+
+        # Volume: sum of degrees of all nodes in this cluster
+        vol = degrees[in_cluster].sum()
+
+        # Guard against zero-volume clusters (isolated nodes with no edges)
+        if vol == 0:
+            continue
+
+        # Cut: sum of edge weights between nodes in the cluster and outside the cluster
+        # We index the sparse matrix directly for efficiency
+        cut = adj_matrix[in_cluster, :][:, out_cluster].sum()
+
+        # Accumulate the ratio
+        total_ncut += cut / vol
+
+    return total_ncut
 
 class KaMinParHierarchicalClusterer(ClustererFixedHw):
     """
@@ -103,6 +143,18 @@ class KaMinParHierarchicalClusterer(ClustererFixedHw):
         for old_leaf_id, hw_id in leaf_to_hw_id.items():
             for node in cluster_nodes[old_leaf_id]:
                 cluster_assignment[node] = hw_id
+
+
+        if input_data.assignment is not None:
+            adj_matrix = gt.adjacency(input_data.graph)
+            gt_labels = np.array(input_data.assignment.neuron_core_pre_assignment, dtype=np.int_)
+            algo_labels = cluster_assignment
+
+            ncut_gt = compute_normalized_cut(adj_matrix, gt_labels)
+            ncut_algo = compute_normalized_cut(adj_matrix, algo_labels)
+
+            print(f"  --> kaMinPar: ground truth: {ncut_gt}, algo: {ncut_algo} (normalized cut, to minimize)")
+
 
         return ClusterAndHwOutput(
             cluster_assignment=cluster_assignment,

@@ -3,7 +3,7 @@ import numpy as np
 from scipy import sparse
 from typing import cast, Any
 from scipy.sparse import csr_matrix
-from netochi.input_generator.interfaces import MappingInput
+from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput
 from netochi.mapping.three_step_mapping.clustering.clusterer.utils_from_hierarchical_community_detection_paper.cluster import Hierarchy
 from netochi.mapping.three_step_mapping.clustering.clusterer.utils_from_hierarchical_community_detection_paper.inference import infer_hierarchy
 from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOutput, HierarchicalClusterer
@@ -11,7 +11,7 @@ from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOut
 
 class HcdClusterer(HierarchicalClusterer):
 
-    def cluster(self, input_data: MappingInput) -> HierarchicalClusterOutput:
+    def cluster(self, input_data: MosaicMappingInput) -> HierarchicalClusterOutput:
 
         # --- Convert gt.Graph to Undirected Sparse Matrix ---
         A_directed = cast(csr_matrix, sparse.csr_matrix(cast(Any, gt.adjacency(input_data.graph))))
@@ -25,9 +25,20 @@ class HcdClusterer(HierarchicalClusterer):
 
         # --- Run Hierarchical Inference ---
         hierarchy = infer_hierarchy(A_sparse)
-
         # --- Convert to ClusterOutput ---
-        return self._convert_to_hierarchical_output(hierarchy)
+        cluster_output = self._convert_to_hierarchical_output(hierarchy)
+
+        if input_data.assignment is not None:
+            ground_truth_labels_property = input_data.graph.new_vertex_property("int")
+            ground_truth_labels_property.a = input_data.assignment.neuron_core_pre_assignment
+            q_gt = gt.modularity(input_data.graph, ground_truth_labels_property)
+
+            algo_labels_property = input_data.graph.new_vertex_property("int")
+            algo_labels_property.a = cluster_output.cluster_assignment
+            q_algo = gt.modularity(input_data.graph, algo_labels_property)
+            print(f"  --> HCD: ground truth: {q_gt}, algo: {q_algo} (modularity, to maximize)")
+
+        return cluster_output
 
     def _convert_to_hierarchical_output(self, hierarchy: Hierarchy) -> HierarchicalClusterOutput:
         """

@@ -2,7 +2,7 @@ import graph_tool.all as gt
 import numpy as np
 from graph_tool.inference import NestedBlockState
 from scipy import sparse
-from netochi.input_generator.interfaces import MappingInput
+from netochi.input_generator.interfaces import MappingInput, MosaicMappingInput
 from netochi.mapping.three_step_mapping.clustering.clusterer.utils_from_hierarchical_community_detection_paper.cluster import Hierarchy
 from netochi.mapping.three_step_mapping.clustering.clusterer.utils_from_hierarchical_community_detection_paper.inference import infer_hierarchy
 from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOutput, HierarchicalClusterer
@@ -10,8 +10,15 @@ from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOut
 
 class HsbmClusterer(HierarchicalClusterer):
 
-    def cluster(self, input_data: MappingInput) -> HierarchicalClusterOutput:
+    def cluster(self, input_data: MosaicMappingInput) -> HierarchicalClusterOutput:
         nested_state: NestedBlockState = gt.minimize_nested_blockmodel_dl(input_data.graph)
+
+        if input_data.assignment is not None:
+            f_algo = nested_state.entropy()
+            gt_state = gt.BlockState(input_data.graph, b=input_data.assignment.neuron_core_pre_assignment)
+            f_gt = gt_state.entropy()
+            print(f"  --> hSBM: ground truth: {f_gt}, algo: {f_algo} (description length, to minimize)")
+
         return self._convert_to_hierarchical_output(nested_state)
 
     def _convert_to_hierarchical_output(self, nested_state: NestedBlockState) -> HierarchicalClusterOutput:

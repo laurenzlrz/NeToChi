@@ -79,7 +79,10 @@ class InconsistencyRelativeObjective(InconsistencyObjectiveFabric):
         return float(inconsistencies) / float(self._graph_cache[id(state.mapping_input)]['m'])
 
     def evaluate_against_baseline(self, state: BaseMosaicMappingState[Any], baseline: BaseMosaicMappingState[Any]) -> float:
-        return self.evaluate(state) / self.evaluate(baseline)
+        b = self.evaluate(baseline)
+        if b == 0:
+            return -1
+        return self.evaluate(state) / b
 
     def get_name(self) -> str:
         return NAME_OBJ_INCONSISTENCIES_FRACTION
