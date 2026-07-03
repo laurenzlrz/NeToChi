@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import icontract
 
 from netochi.definitions.constants import NAME_OBJ_INCONSISTENCIES, NAME_OBJ_INCONSISTENCIES_FRACTION, \
@@ -6,7 +6,7 @@ from netochi.definitions.constants import NAME_OBJ_INCONSISTENCIES, NAME_OBJ_INC
 from netochi.mapping.interfaces import (
     BaseMosaicMappingState,
 )
-from netochi.objectives.interfaces import MappingObjective, AbstractObjectiveConfig
+from netochi.objectives.interfaces import MappingObjective, AbstractObjectiveConfig, ObjectiveResult
 from netochi.objectives.utils import compute_inconsistencies, compute_e_valid
 
 
@@ -52,12 +52,15 @@ class InconsistencyObjective(InconsistencyObjectiveFabric):
         super().__init__()
         self.config = config
 
-    def evaluate(self, state: BaseMosaicMappingState[Any]) -> float:
+    def evaluate(self, state: BaseMosaicMappingState[Any], baseline: Optional[BaseMosaicMappingState[Any]] = None) -> ObjectiveResult:
         """Returns total number of invalid edges."""
-        return float(compute_inconsistencies(state, self._preload_graph(state)))
-
-    def evaluate_against_baseline(self, state: BaseMosaicMappingState[Any], baseline: BaseMosaicMappingState[Any]) -> float:
-        return self.evaluate(state) - self.evaluate(baseline)
+        val = float(compute_inconsistencies(state, self._preload_graph(state)))
+        if baseline is not None and baseline.mapping_input is not None:
+            baseline_val = float(compute_inconsistencies(baseline, self._preload_graph(baseline)))
+            diff = val - baseline_val
+        else:
+            diff = None
+        return ObjectiveResult(self.get_name(), val, diff)
 
     def get_name(self) -> str:
         return NAME_OBJ_INCONSISTENCIES
@@ -73,16 +76,22 @@ class InconsistencyRelativeObjective(InconsistencyObjectiveFabric):
         super().__init__()
         self.config = config
 
-    def evaluate(self, state: BaseMosaicMappingState[Any]) -> float:
+    def evaluate(self, state: BaseMosaicMappingState[Any], baseline: Optional[BaseMosaicMappingState[Any]] = None) -> ObjectiveResult:
         """Returns ratio of invalid edges to total edges."""
         inconsistencies = float(compute_inconsistencies(state, self._preload_graph(state)))
-        return float(inconsistencies) / float(self._graph_cache[id(state.mapping_input)]['m'])
-
-    def evaluate_against_baseline(self, state: BaseMosaicMappingState[Any], baseline: BaseMosaicMappingState[Any]) -> float:
-        b = self.evaluate(baseline)
-        if b == 0:
-            return -1
-        return self.evaluate(state) / b
+        val = float(inconsistencies) / float(self._graph_cache[id(state.mapping_input)]['m'])
+        
+        if baseline is not None and baseline.mapping_input is not None:
+            b_inconsistencies = float(compute_inconsistencies(baseline, self._preload_graph(baseline)))
+            b = float(b_inconsistencies) / float(self._graph_cache[id(baseline.mapping_input)]['m'])
+            if b == 0:
+                diff = -1.0
+            else:
+                diff = val / b
+        else:
+            diff = None
+            
+        return ObjectiveResult(self.get_name(), val, diff)
 
     def get_name(self) -> str:
         return NAME_OBJ_INCONSISTENCIES_FRACTION
@@ -98,19 +107,21 @@ class InconsistencyPercentageMetric(InconsistencyObjectiveFabric):
         super().__init__()
         self.config = config
 
-    def evaluate(self, state: BaseMosaicMappingState[Any]) -> float:
+    def evaluate(self, state: BaseMosaicMappingState[Any], baseline: Optional[BaseMosaicMappingState[Any]] = None) -> ObjectiveResult:
         invalid_edges = float(compute_inconsistencies(state, self._preload_graph(state)))
         total_edges = state.mapping_input.graph.num_edges()
-
-        if total_edges == 0:
-            return 0.0
-        return (float(invalid_edges) / float(total_edges)) * 100.0
-
-    def evaluate_against_baseline(self, state: BaseMosaicMappingState[Any], baseline: BaseMosaicMappingState[Any]) -> float:
-        baseline_val = self.evaluate(baseline)
-        if baseline_val == 0:
-            return 1.0 if self.evaluate(state) == 0 else 100.0
-        return self.evaluate(state) / baseline_val
+        val = 0.0 if total_edges == 0 else (float(invalid_edges) / float(total_edges)) * 100.0
+        
+        if baseline is not None and baseline.mapping_input is not None:
+            baseline_val = self.evaluate(baseline).value
+            if baseline_val == 0:
+                diff = 1.0 if val == 0 else 100.0
+            else:
+                diff = val / baseline_val
+        else:
+            diff = None
+            
+        return ObjectiveResult(self.get_name(), val, diff)
 
     def get_name(self) -> str:
         return NAME_OBJ_INCONSISTENCIES_PERCENTAGE

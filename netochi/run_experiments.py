@@ -57,6 +57,10 @@ from netochi.visualization.visualize_clustering import ClusteringVisualizerConfi
 from netochi.visualization.visualize_mapping_output import MappingOutputVisualizerConfig
 from netochi.visualization.visualize_routing_hierarchy import RoutingHierarchyVisualizerConfig
 
+from netochi.objectives.obj_custom import CustomObjectiveConfig
+from netochi.pipeline.pipeline_consumer.event_processor import EventProcessor, EventProcessorConfig
+from netochi.pipeline.pipeline_consumer.objective_consumer import CustomObjectiveConsumer
+
 # ======================= CONFIGURE PIPELINE HERE =============================
 PIPELINE_OUTPUT = PipelineOutputConfig().create()
 
@@ -79,6 +83,7 @@ OBJECTIVE_CONFIGS = [
     InconsistencyRelativeObjectiveConfig(),
     MosaicHardwareSizeObjectiveConfig(),
     UnusedConnectionsObjectiveConfig(),
+    CustomObjectiveConfig(),
     #LogLikelihoodObjectiveConfig()
 ]
 
@@ -88,7 +93,7 @@ HW_CONFIGS = [
 ]
 
 MAPPERS = [
-    SimAnnealingIHWConfig(time_limit=2.0, pipeline_output=PIPELINE_OUTPUT).create(),
+    #SimAnnealingIHWConfig(time_limit=2.0, pipeline_output=PIPELINE_OUTPUT).create(),
     #SimAnnealingMapperConfig().create(),
     #SimulatedAnnealingMapperClusterInitConfig().create(),
     ThreeStepHwMapperConfig(clusterer=KaHyParHyperedgesClusterer(), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
@@ -114,7 +119,10 @@ CONSUMERS: List[PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[Mosa
     #ClusteringVisualizerConfig(pipeline_output=PIPELINE_OUTPUT).create(),
     #MappingOutputVisualizerConfig(pipeline_output=PIPELINE_OUTPUT).create(),
     #RoutingHierarchyVisualizerConfig(pipeline_output=PIPELINE_OUTPUT).create(),
-    EvaluationExporterAndPlotterConfig(pipeline_output=PIPELINE_OUTPUT).create()
+    EvaluationExporterAndPlotterConfig(pipeline_output=PIPELINE_OUTPUT).create(),
+    EventProcessor(EventProcessorConfig(
+        objective_consumer=[CustomObjectiveConsumer("MyCustomObjectiveConsumer")]
+    ))
 ]
 
 

@@ -27,6 +27,8 @@ class PipageRoundingAssigner(LocalAddressAssigner):
 
     def assign_addresses_and_slices(self, mapping_input: MappingInput, clustering: 'ClusterAndHwOutput') -> Tuple[npt.NDArray[np.int_], npt.NDArray[np.int_]]:
         graph = mapping_input.graph
+        assert clustering.hw.slice_factor == 2, "PipageRoundingAssigner currently only supports slice_factor=2."
+
         hw = clustering.hw
         num_neurons = clustering.cluster_assignment.shape[0]
 

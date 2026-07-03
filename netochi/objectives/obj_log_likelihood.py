@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pydantic import BaseModel
 import icontract
 
@@ -10,7 +10,7 @@ from netochi.mapping.interfaces import (
 from netochi.definitions.constants import LL_INVALID_PENALTY_LOG, LL_LAPLACIAN_SMOOTHING_NUM, \
     LL_LAPLACIAN_SMOOTHING_DEN, NAME_OBJ_LOG_LIKELIHOOD
 from netochi.definitions.exceptions import BaselineMismatchError
-from netochi.objectives.interfaces import ObjectiveInterface, MappingObjective, AbstractObjectiveConfig
+from netochi.objectives.interfaces import ObjectiveInterface, MappingObjective, AbstractObjectiveConfig, ObjectiveResult
 
 
 class LogLikelihoodObjectiveConfig(AbstractObjectiveConfig):
@@ -29,15 +29,20 @@ class LogLikelihoodObjective(MappingObjective[BaseMosaicMappingState[Any], BaseM
         self.config = config
         self._graph_cache: Dict[int, Any] = {}
 
-    def evaluate(self, state: BaseMosaicMappingState[Any]) -> float:
+    def evaluate(self, state: BaseMosaicMappingState[Any], baseline: Optional[BaseMosaicMappingState[Any]] = None) -> ObjectiveResult:
         """Returns Negative Log-Likelihood (Energy)."""
-        return -self.log_likelihood(state)
+        val = -self.log_likelihood(state)
 
-    def evaluate_against_baseline(self, state: BaseMosaicMappingState[Any], baseline: BaseMosaicMappingState[Any]) -> float:
-        """Evaluate relative difference in energy."""
-        if id(state.mapping_input.graph) != id(baseline.mapping_input.graph):
-            raise BaselineMismatchError("Graph topology mismatch between state and baseline.")
-        return self.evaluate(state) - self.evaluate(baseline)
+        if baseline is not None:
+            if state.mapping_input is not None and baseline.mapping_input is not None:
+                if id(state.mapping_input.graph) != id(baseline.mapping_input.graph):
+                    raise BaselineMismatchError("Graph topology mismatch between state and baseline.")
+            baseline_val = -self.log_likelihood(baseline)
+            diff = val - baseline_val
+        else:
+            diff = None
+
+        return ObjectiveResult(self.get_name(), val, diff)
 
     def log_likelihood(self, state: BaseMosaicMappingState[Any]) -> float:
         """Calculate the log-likelihood for the current mapping assignment."""

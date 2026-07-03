@@ -8,6 +8,7 @@ from netochi.mapping.interfaces import MappingState
 from netochi.definitions.generics import Input_contra, MappingState_contra, BaselineState_contra, Input_co, \
     MappingState_co, BaselineState_co
 from netochi.pipeline.results import PipelineSummary
+from netochi.objectives.interfaces import ObjectiveResult
 
 class MappingMetric[MAPPING_STATE, MAPPING_STATE_BASELINE](ABC):
     """
@@ -16,17 +17,9 @@ class MappingMetric[MAPPING_STATE, MAPPING_STATE_BASELINE](ABC):
     """
 
     @abstractmethod
-    def evaluate_against_baseline(self, state: MAPPING_STATE, baseline: Optional[MAPPING_STATE_BASELINE] = None) -> float:
+    def evaluate(self, state: MAPPING_STATE, baseline: Optional[MAPPING_STATE_BASELINE] = None) -> ObjectiveResult:
         """
-        Evaluate the state and return a score.
-        If a baseline is provided, the metric may perform comparative evaluation.
-        """
-        pass
-
-    @abstractmethod
-    def evaluate(self, state: MAPPING_STATE) -> float:
-        """
-        Evaluate the state and return an absolute score.
+        Evaluate the state, potentially against a baseline, and return an ObjectiveResult.
         """
         pass
 
@@ -42,7 +35,7 @@ class BasePipelineRunner(ABC, BaseModel, Generic[Input_co, MappingState_co, Base
     config: PipelineOutput = Field(description="Configuration for pipeline execution.")
 
     @abstractmethod
-    def run(self) -> list[PipelineSummary[Input_co, MappingState_co, BaselineState_co]]:
+    def run(self) -> PipelineSummary[Input_co, MappingState_co, BaselineState_co]:
         """Execute the pipeline and return a summary of results."""
         pass
 

@@ -10,3 +10,4 @@ BaselineState_contra = TypeVar("BaselineState_contra", bound=MappingState, contr
 Input_co = TypeVar("Input_co", bound=MappingInput, covariant=True)
 MappingState_co = TypeVar("MappingState_co", bound=MappingState, covariant=True)
 BaselineState_co = TypeVar("BaselineState_co", bound=MappingState, covariant=True)
+ObjectiveResult_co = TypeVar("ObjectiveResult_co", covariant=True)

@@ -1,14 +1,17 @@
 import time
+from abc import ABC
 from typing import List, Optional, Any, Sequence, Generic
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from netochi.definitions.constants import NAME_OBJ_EXECUTION_TIME
+from eventbus.event_bus import EventBus, BaseEvent
+from netochi.definitions.constants import NAME_OBJ_EXECUTION_TIME, DEFAULT_METRIC_VALUE
 from netochi.definitions.generics import Input_co, MappingState_co, BaselineState_co
 from netochi.input_generator.interfaces import BaseInputFactory
 from netochi.input_generator.interfaces import MappingInput
 from netochi.mapping.interfaces import BaseMapper
 from netochi.mapping.interfaces import MappingState
+from netochi.objectives.interfaces import ObjectiveResult
 from netochi.pipeline.config import PipelineOutput
 from netochi.pipeline.interfaces import BasePipelineRunner, PipelineConsumer
 from netochi.pipeline.results import ExperimentResult, PipelineSummary
@@ -35,8 +38,12 @@ class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELI
         input_id = input.id
         state = self.mapper.run(input)
         elapsed = time.time() - t0
-        raw_metrics, rel_metrics = self.evaluator_bundle.evaluate_all(state)
-        raw_metrics[NAME_OBJ_EXECUTION_TIME] = elapsed
+        objective_results = self.evaluator_bundle.evaluate_all(state)
+        objective_results.append(ObjectiveResult(
+            objective_name=NAME_OBJ_EXECUTION_TIME,
+            value=elapsed,
+            baseline_value=DEFAULT_METRIC_VALUE
+        ))
 
         error_msg: Optional[str] = None
         mapper_name = self.mapper.get_name()
@@ -45,8 +52,7 @@ class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELI
             input_id=input_id,
             mapper_name=mapper_name,
             input_metadata=input.descriptions,
-            metrics=rel_metrics,
-            raw_metrics=raw_metrics,
+            objective_results=objective_results,
             error=error_msg,
             state=state
         )
@@ -97,6 +103,7 @@ class TaskBundle(BaseModel, Generic[Input_co, MappingState_co, BaselineState_co]
     consumer: Sequence[PipelineConsumer[Any, Any, Any]] = Field(
         description="List of consumers to process the pipeline summary after execution.")
     config: PipelineOutput = Field(description="Configuration for pipeline outputs.")
+    event_bus: EventBus[BaseEvent] = Field(default_factory=EventBus, description="Event bus for publishing objective results.")
 
     def run(self):
         results = []

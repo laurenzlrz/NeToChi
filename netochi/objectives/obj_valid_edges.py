@@ -1,18 +1,17 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import icontract
 
 from netochi.definitions.constants import NAME_OBJ_VALID_EDGES
 from netochi.mapping.interfaces import (
     BaseMosaicMappingState,
 )
-from netochi.objectives.interfaces import MappingObjective, AbstractObjectiveConfig
+from netochi.objectives.interfaces import MappingObjective, AbstractObjectiveConfig, ObjectiveResult
 from netochi.objectives.utils import compute_e_valid
 
 
 class ValidEdgesObjectiveConfig(AbstractObjectiveConfig):
     def create(self) -> "ValidEdgesObjective":
         return ValidEdgesObjective(config=self)
-
 
 
 class ValidEdgesObjectiveFabric(MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]]):
@@ -42,12 +41,15 @@ class ValidEdgesObjective(ValidEdgesObjectiveFabric):
         super().__init__()
         self.config = config
 
-    def evaluate(self, state: BaseMosaicMappingState[Any]) -> float:
+    def evaluate(self, state: BaseMosaicMappingState[Any], baseline: Optional[BaseMosaicMappingState[Any]] = None) -> ObjectiveResult:
         """Returns total number of valid edges."""
-        return float(compute_e_valid(state, self._preload_graph(state)))
-
-    def evaluate_against_baseline(self, state: BaseMosaicMappingState[Any], baseline: BaseMosaicMappingState[Any]) -> float:
-        return self.evaluate(state) - self.evaluate(baseline)
+        val = float(compute_e_valid(state, self._preload_graph(state)))
+        if baseline is not None:
+            baseline_val = float(compute_e_valid(baseline, self._preload_graph(baseline)))
+            diff = val - baseline_val
+        else:
+            diff = None
+        return ObjectiveResult(self.get_name(), val, diff)
 
     def get_name(self) -> str:
         return NAME_OBJ_VALID_EDGES

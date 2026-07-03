@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from netochi.input_generator.interfaces import MappingInput
 from netochi.mapping.interfaces import MappingState, BaseMapper
+from netochi.objectives.interfaces import ObjectiveResult
 from netochi.pipeline import MappingMetric
 from netochi.pipeline.interfaces import MappingStateConsumer
 from netochi.definitions.constants import DEFAULT_METRIC_VALUE
@@ -44,22 +45,17 @@ class EvaluatorBundle[MAPPING_STATE: MappingState, BASELINE_STATE: MappingState,
             if baseline_provider is not None:
                 baseline_provider.run(input)
 
-    def evaluate_all(self, state: MAPPING_STATE) -> Tuple[Dict[str, float], Dict[str, float]]:
-        raw_results: Dict[str, float] = {}
-        rel_results: Dict[str, float] = {}
+    def evaluate_all(self, state: MAPPING_STATE) -> List[ObjectiveResult]:
         for hook, baseline_provider in self.hooks:
             baseline = baseline_provider.baseline_state if baseline_provider is not None else None
             hook.consume(state, baseline)
+            
+        results: List[ObjectiveResult] = []
         for metric, baseline_provider in self.metrics_w_baselines:
             baseline = baseline_provider.baseline_state
-            # Calculate Raw (Absolute)
-            raw_results[metric.get_name()] = metric.evaluate(state)
-            # Calculate Relative (if baseline exists)
-            if baseline is not None:
-                rel_results[metric.get_name()] = metric.evaluate_against_baseline(state, baseline)
-            else:
-                rel_results[metric.get_name()] = DEFAULT_METRIC_VALUE # No baseline
-        return raw_results, rel_results
+            res = metric.evaluate(state, baseline)
+            results.append(res)
+        return results
 
     @property
     def get_baselines(self) -> List[BaselineStorer[MAPPING_INPUT, BASELINE_STATE]]:

@@ -1,10 +1,10 @@
 from pydantic import BaseModel, Field
 import icontract
-from typing import Any
+from typing import Any, Optional
 
 from netochi.definitions.constants import NAME_OBJ_HARDWARE_SIZE
 from netochi.mapping.interfaces import MosaicHWMappingState
-from netochi.objectives.interfaces import MappingObjective, AbstractObjectiveConfig
+from netochi.objectives.interfaces import MappingObjective, AbstractObjectiveConfig, ObjectiveResult
 
 
 class MosaicHardwareSizeObjectiveConfig(AbstractObjectiveConfig):
@@ -21,20 +21,24 @@ class MosaicHardwareSizeObjective(MappingObjective[MosaicHWMappingState[Any], Mo
     @icontract.require(lambda config: isinstance(config, MosaicHardwareSizeObjectiveConfig))
     def __init__(self, config: MosaicHardwareSizeObjectiveConfig) -> None:
         self.config = config
-    def evaluate(self, state: MosaicHWMappingState[Any]) -> float:
+
+    def evaluate(self, state: MosaicHWMappingState[Any], baseline: Optional[MosaicHWMappingState[Any]] = None) -> ObjectiveResult:
         """Returns the total number of cores in the hardware configuration."""
         # TODO: Improve calculation to mirror more closely hardware costs
         hw = state.hw_to_evaluate
-        penalty = hw.neurons_per_core * hw.total_cores
+        val = float(hw.neurons_per_core * hw.total_cores)
 
-        return float(penalty)
+        if baseline is not None and baseline.hw_to_evaluate is not None:
+            baseline_hw = baseline.hw_to_evaluate
+            baseline_size = float(baseline_hw.neurons_per_core * baseline_hw.total_cores)
+            if baseline_size <= 0:
+                diff = float('inf')
+            else:
+                diff = val / baseline_size
+        else:
+            diff = None
 
-    def evaluate_against_baseline(self, state: MosaicHWMappingState[Any], baseline: MosaicHWMappingState[Any]) -> float:
-        """Returns the ratio of state cores to baseline cores."""
-        baseline_size = self.evaluate(baseline)
-        if baseline_size <= 0:
-            return float('inf')
-        return self.evaluate(state) / baseline_size
+        return ObjectiveResult(self.get_name(), val, diff)
 
     def get_name(self) -> str:
         return NAME_OBJ_HARDWARE_SIZE
@@ -56,7 +60,8 @@ class MosaicHardwareSizeObjective2(MosaicHardwareSizeObjective):
         super().__init__(config=config)
         self.config = config
 
-    def evaluate(self, state: MosaicHWMappingState[Any]) -> float:
+    def evaluate(self, state: MosaicHWMappingState[Any], baseline: Optional[MosaicHWMappingState[Any]] = None) -> ObjectiveResult:
+
         hw = state.hw_to_evaluate
 
         K = hw.total_cores
@@ -69,4 +74,15 @@ class MosaicHardwareSizeObjective2(MosaicHardwareSizeObjective):
 
         wasted_space = (K * Nc) - num_neurons
         utilization_penalty = self.config.gamma * max(0, wasted_space)
-        return core_area_cost + router_area_cost + utilization_penalty
+        val = core_area_cost + router_area_cost + utilization_penalty
+
+        if baseline is not None:
+            baseline_val = self.evaluate(baseline).value
+            if baseline_val <= 0:
+                diff = float('inf')
+            else:
+                diff = val / baseline_val
+        else:
+            diff = None
+
+        return ObjectiveResult(self.get_name(), val, diff)
