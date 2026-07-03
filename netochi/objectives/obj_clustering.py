@@ -5,7 +5,8 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 from sklearn.metrics import adjusted_rand_score, confusion_matrix
 
-from netochi.definitions.constants import NAME_OBJ_CLUSTERING_ARI, NAME_OBJ_CLUSTERING_ACCURACY
+from netochi.definitions.constants import NAME_OBJ_CLUSTERING_ARI, NAME_OBJ_CLUSTERING_ACCURACY, \
+    NAME_OBJ_CORE_DISTANCE_DIFF
 from netochi.input_generator.interfaces import MosaicMappingInput
 from netochi.mapping.interfaces import (
     BaseMosaicMappingState,
@@ -21,6 +22,11 @@ class ClusteringARIObjectiveConfig(AbstractObjectiveConfig):
 class ClusteringAccuracyObjectiveConfig(AbstractObjectiveConfig):
     def create(self) -> "":
         return ClusteringAccuracyObjective(config=self)
+
+
+class CoreDistanceDifferenceObjectiveConfig(AbstractObjectiveConfig):
+    def create(self) -> "CoreDistanceDifferenceObjective":
+        return CoreDistanceDifferenceObjective(config=self)
 
 
 
@@ -77,3 +83,47 @@ class ClusteringAccuracyObjective(MappingObjective[BaseMosaicMappingState[Any], 
 
     def get_name(self) -> str:
         return NAME_OBJ_CLUSTERING_ACCURACY
+
+
+class CoreDistanceDifferenceObjective(MappingObjective[BaseMosaicMappingState[Any], BaseMosaicMappingState[Any]]):
+    """
+    Objective that measures the difference in hierarchical core distance
+    between the true neuron assignments and the predicted neuron assignments.
+    Calculates the mean absolute difference of pairwise distances.
+    """
+
+    @icontract.require(lambda config: isinstance(config, CoreDistanceDifferenceObjectiveConfig))
+    def __init__(self, config: CoreDistanceDifferenceObjectiveConfig) -> None:
+        super().__init__()
+        self.config = config
+
+    def evaluate(self, state: BaseMosaicMappingState[Any]) -> float:
+        if state.mapping_input.assignment is None:
+            return float('nan')
+
+        true_labels = state.mapping_input.assignment.neuron_core_pre_assignment
+        predicted_labels = state.c
+
+        n_neurons = len(true_labels)
+        if n_neurons < 2:
+            return 0.0
+
+        total_diff = 0.0
+        count = 0
+
+        # Calculate the mean absolute difference in pairwise core distances
+        for i in range(n_neurons):
+            for j in range(i + 1, n_neurons):
+                dist_true = state.hw_to_evaluate.core_distance(true_labels[i], true_labels[j])
+                dist_pred = state.hw_to_evaluate.core_distance(predicted_labels[i], predicted_labels[j])
+                total_diff += abs(dist_true - dist_pred)
+                count += 1
+
+        return total_diff / count if count > 0 else 0.0
+
+    def evaluate_against_baseline(self, state: BaseMosaicMappingState[MosaicMappingInput],
+                                  baseline: BaseMosaicMappingState[Any]) -> float:
+        return self.evaluate(state=state)
+
+    def get_name(self) -> str:
+        return NAME_OBJ_CORE_DISTANCE_DIFF
