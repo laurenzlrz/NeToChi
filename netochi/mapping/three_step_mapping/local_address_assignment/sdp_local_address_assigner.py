@@ -7,6 +7,7 @@ import numpy.typing as npt
 import cvxpy as cp
 import scipy.linalg
 
+from netochi.input_generator.interfaces import MappingInput
 from netochi.mapping.three_step_mapping.interfaces import LocalAddressAssigner, ClusterAndHwOutput
 
 
@@ -21,19 +22,20 @@ class SDPRoundingAssigner(LocalAddressAssigner):
     def __init__(self, time_limit_secs: float = 4.0) -> None:
         self.time_limit_secs = time_limit_secs
 
-    def assign_addresses(self, graph: gt.Graph, clustering: ClusterAndHwOutput) -> npt.NDArray[np.int_]:
+    def assign_addresses(self, mapping_input: MappingInput, clustering: ClusterAndHwOutput) -> npt.NDArray[np.int_]:
         """
         The top-level function that initiates the assignment and extracts just the local addresses.
         """
-        local_addresses, _ = self.assign_addresses_and_slices(graph, clustering)
+        local_addresses, _ = self.assign_addresses_and_slices(mapping_input, clustering)
         return local_addresses
 
-    def assign_addresses_and_slices(self, graph: gt.Graph, clustering: 'ClusterAndHwOutput') -> Tuple[
+    def assign_addresses_and_slices(self, mapping_input: MappingInput, clustering: 'ClusterAndHwOutput') -> Tuple[
         npt.NDArray[np.int_], npt.NDArray[np.int_]]:
         """
         The intermediate function that sets up the global structures and invokes the recursion.
         Returns the local addresses and the slice assignments across router levels.
         """
+        graph = mapping_input.graph
         assert clustering.hw.slice_factor == 2, "SDPRoundingAssigner currently only supports slice_factor=2."
         hw = clustering.hw
         num_neurons = clustering.cluster_assignment.shape[0]

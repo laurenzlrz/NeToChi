@@ -7,6 +7,7 @@ import numpy.typing as npt
 import scipy.optimize as opt
 import scipy.sparse as sp
 
+from netochi.input_generator.interfaces import MappingInput
 from netochi.mapping.three_step_mapping.interfaces import LocalAddressAssigner, ClusterAndHwOutput
 
 
@@ -20,11 +21,12 @@ class PipageRoundingAssigner(LocalAddressAssigner):
     über eine LP-Relaxierung mit anschließendem abhängigem Runden (Pipage Rounding) gelöst.
     """
 
-    def assign_addresses(self, graph: gt.Graph, clustering: ClusterAndHwOutput) -> npt.NDArray[np.int_]:
-        local_addresses, _ = self.assign_addresses_and_slices(graph, clustering)
+    def assign_addresses(self, mapping_input: MappingInput, clustering: ClusterAndHwOutput) -> npt.NDArray[np.int_]:
+        local_addresses, _ = self.assign_addresses_and_slices(mapping_input, clustering)
         return local_addresses
 
-    def assign_addresses_and_slices(self, graph: gt.Graph, clustering: 'ClusterAndHwOutput') -> Tuple[npt.NDArray[np.int_], npt.NDArray[np.int_]]:
+    def assign_addresses_and_slices(self, mapping_input: MappingInput, clustering: 'ClusterAndHwOutput') -> Tuple[npt.NDArray[np.int_], npt.NDArray[np.int_]]:
+        graph = mapping_input.graph
         hw = clustering.hw
         num_neurons = clustering.cluster_assignment.shape[0]
 

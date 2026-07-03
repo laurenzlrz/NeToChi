@@ -4,6 +4,7 @@ import numpy as np
 import numpy.typing as npt
 from sklearn.decomposition import PCA
 
+from netochi.input_generator.interfaces import MappingInput
 from netochi.mapping.three_step_mapping.interfaces import LocalAddressAssigner, ClusterAndHwOutput
 
 import graph_tool.all as gt
@@ -12,10 +13,11 @@ import graph_tool.all as gt
 class PcaLocalAddressAssigner(LocalAddressAssigner):
 
 
-    def assign_addresses(self, graph: gt.Graph, clustering: ClusterAndHwOutput) -> npt.NDArray[np.int_] :
+    def assign_addresses(self, mapping_input: MappingInput, clustering: ClusterAndHwOutput) -> npt.NDArray[np.int_] :
         """
         infer neuron_id -> local_idx using PCA
         """
+        graph = mapping_input.graph
         num_neurons = graph.num_vertices()
         from typing import cast, Any
         adj = cast(Any, gt.adjacency(graph)).toarray()

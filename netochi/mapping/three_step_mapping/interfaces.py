@@ -157,7 +157,7 @@ class LocalAddressAssigner(ABC):
     given a clustering and a hardware, assigns each neuron a local index within the core
     """
     @abstractmethod
-    def assign_addresses(self, graph: gt.Graph, clustering: ClusterAndHwOutput) -> npt.NDArray[np.int_]:
+    def assign_addresses(self, mapping_input: MappingInput, clustering: ClusterAndHwOutput) -> npt.NDArray[np.int_]:
         """
         neuron_id -> local_idx
         """

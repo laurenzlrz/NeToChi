@@ -41,7 +41,7 @@ class ThreeStepMapper(BaseMapper[MosaicHWMappingState, MappingInput]):
         clustering: ClusterAndHwOutput = self._clusterer.cluster(input_data=mapping_input)
 
         # --- 2. Local address assignment ---
-        neuron_local_assignment = self._address_assigner.assign_addresses(graph=graph, clustering=clustering)
+        neuron_local_assignment = self._address_assigner.assign_addresses(mapping_input=mapping_input, clustering=clustering)
 
         # --- 3. Slice assignment ---
         neuron_slice_assignment = self._slice_assigner.assign_slices(clustering=clustering, graph=graph, local_assignment=neuron_local_assignment)
