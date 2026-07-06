@@ -18,7 +18,7 @@ class SwtaGeneratorConfig(BaseModel):
     p_neighbor: float = Field(default=0.1, ge=0.0, le=1.0, description="Neighboring E-cluster connection probability")
     p_e_to_i: float = Field(default=0.2, ge=0.0, le=1.0, description="Excitatory to Inhibitory probability")
     p_i_to_e: float = Field(default=0.8, ge=0.0, le=1.0, description="Inhibitory to Excitatory blanket probability")
-    seed: Optional[int] = Field(default=None, description="Random seed")
+    seed: Optional[int] = Field(description="Random seed")
 
     @property
     def num_i_clusters(self) -> int:
@@ -48,10 +48,10 @@ class SwtaFactory(HWBaseInputFactory[MosaicMappingInput]):
         self._rng = np.random.default_rng(config.seed)
 
 
-    def get_name(self) -> str:
+    def get_id(self) -> str:
         """Returns a name reflecting size and configuration."""
         total_n = self.config.num_clusters * self.config.neurons_per_cluster
-        return f"sWTA_{total_n}n_c{self.config.num_clusters}_npc{self.config.neurons_per_cluster}"
+        return f"sWTA_{total_n}n_{self.config.num_clusters}c_{self.config.neurons_per_cluster}N_{self.config.seed}seed"
 
     def _get_cluster_id(self, neuron_idx: int) -> int:
         return neuron_idx // self.config.neurons_per_cluster
@@ -103,7 +103,7 @@ class SwtaFactory(HWBaseInputFactory[MosaicMappingInput]):
         gt_graph = nx_to_gt(nx_graph)
 
         descriptions = {
-            "graph_type": self.get_name(),
+            "graph_type": self.get_id(),
             "num_clusters": str(self.config.num_clusters),
             "neurons_per_cluster": str(self.config.neurons_per_cluster),
             "nodes": str(gt_graph.num_vertices()),
@@ -115,8 +115,6 @@ class SwtaFactory(HWBaseInputFactory[MosaicMappingInput]):
             graph=gt_graph,
             descriptions=descriptions,
             hw_config=self.hw_config,
-            assignment=None
+            assignment=None,
+            seed=self.config.seed
         )
-
-    def get_id(self) -> str:
-        return f"sWTA_nrClusters={self.config.num_clusters}_N={self.config.neurons_per_cluster}_seed={self.config.seed}"

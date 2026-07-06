@@ -23,7 +23,7 @@ class GreedyMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
     def __init__(self, config: GreedyMapperConfig) -> None:
         self.config = config
 
-    def run(self, mapping_input: MosaicMappingInput) -> MosaicNetworkMappingState:
+    def run_mapping(self, mapping_input: MosaicMappingInput) -> MosaicNetworkMappingState:
         """
         Execute the dynamic-frontier greedy mapping algorithm.
         """

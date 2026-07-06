@@ -28,7 +28,7 @@ class ThreeStepMapper(BaseMapper[MosaicHWMappingState, MappingInput]):
         self._slice_assigner = slice_assigner
 
 
-    def run(self, mapping_input: MappingInput) -> MosaicHWMappingState:
+    def run_mapping(self, mapping_input: MappingInput) -> MosaicHWMappingState:
         """
         the mapping runs in three stages:
             1. clustering: it outputs a clustering AND a hardware config. The clustering must match the hardware

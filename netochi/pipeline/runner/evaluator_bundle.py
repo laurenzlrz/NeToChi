@@ -21,7 +21,7 @@ class BaselineStorer[MAPPING_INPUT: MappingInput, BASELINE_STATE: MappingState](
             return self._baseline_state
         return None
 
-    def run(self, mapping_input: MAPPING_INPUT) -> BASELINE_STATE:
+    def run_mapping(self, mapping_input: MAPPING_INPUT) -> BASELINE_STATE:
         self.precompute_baseline(mapping_input)
         assert self._baseline_state is not None
         return self._baseline_state

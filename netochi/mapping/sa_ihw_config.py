@@ -34,7 +34,6 @@ class SimAnnealingIHWConfig(BaseModel):
     steps_per_T: int = Field(default=10)
     time_limit: Optional[float] = Field(default=10, description="Time limit in seconds for simulated annealing.")
     slice_factor: int = Field(default=2)
-    seed: int = Field(default=42)
     verbose: bool = Field(default=False)
 
     def create_mapper(self) -> "SimAnnealingInferredHWMapper":

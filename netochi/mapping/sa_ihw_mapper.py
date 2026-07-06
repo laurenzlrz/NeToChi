@@ -37,7 +37,7 @@ class SimAnnealingInferredHWMapper(BaseMapper[MosaicHWMappingState[MappingInput]
         self._opt_slice_assigner: Optional[DeltaOptimalSliceAssigner] = None
         self._graph: Optional[gt.Graph] = None
         self._in_edges_data: dict[str, Any] = {}
-        self._rng = np.random.default_rng(self.config.seed)
+        self._rng = None
         self._pipeline_config = config.pipeline_output
 
         self._mutation_types = [
@@ -86,12 +86,13 @@ class SimAnnealingInferredHWMapper(BaseMapper[MosaicHWMappingState[MappingInput]
             slice_factor=slice_factor
         )
 
-    def run(self, mapping_input: MappingInput) -> MosaicHWMappingState[MappingInput]:
+    def run_mapping(self, mapping_input: MappingInput) -> MosaicHWMappingState[MappingInput]:
+        self._rng = np.random.default_rng(mapping_input.seed)
         self._graph = mapping_input.graph
         init_hw = self._find_initial_hardware_config(mapping_input.graph, self.config.slice_factor)
 
         N = self._graph.num_vertices()
-        init_assignment = MosaicAssignment.random(N, init_hw, seed=self.config.seed)
+        init_assignment = MosaicAssignment.random(N, init_hw, seed=mapping_input.seed)
 
         # 2. Build SAIHWState
         self._state = SAIHWState(

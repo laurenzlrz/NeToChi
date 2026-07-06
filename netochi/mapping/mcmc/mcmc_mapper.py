@@ -14,7 +14,6 @@ from netochi.definitions.constants import (
     MCMC_TIME_LIMIT_S,
     MCMC_DEFAULT_ITERATIONS,
     MCMC_DEFAULT_INITIAL_TEMP,
-    MCMC_DEFAULT_SEED,
     MCMC_BETA_MULTIPLIER,
     MCMC_NUM_MOVE_TYPES,
     DEBUG_MCMC_RUN_START,
@@ -49,10 +48,9 @@ class HardwareMCMCState(MCMCState):  # type: ignore[misc]
         MCMCState.__init__(self)
         self.mapping_state = mapping_state
         self.objective = objective
-        self.seed = seed
         self.verbose = verbose
         
-        self._rng = np.random.default_rng(self.seed)
+        self._rng = np.random.default_rng(seed)
         self._best_energy = float("inf")
         self._best_c: Optional[npt.NDArray[np.int_]] = None
         self._best_x: Optional[npt.NDArray[np.int_]] = None
@@ -177,7 +175,6 @@ class MCMCMapperConfig(BaseModel):
     objective: ObjectiveInterface[BaseMosaicMappingState[Any]] = Field(..., description="The objective function for mapping optimization.")
     iterations: int = Field(default=MCMC_DEFAULT_ITERATIONS)
     initial_temp: float = Field(default=MCMC_DEFAULT_INITIAL_TEMP)
-    seed: int = Field(default=MCMC_DEFAULT_SEED)
     time_limit_s: float = Field(default=MCMC_TIME_LIMIT_S)
     verbose: bool = Field(default=False)
 
@@ -196,23 +193,22 @@ class MCMCMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
         self.objective = config.objective
         self.iterations = config.iterations
         self.initial_temp = config.initial_temp
-        self.seed = config.seed
         self.time_limit_s = config.time_limit_s
         self.verbose = config.verbose
 
 
 
-    def run(self, mapping_input: MosaicMappingInput) -> MosaicNetworkMappingState:
+    def run_mapping(self, mapping_input: MosaicMappingInput) -> MosaicNetworkMappingState:
         """Run the optimization."""
         if self.verbose:
             print(DEBUG_MCMC_RUN_START)
 
-        state: MosaicNetworkMappingState = MosaicNetworkMappingState.from_input_random(mapping_input, seed=self.seed)
+        state: MosaicNetworkMappingState = MosaicNetworkMappingState.from_input_random(mapping_input, seed=mapping_input.seed)
 
         hw_state: HardwareMCMCState = HardwareMCMCState(
             mapping_state=state, 
             objective=self.objective,
-            seed=self.seed, 
+            seed=mapping_input.seed,
             verbose=self.verbose
         )
 

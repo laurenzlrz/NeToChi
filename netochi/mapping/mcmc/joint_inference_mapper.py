@@ -18,7 +18,6 @@ from netochi.definitions.constants import (
     MCMC_TIME_LIMIT_S,
     MCMC_DEFAULT_ITERATIONS,
     MCMC_DEFAULT_INITIAL_TEMP,
-    MCMC_DEFAULT_SEED,
     MCMC_BETA_MULTIPLIER,
     JOINT_NUM_MOVE_TYPES,
     JOINT_P_SWAP,
@@ -59,7 +58,6 @@ class JointHardwareMCMCState(MCMCState):
     """
     mapping_state: MosaicHWMappingState[MappingInput]
     objective: ObjectiveInterface[BaseMosaicMappingState[Any]]
-    seed: Optional[int]
     verbose: bool
     K: int
     Nc: int
@@ -82,17 +80,15 @@ class JointHardwareMCMCState(MCMCState):
         mapping_state: MosaicHWMappingState[MappingInput],
         objective: ObjectiveInterface[BaseMosaicMappingState[Any]],
         config: JointInferenceConfig,
-        seed: Optional[int] = None,
         verbose: bool = False
     ) -> None:
         MCMCState.__init__(self)
         self.mapping_state = mapping_state
         self.objective = objective
         self.config = config
-        self.seed = seed
         self.verbose = verbose
 
-        self._rng = np.random.default_rng(self.seed)
+        self._rng = np.random.default_rng(mapping_state.mapping_input.seed)
         self.K = int(np.max(self.mapping_state.c) + 1)
         hw = self.mapping_state.inferred_hw
         self.Nc = hw.neurons_per_core
@@ -430,25 +426,23 @@ class JointInferenceMapper(BaseMapper[MosaicHWMappingState[MappingInput], Mappin
         self.slice_factor = config.slice_factor
         self.iterations = config.iterations
         self.initial_temp = config.initial_temp
-        self.seed = config.seed
         self.verbose = config.verbose
         self.time_limit_s = config.time_limit_s
 
 
-    def run(self, mapping_input: MappingInput) -> MosaicHWMappingState[MappingInput]:
+    def run_mapping(self, mapping_input: MappingInput) -> MosaicHWMappingState[MappingInput]:
         """Run joint inference by exploring the full hardware architecture."""
         # 1. Use heuristic to build initial hardware and placement
         state, init_hw = MosaicHardwareHeuristic.build_initial_hardware_state(
             mapping_input, 
             slice_factor=self.slice_factor,
-            seed=self.seed
+            seed=mapping_input.seed
         )
         
         hw_state: JointHardwareMCMCState = JointHardwareMCMCState(
             mapping_state=state, 
             objective=self.objective,
             config=self.config,
-            seed=self.seed, 
             verbose=self.verbose
         )
 
@@ -491,7 +485,7 @@ class MosaicHardwareMapper(BaseMapper[MosaicHWMappingState[MosaicMappingInput], 
     wrapped in a MosaicHWMappingState. Useful as a baseline for joint inference.
     """
 
-    def run(self, mapping_input: MosaicMappingInput) -> MosaicHWMappingState[MosaicMappingInput]:
+    def run_mapping(self, mapping_input: MosaicMappingInput) -> MosaicHWMappingState[MosaicMappingInput]:
         """Returns the hardware from the input in a MosaicHWMappingState."""
         from netochi.mapping.random_mapper import RandomMapper
         random_state = RandomMapper().run(mapping_input)

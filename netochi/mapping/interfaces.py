@@ -200,10 +200,14 @@ class MosaicHWMappingState[ANY_MAPPING_INPUT: MappingInput](BaseMosaicMappingSta
 
 class BaseMapper[MAPPING_STATE, ANY_MAPPING_INPUT](ABC):
     """Structural interface for mapping algorithms."""
-    
+
     def get_name(self) -> str:
         return self.__class__.__name__
 
     @abstractmethod
-    def run(self, mapping_input: ANY_MAPPING_INPUT) -> MAPPING_STATE:
+    def run_mapping(self, mapping_input: ANY_MAPPING_INPUT) -> MAPPING_STATE:
         pass
+
+    def run(self, mapping_input: ANY_MAPPING_INPUT) -> MAPPING_STATE:
+        np.random.seed(mapping_input.seed)
+        return self.run_mapping(mapping_input)

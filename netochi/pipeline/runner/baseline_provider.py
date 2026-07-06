@@ -20,12 +20,11 @@ class AdapterBaselineProvider[MAPPING_INPUT: MappingInput, BASELINE_STATE: Mappi
         self.mapper = mapper
 
     def precompute_baseline(self, mapping_input: MAPPING_INPUT) -> None:
-        self._baseline_state = self.mapper.run(mapping_input)
+        self._baseline_state = self.mapper.run_mapping(mapping_input)
 
 
 class RandomMosaicBaselineProviderConfig(BaseModel):
     model_config = ConfigDict(strict=True, arbitrary_types_allowed=True)
-    seed: Optional[int] = Field(default=None, description="Random seed.")
 
     def create(self) -> "RandomMosaicBaselineProvider":
         return RandomMosaicBaselineProvider(config=self)
@@ -37,7 +36,7 @@ class RandomMosaicBaselineProvider(AdapterBaselineProvider[MosaicMappingInput, B
     @icontract.require(lambda config: isinstance(config, RandomMosaicBaselineProviderConfig))
     def __init__(self, config: RandomMosaicBaselineProviderConfig):
         self.config = config
-        super().__init__(mapper=RandomMapperConfig(seed=config.seed).create())
+        super().__init__(mapper=RandomMapperConfig().create())
 
 
 class MosaicGroundTruthBaselineProviderConfig(BaseModel):
@@ -56,7 +55,7 @@ class MosaicGroundTruthBaselineProvider(AdapterBaselineProvider[MosaicMappingInp
         self.config = config
         mapper = config.mapper
         if mapper is None:
-            mapper = RandomMapperConfig(seed=42).create()  # Default to a random mapper if no specific mapper is provided
+            mapper = RandomMapperConfig().create()  # Default to a random mapper if no specific mapper is provided
         super().__init__(mapper=mapper)
 
     def precompute_baseline(self, mapping_input: MosaicMappingInput) -> None:

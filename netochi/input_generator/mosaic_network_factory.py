@@ -16,7 +16,7 @@ class MosaicNetworkConfig(BaseModel):
 
     hw_config: MosaicHardwareConfig = Field(..., description="Hardware configuration.")
     probability: float = Field(..., gt=0, le=1)
-    seed: int = Field(default=42)
+    seed: int = Field()
     permute: bool = Field(default=True, description="Whether to permute the graph node IDs after generation.")
 
     def create(self) -> "MosaicNetworkFactory":
@@ -36,9 +36,9 @@ class MosaicNetworkFactory(HWBaseInputFactory[MosaicMappingInput]):
         self.permute = config.permute
 
 
-    def get_name(self) -> str:
+    def get_id(self) -> str:
         """Returns a concise name reflecting size and probability."""
-        return f"FeasibleMosaic_{self.hw_config.total_neurons}n_p{self.probability}"
+        return f"Mosaic_{self.hw_config.total_neurons}n_{self.hw_config.nodes_per_router}R_{self.hw_config.router_levels}l_{self.hw_config.neurons_per_core}N_{self.probability}p_{self.seed}seed"
 
     def generate(self) -> MosaicMappingInput:
         """Generate a single MosaicMappingInput."""
@@ -46,7 +46,7 @@ class MosaicNetworkFactory(HWBaseInputFactory[MosaicMappingInput]):
         gt_graph = nx_to_gt(graph)
         
         descriptions = {
-            "graph_type": self.get_name(),
+            "graph_type": self.get_id(),
             "edge_prob": str(self.probability),
             "nodes": str(gt_graph.num_vertices()),
             "edges": str(gt_graph.num_edges())
@@ -57,7 +57,8 @@ class MosaicNetworkFactory(HWBaseInputFactory[MosaicMappingInput]):
             graph=gt_graph,
             descriptions=descriptions,
             hw_config=self.hw_config,
-            assignment=assignment
+            assignment=assignment,
+            seed=self.seed
         )
 
     def _sample_slice_assignment(self) -> npt.NDArray[np.int64]:
@@ -128,6 +129,3 @@ class MosaicNetworkFactory(HWBaseInputFactory[MosaicMappingInput]):
             neuron_slice_assignment=slice_assignment[inv_perm]
         )
         return graph, assignment
-
-    def get_id(self) -> str:
-        return f"Mosaic_R={self.hw_config.nodes_per_router}_l={self.hw_config.router_levels}_N={self.hw_config.neurons_per_core}_p={self.probability}_seed={self.seed}"

@@ -3,7 +3,6 @@ from typing import Any
 from netochi.definitions.constants import (
     MCMC_DEFAULT_ITERATIONS,
     MCMC_DEFAULT_INITIAL_TEMP,
-    MCMC_DEFAULT_SEED,
     MCMC_TIME_LIMIT_S
 )
 
@@ -18,7 +17,6 @@ class JointInferenceConfig(BaseModel):
     slice_factor: int = Field(default=2, description="Slice factor for hardware config creation.")
     iterations: int = Field(default=MCMC_DEFAULT_ITERATIONS)
     initial_temp: float = Field(default=MCMC_DEFAULT_INITIAL_TEMP)
-    seed: int = Field(default=MCMC_DEFAULT_SEED)
     verbose: bool = Field(default=False)
     time_limit_s: float = Field(default=MCMC_TIME_LIMIT_S)
 

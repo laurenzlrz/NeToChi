@@ -19,10 +19,11 @@ from netochi.definitions.freezable import freezable, Freezable
 
 @freezable
 class MappingInput(Freezable):
-    def __init__(self, graph: gt.Graph, descriptions: Dict[str, str], id: str = "MappingInputPlaceholder") -> None:
+    def __init__(self, graph: gt.Graph, descriptions: Dict[str, str], seed: int, id: str = "MappingInputPlaceholder") -> None:
         self.graph: gt.Graph = graph
         self.descriptions: Dict[str, str] = descriptions
         self.id = id
+        self.seed = seed
 
     @property
     def num_neurons(self) -> int:
@@ -31,8 +32,8 @@ class MappingInput(Freezable):
 
 @freezable
 class HWMappingInput[HW_CONFIG](MappingInput):
-    def __init__(self, graph: gt.Graph, descriptions: Dict[str, str], hw_config: HW_CONFIG, id: str = "MappingInputPlaceholder") -> None:
-        super().__init__(graph, descriptions, id)
+    def __init__(self, graph: gt.Graph, descriptions: Dict[str, str], hw_config: HW_CONFIG, seed: int, id: str = "MappingInputPlaceholder") -> None:
+        super().__init__(graph, descriptions, seed, id)
         self.hw_config = hw_config
 
 
@@ -122,10 +123,11 @@ class MosaicMappingInput(HWMappingInput[MosaicHardwareConfig]):
         graph: gt.Graph,
         descriptions: Dict[str, str],
         hw_config: MosaicHardwareConfig,
+        seed: int,
         assignment: Optional[MosaicAssignment] = None,
         id: str = "MappingInputPlaceholder"
     ) -> None:
-        super().__init__(graph, descriptions, hw_config, id)
+        super().__init__(graph, descriptions, hw_config, seed, id)
         self.unfreeze()
         self.assignment = assignment
         self.freeze()
@@ -152,9 +154,6 @@ class BaseInputFactory[MAPPING_INPUT_CO: MappingInput](ABC):
     @abstractmethod
     def generate(self) -> MAPPING_INPUT_CO:
         pass
-
-    def get_name(self) -> str:
-        return self.__class__.__name__
 
     @abstractmethod
     def get_id(self) -> str:

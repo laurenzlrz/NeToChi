@@ -17,7 +17,7 @@ class ClusterInitMapper(BaseMapper[MosaicHWMappingState, MappingInput]):
         self.clusterer = clusterer
         self.mapper = mapper
 
-    def run(self, mapping_input: MappingInput) -> MosaicHWMappingState:
+    def run_mapping(self, mapping_input: MappingInput) -> MosaicHWMappingState:
         # --- 1. compute cluster initialization ---
         clustering = self.clusterer.cluster(mapping_input)
         num_neurons = mapping_input.graph.num_vertices()
@@ -31,6 +31,8 @@ class ClusterInitMapper(BaseMapper[MosaicHWMappingState, MappingInput]):
             graph=mapping_input.graph,
             hw_config=clustering.hw,
             descriptions=mapping_input.descriptions,
-            assignment=assignment)
+            assignment=assignment,
+            seed=mapping_input.seed
+        )
         return self.mapper.run(mapping_input_adapted)
 

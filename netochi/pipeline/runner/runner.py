@@ -77,7 +77,7 @@ class ExperimentTaskBase(BaseModel, Generic[Input_co, MappingState_co, BaselineS
         for input in self.input_generators:
             assert isinstance(input, BaseInputFactory), "Each input generator must be an instance of BaseInputFactory"
             input_instance = input.generate() # TODO Make Sure No Altering!
-            input_name = input.get_name()
+            input_name = input.get_id()
             self.config.print_console(f"\n\n======= Evaluating input generator: {input_name} ======= ")
             for evaluator_mapper_bundle in self.evaluator_mapper_bundles:
                 mapper_name = evaluator_mapper_bundle.mapper.get_name()

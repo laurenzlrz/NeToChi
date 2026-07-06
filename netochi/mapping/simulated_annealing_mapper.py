@@ -54,7 +54,7 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
         self.graph: Optional[gt.Graph] = None
         self.verbose: bool = config.verbose
 
-    def run(self, mapping_input: MosaicMappingInput) -> MosaicNetworkMappingState:
+    def run_mapping(self, mapping_input: MosaicMappingInput) -> MosaicNetworkMappingState:
         # --- 1. initialize ---
         self.state = SAState(mapping_input)
         self.opt_slice_assigner = DeltaOptimalSliceAssigner(hw_config=mapping_input.hw_config, graph=mapping_input.graph,
@@ -74,7 +74,7 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
 
 
 
-    def _run_simulated_annealing(self, T_start=50.0, T_min=0.01, alpha=0.98, steps_per_T=10) -> BestStateData: # gemini: T_start = 10000, alpha=0.98
+    def _run_simulated_annealing(self, T_start=50.0, T_min=0.05, alpha=0.98, steps_per_T=None) -> BestStateData: # gemini: T_start = 10000, alpha=0.98
         """
         invariant: slice assigner is always in same state as SA state
         """
@@ -83,7 +83,7 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
         assert self.opt_slice_assigner is not None
 
         if steps_per_T is None:
-            steps_per_T = 10 * self.graph.num_vertices()
+            steps_per_T = 9 * self.graph.num_vertices()
 
         current_energy = self._compute_energy()
         best_energy = current_energy

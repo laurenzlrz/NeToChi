@@ -28,7 +28,7 @@ class ThreeStepHwMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput
         self._slice_assigner = slice_assigner
 
 
-    def run(self, mapping_input: MosaicMappingInput) -> MosaicNetworkMappingState:
+    def run_mapping(self, mapping_input: MosaicMappingInput) -> MosaicNetworkMappingState:
         """
         the mapping runs in three stages:
             1. clustering

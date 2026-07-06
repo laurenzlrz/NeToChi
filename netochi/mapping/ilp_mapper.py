@@ -28,7 +28,7 @@ class ILPMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
         self.config = config
         self.time_limit_s = config.time_limit_s
 
-    def run(
+    def run_mapping(
             self,
             mapping_input: MosaicMappingInput
     ) -> MosaicNetworkMappingState:

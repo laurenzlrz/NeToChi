@@ -1,6 +1,5 @@
 
 import numpy as np
-from typing import Any
 
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
 from netochi.input_generator.interfaces import MosaicMappingInput, MosaicAssignment
@@ -18,7 +17,7 @@ class HwClusterInitMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInp
         self.clusterer = clusterer
         self.mapper = mapper
 
-    def run(self, mapping_input: MosaicMappingInput) -> MosaicNetworkMappingState:
+    def run_mapping(self, mapping_input: MosaicMappingInput) -> MosaicNetworkMappingState:
         # --- 1. compute cluster initialization ---
         #TODO: IMPROVE ERROR VALIDATION
         clustering = self.clusterer.cluster(mapping_input)
@@ -37,7 +36,9 @@ class HwClusterInitMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInp
             graph=mapping_input.graph,
             hw_config=clustering.hw,
             descriptions=mapping_input.descriptions,
-            assignment=assignment)
+            assignment=assignment,
+            seed=mapping_input.seed
+        )
         return self.mapper.run(mapping_input)
 
 

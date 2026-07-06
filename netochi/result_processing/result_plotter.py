@@ -154,14 +154,3 @@ def plot_results_csv(output_path: str, csv_path: str, metrics: List[str] | None 
 
     print(f"Successfully generated plots in {output_path}")
 
-if __name__ == "__main__":
-    run_id = "020"
-    run_path = find_repo_root() / OUTPUT_DIR_RESULTS / f"{RUN_PREFIX}{run_id}"
-    csv_path = run_path / f"{FILENAME_EVALUATION_CSV}.csv"
-    output_path = run_path / OUTPUT_DIR_REL_RUN_PLOTS
-    output_path.mkdir(parents=True, exist_ok=True)
-
-    plot_results_csv(output_path, csv_path,
-                     metrics=["Inconsistencies", NAME_OBJ_EXECUTION_TIME],
-                     mappers=None,
-                     inputs=["Mosaic_R=3_l=3_N=20_p=0.5_seed=42", "ErdosRenyi_n=60_p=0.1_seed=42"])

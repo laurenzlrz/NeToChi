@@ -13,7 +13,7 @@ class ErdosRenyiConfig(BaseModel):
     hw_config: MosaicHardwareConfig = Field(..., description="Hardware configuration.")
     n: int = Field(gt=0, description="Number of nodes.")
     probability: float = Field(ge=0, le=1, description="Edge creation probability.")
-    seed: int = Field(default=42, description="Random seed for reproducibility.")
+    seed: int = Field(description="Random seed for reproducibility.")
 
     def create(self) -> "ErdosRenyiFactory":
         return ErdosRenyiFactory(config=self)
@@ -31,9 +31,9 @@ class ErdosRenyiFactory(HWBaseInputFactory[MosaicMappingInput]):
         self.seed = config.seed
 
 
-    def get_name(self) -> str:
+    def get_id(self) -> str:
         """Returns a concise name reflecting size and probability."""
-        return f"ER_{self.n}n_p{self.probability}"
+        return f"ER_n={self.n}_p={self.probability}_seed={self.seed}"
 
     def generate(self) -> MosaicMappingInput:
         """Generate a single MosaicMappingInput with an Erdős-Rényi graph."""
@@ -41,7 +41,7 @@ class ErdosRenyiFactory(HWBaseInputFactory[MosaicMappingInput]):
         gt_graph = nx_to_gt(graph)
         
         descriptions = {
-            "graph_type": self.get_name(),
+            "graph_type": self.get_id(),
             "n": str(self.n),
             "edge_prob": str(self.probability),
             "nodes": str(gt_graph.num_vertices()),
@@ -53,8 +53,6 @@ class ErdosRenyiFactory(HWBaseInputFactory[MosaicMappingInput]):
             graph=gt_graph,
             descriptions=descriptions,
             hw_config=self.hw_config,
-            assignment=None
+            assignment=None,
+            seed=self.seed
         )
-
-    def get_id(self) -> str:
-        return f"ErdosRenyi_n={self.n}_p={self.probability}_seed={self.seed}"
