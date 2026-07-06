@@ -89,7 +89,7 @@ class KaMinParHierarchicalClusterer(ClustererFixedHw):
                 continue
 
             # Partition the current cluster using KaMinPar
-            partitions = self._partition_cluster(graph, nodes_in_cluster, input_data)
+            partitions = self._partition_cluster(graph, nodes_in_cluster=nodes_in_cluster, nr_clusters=input_data.hw_config.nodes_per_router)
 
             # Ensure the split was successful and non-trivial
             populated_partitions = sum(1 for p in partitions if len(p) > 0)
@@ -162,41 +162,49 @@ class KaMinParHierarchicalClusterer(ClustererFixedHw):
             hw=input_data.hw_config
         )
 
-    def _partition_cluster(self, graph: gt.Graph, nodes_in_cluster: List[int], mapping_input: MosaicMappingInput) -> List[List[int]]:
+    def _partition_cluster(self, graph: gt.Graph, nr_clusters: int, nodes_in_cluster: List[int] | None) -> List[List[int]]:
         """
         Extracts an induced cluster subgraph, encodes it to METIS format,
         and calls KaMinPar to compute a k-way partition.
         """
+        if nodes_in_cluster is None:
+            # graph.get_vertices() returns a numpy array of all integer vertex IDs
+            nodes_in_cluster = graph.get_vertices().tolist()
         ordered_nodes = list(set(nodes_in_cluster))
         local_map = {v_id: i + 1 for i, v_id in enumerate(ordered_nodes)}  # METIS requires 1-based indexing
 
         metis_lines = []
         total_edges = 0
 
-        # Target k partitions
-        k = mapping_input.hw_config.nodes_per_router
-
-        # Build local adjacency lists relative only to nodes within this cluster
         for v_id in ordered_nodes:
             v_obj = graph.vertex(v_id)
 
-            # symmetrize graph: undirected
-            neighbors = set(int(n) for n in v_obj.out_neighbors()) | set(int(n) for n in v_obj.in_neighbors())
-            # Remove self-loops
-            neighbors.discard(v_id)
+            # 1. Collect ALL neighbors (in and out), keeping duplicates
+            all_neighbors = [int(n) for n in v_obj.out_neighbors()] + [int(n) for n in v_obj.in_neighbors()]
 
-            cluster_neighbors = [local_map[n] for n in neighbors if n in local_map]
-            total_edges += len(cluster_neighbors)
-            metis_lines.append(" ".join(map(str, cluster_neighbors)))
+            # 2. Filter for cluster membership and discard self-loops
+            valid_neighbors = [local_map[n] for n in all_neighbors if n in local_map and n != v_id]
+
+            # 3. Count frequencies (multi-edges become weights)
+            neighbor_weights = collections.Counter(valid_neighbors)
+
+            total_edges += len(neighbor_weights)
+
+            # 4. Format for weighted METIS: neighbor1 weight1 neighbor2 weight2 ...
+            line_parts = []
+            for neighbor_id, weight in neighbor_weights.items():
+                line_parts.extend([neighbor_id, weight])
+
+            metis_lines.append(" ".join(map(str, line_parts)))
 
         num_vertices = len(ordered_nodes)
         num_edges = total_edges // 2  # Undirected tracking fallback
 
         # Robustness fallback function for trivial splits
         def build_fallback():
-            fallback = [[] for _ in range(k)]
+            fallback = [[] for _ in range(nr_clusters)]
             for i, node in enumerate(ordered_nodes):
-                fallback[i % k].append(node)
+                fallback[i % nr_clusters].append(node)
             return fallback
 
         # If sub-graph has no edges, split as evenly as possible into k chunks
@@ -205,7 +213,7 @@ class KaMinParHierarchicalClusterer(ClustererFixedHw):
 
         # Write out to a transient file descriptor safely managed by the OS
         with tempfile.NamedTemporaryFile(mode="w", suffix=".metis", delete=False) as tmp:
-            tmp.write(f"{num_vertices} {num_edges}\n")
+            tmp.write(f"{num_vertices} {num_edges} 001\n") # 001 tells the METIS parser: "This graph has edge weights"
             tmp.write("\n".join(metis_lines) + "\n")
             tmp_path = tmp.name
 
@@ -220,12 +228,12 @@ class KaMinParHierarchicalClusterer(ClustererFixedHw):
             kp_graph = kaminpar.load_graph(tmp_path, kaminpar.GraphFileFormat.METIS, compress=False)
 
             # Partition with k blocks
-            partition = instance.compute_partition(kp_graph, k=k, eps=self.imbalance)
+            partition = instance.compute_partition(kp_graph, k=nr_clusters, eps=self.imbalance)
 
             # Sort native results back into global graph scope dynamically
-            partitions = [[] for _ in range(k)]
+            partitions = [[] for _ in range(nr_clusters)]
             for local_idx, block_id in enumerate(partition):
-                if 0 <= block_id < k:
+                if 0 <= block_id < nr_clusters:
                     partitions[block_id].append(ordered_nodes[local_idx])
                 else:
                     # Safety net in case KaMinPar yields an out-of-bounds block ID
