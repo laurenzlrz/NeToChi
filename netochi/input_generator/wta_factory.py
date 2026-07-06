@@ -15,7 +15,7 @@ class WTAConfig(BaseModel):
     hw_config: MosaicHardwareConfig = Field(..., description="Hardware configuration.")
     n: int = Field(..., ge=2, description="Total number of neurons (nodes).")
     probability: float = Field(..., ge=0, le=1, description="Connectivity probability.")
-    seed: int = Field(default=42)
+    seed: int = Field()
 
     def create(self) -> "WTAFactory":
         return WTAFactory(config=self)
@@ -75,7 +75,8 @@ class WTAFactory(HWBaseInputFactory[MosaicMappingInput]):
             graph=gt_graph,
             descriptions=descriptions,
             hw_config=self.hw_config,
-            assignment=None
+            assignment=None,
+            seed=self.seed
         )
 
     def get_id(self):
