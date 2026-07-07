@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 
 import graph_tool.all as gt
 import icontract
@@ -90,11 +90,18 @@ class BottomUpClusterer(ClustererFixedHw):
             # Cluster temp graph
             cluster_size = input_data.hw_config.neurons_per_core if d == 0 else input_data.hw_config.nodes_per_router
             nr_clusters = int(temp_graph.num_vertices() / cluster_size)
-            temp_clustering: ClusterAndHwOutput = self.clusterer(graph=temp_graph, num_clusters=nr_clusters)
-            hierarchy_mappings.append(temp_clustering.cluster_assignment)
+            temp_partitions: List[List[int]] = self.clusterer(graph=temp_graph, num_clusters=nr_clusters)
+
+            # Map each old temp vertex ID to its new cluster ID
+            temp_cluster_assignment: np.ndarray = np.zeros(graph.num_vertices())
+            for cluster_id, nodes in enumerate(temp_partitions):
+                for v_id in nodes:
+                    temp_cluster_assignment[int(v_id)] = cluster_id
+
+            hierarchy_mappings.append(temp_cluster_assignment)
 
             # build new temp_graph for the next hierarchy level
-            temp_graph = build_new_temp_graph(temp_graph=temp_graph, nr_new_vertices=nr_clusters, cluster_assignment=temp_clustering.cluster_assignment)
+            temp_graph = build_new_temp_graph(temp_graph=temp_graph, nr_new_vertices=nr_clusters, cluster_assignment=temp_cluster_assignment)
 
         # infer core assignment from hierarchical clustering
         core_assignment: np.ndarray = infer_core_assignment(hierarchy_mappings=hierarchy_mappings)
