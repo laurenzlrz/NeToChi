@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, runtime_checkable, Protocol
 
 import numpy as np
 import numpy.typing as npt
@@ -147,6 +147,12 @@ class ClusteringAdapterFixedHw(ABC):
     """
     @abstractmethod
     def adapt_clustering(self, clustering: HierarchicalClusterOutput, hw_config: MosaicHardwareConfig) -> ClusterAndHwOutput:
+        pass
+
+@runtime_checkable
+class ClusterFunction(Protocol):
+    """Abstract type definition for a standalone clustering function."""
+    def __call__(self, graph: gt.Graph, num_clusters: int) -> ClusterAndHwOutput:
         pass
 
 
