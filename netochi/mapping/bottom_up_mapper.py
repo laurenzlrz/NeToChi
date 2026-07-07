@@ -6,6 +6,7 @@ import graph_tool.all as gt
 import gurobipy as gp
 import icontract
 import numpy as np
+import numpy.typing as npt
 from gurobipy import GRB
 from pydantic import BaseModel, Field
 
@@ -13,7 +14,8 @@ from netochi.input_generator.interfaces import MosaicMappingInput, MosaicAssignm
 from netochi.mapping.interfaces import BaseMapper, MosaicNetworkMappingState
 from netochi.mapping.three_step_mapping.clustering.clusterer.bottom_up_clusterer import build_new_temp_graph, \
     infer_core_assignment
-from netochi.mapping.three_step_mapping.clustering.clusterer.kaMinPar_cluster import KaMinParHierarchicalClusterer
+from netochi.mapping.three_step_mapping.clustering.clusterer.kaMinPar_cluster import KaMinParHierarchicalClusterer, \
+    kaMinParClusterFunction
 from netochi.mapping.three_step_mapping.interfaces import ClusterAndHwOutput
 from netochi.mapping.three_step_mapping.slice_assignment.optimal_slice_assigner import OptimalSliceAssigner
 
@@ -60,7 +62,7 @@ class BottomUpMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
 
         # ======== cluster nodes into cores and slices ===========
         temp_graph = graph
-        hierarchy_mappings: List[Dict[int, int]] = []
+        hierarchy_mappings: List[npt.NDArray[np.int_]] = []
         local_address_bit_string: np.ndarray = np.zeros(graph.num_vertices(), dtype=int)
         original_vertex_to_current_cluster: np.ndarray = np.arange(graph.num_vertices(), dtype=int)
 
@@ -71,10 +73,10 @@ class BottomUpMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
             # Cluster temp graph
             cluster_size = mapping_input.hw_config.neurons_per_core if d == 0 else mapping_input.hw_config.nodes_per_router
             nr_clusters = int(temp_graph.num_vertices() / cluster_size)
-            temp_clustering = KaMinParHierarchicalClusterer()._partition_cluster(graph=temp_graph, nodes_in_cluster=None, nr_clusters=nr_clusters)
+            temp_clustering = kaMinParClusterFunction(graph=temp_graph, num_clusters=nr_clusters)
 
             # Map each old temp vertex ID to its new cluster ID
-            temp_vertex_to_cluster: Dict[int, int] = {}
+            temp_vertex_to_cluster: npt.NDArray[np.int_] = np.zeros(temp_graph.num_vertices(), dtype=int)
             for cluster_id, nodes in enumerate(temp_clustering):
                 for v_id in nodes:
                     temp_vertex_to_cluster[int(v_id)] = cluster_id
@@ -529,4 +531,4 @@ class BottomUpMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
         return local_assignment
 
     def get_name(self) -> str:
-        return f"BottomUp_{self.config.constraint_graph_mode}_{self.config.slice_solve_mode}"
+        return f"BottomUp_{self.config.constraint_graph_mode.name}_{self.config.slice_solve_mode.name}"

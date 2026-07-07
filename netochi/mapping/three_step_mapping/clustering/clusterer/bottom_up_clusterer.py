@@ -3,24 +3,25 @@ from typing import List, Dict
 import graph_tool.all as gt
 import icontract
 import numpy as np
+import numpy.typing as npt
 
 from netochi.input_generator.interfaces import MosaicMappingInput
 from netochi.mapping.three_step_mapping.interfaces import ClustererFixedHw, ClusterAndHwOutput, ClusterFunction
 
 
-def infer_core_assignment(hierarchy_mappings) -> np.ndarray:
+def infer_core_assignment(hierarchy_mappings: List[npt.NDArray[np.int_]]) -> np.ndarray:
     """
     given the hierarchy mappings, infers the core assignment that corresponds to the hardware cores that are indexed from left to right: 0, ..., C
     """
     # Build top-down parent-to-child maps: children_map[level][parent_id] = [child_ids...]
     children_map = [{} for _ in range(len(hierarchy_mappings))]
     for level in range(1, len(hierarchy_mappings)):
-        for child, parent in hierarchy_mappings[level].items():
+        for child, parent in enumerate(hierarchy_mappings[level]):
             children_map[level].setdefault(parent, []).append(child)
 
     # Walk the tree using DFS to find the structurally ordered leaves (cores)
     ordered_cores = []
-    top_level_parents = sorted(list(set(hierarchy_mappings[-1].values())))
+    top_level_parents = sorted(list(set(hierarchy_mappings[-1])))
     if len(top_level_parents) > 1:
         raise Exception("top level parents are more than one")
 
@@ -45,7 +46,7 @@ def infer_core_assignment(hierarchy_mappings) -> np.ndarray:
     # Finally, assign each original neuron to its new, hierarchy-aware core ID.
     # We initialize an array of length N (assuming neuron IDs are 0 to N-1)
     core_assignment = np.zeros(len(hierarchy_mappings[0]), dtype=int)
-    for neuron_id, old_core_id in hierarchy_mappings[0].items():
+    for neuron_id, old_core_id in enumerate(hierarchy_mappings[0]):
         core_assignment[neuron_id] = old_core_to_new_core[old_core_id]
     return core_assignment
 
@@ -82,7 +83,7 @@ class BottomUpClusterer(ClustererFixedHw):
         hw = input_data.hw_config
         graph = input_data.graph
         temp_graph = graph
-        hierarchy_mappings: List[np.ndarray] = []
+        hierarchy_mappings: List[npt.NDArray[np.int_]] = []
 
         for d in range(hw.router_levels + 1):
             print(f"  [Log] reached distance {d}/{hw.router_levels}")
@@ -93,7 +94,7 @@ class BottomUpClusterer(ClustererFixedHw):
             temp_partitions: List[List[int]] = self.clusterer(graph=temp_graph, num_clusters=nr_clusters)
 
             # Map each old temp vertex ID to its new cluster ID
-            temp_cluster_assignment: np.ndarray = np.zeros(graph.num_vertices())
+            temp_cluster_assignment: npt.NDArray[np.int_] = np.zeros(temp_graph.num_vertices(), dtype=int)
             for cluster_id, nodes in enumerate(temp_partitions):
                 for v_id in nodes:
                     temp_cluster_assignment[int(v_id)] = cluster_id
@@ -109,5 +110,5 @@ class BottomUpClusterer(ClustererFixedHw):
         return ClusterAndHwOutput(cluster_assignment=core_assignment, num_clusters=hw.total_cores, hw=hw)
 
     def get_name(self) -> str:
-        return "BottomUp"
+        return f"BottomUp{self.clusterer.__name__}"
 

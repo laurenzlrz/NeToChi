@@ -15,13 +15,12 @@ from scipy.sparse import csr_matrix
 import numpy.typing as npt
 
 
-def kaMinParClusterFunction(graph: gt.Graph, nr_clusters: int, nodes_in_cluster: List[int] | None = None, imbalance: float = 0.001) -> List[List[int]]:
+def kaMinParClusterFunction(graph: gt.Graph, num_clusters: int, nodes_in_cluster: List[int] | None = None, imbalance: float = 0.001) -> List[List[int]]:
     """
     Extracts an induced cluster subgraph, encodes it to METIS format,
     and calls KaMinPar to compute a k-way partition.
     """
     if nodes_in_cluster is None:
-        # graph.get_vertices() returns a numpy array of all integer vertex IDs
         nodes_in_cluster = graph.get_vertices().tolist()
     ordered_nodes = list(set(nodes_in_cluster))
     local_map = {v_id: i + 1 for i, v_id in enumerate(ordered_nodes)}  # METIS requires 1-based indexing
@@ -55,9 +54,9 @@ def kaMinParClusterFunction(graph: gt.Graph, nr_clusters: int, nodes_in_cluster:
 
     # Robustness fallback function for trivial splits
     def build_fallback():
-        fallback = [[] for _ in range(nr_clusters)]
+        fallback = [[] for _ in range(num_clusters)]
         for i, node in enumerate(ordered_nodes):
-            fallback[i % nr_clusters].append(node)
+            fallback[i % num_clusters].append(node)
         return fallback
 
     # If sub-graph has no edges, split as evenly as possible into k chunks
@@ -81,12 +80,12 @@ def kaMinParClusterFunction(graph: gt.Graph, nr_clusters: int, nodes_in_cluster:
         kp_graph = kaminpar.load_graph(tmp_path, kaminpar.GraphFileFormat.METIS, compress=False)
 
         # Partition with k blocks
-        partition = instance.compute_partition(kp_graph, k=nr_clusters, eps=imbalance)
+        partition = instance.compute_partition(kp_graph, k=num_clusters, eps=imbalance)
 
         # Sort native results back into global graph scope dynamically
-        partitions = [[] for _ in range(nr_clusters)]
+        partitions = [[] for _ in range(num_clusters)]
         for local_idx, block_id in enumerate(partition):
-            if 0 <= block_id < nr_clusters:
+            if 0 <= block_id < num_clusters:
                 partitions[block_id].append(ordered_nodes[local_idx])
             else:
                 # Safety net in case KaMinPar yields an out-of-bounds block ID
@@ -175,7 +174,7 @@ class KaMinParHierarchicalClusterer(ClustererFixedHw):
                 continue
 
             # Partition the current cluster using KaMinPar
-            partitions = kaMinParClusterFunction(graph=graph, nodes_in_cluster=nodes_in_cluster, nr_clusters=input_data.hw_config.nodes_per_router, imbalance=self.imbalance)
+            partitions = kaMinParClusterFunction(graph=graph, nodes_in_cluster=nodes_in_cluster, num_clusters=input_data.hw_config.nodes_per_router, imbalance=self.imbalance)
 
             # Ensure the split was successful and non-trivial
             populated_partitions = sum(1 for p in partitions if len(p) > 0)

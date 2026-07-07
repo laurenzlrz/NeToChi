@@ -7,11 +7,14 @@ import kahypar
 from netochi.mapping.three_step_mapping.clustering.clusterer.kaHyPar_cluster import KaHyParHierarchicalClusterer
 
 
-def kaHyParHyperedgesClusterFunction(graph: gt.Graph, nr_clusters: int, nodes_in_cluster: List[int] = None, imbalance: float = 0.00) -> List[List[int]]:
+def kaHyParHyperedgesClusterFunction(graph: gt.Graph, num_clusters: int, nodes_in_cluster: List[int] = None, imbalance: float = 0.00) -> List[List[int]]:
     """"
     Extracts an induced cluster subgraph, converts incoming edges per node
     into single hyperedges, and computes a k-way partition via KaHyPar.
     """
+    if nodes_in_cluster is None:
+        nodes_in_cluster = graph.get_vertices().tolist()
+
     ordered_nodes = list(set(nodes_in_cluster))
 
     # KaHyPar requires 0-based contiguous indices for nodes
@@ -46,7 +49,7 @@ def kaHyParHyperedgesClusterFunction(graph: gt.Graph, nr_clusters: int, nodes_in
                 hyperedge_indices.append(len(hyperedges))
 
     num_vertices = len(ordered_nodes)
-    k = nr_clusters
+    k = num_clusters
 
     # Robustness fallback: Even splitting
     def build_fallback():
@@ -117,8 +120,8 @@ class KaHyParHyperedgesClusterer(KaHyParHierarchicalClusterer):
         Extracts an induced cluster subgraph, converts incoming edges per node
         into single hyperedges, and computes a k-way partition via KaHyPar.
         """
-        return kaHyParHyperedgesClusterFunction(graph=graph, nodes_in_cluster=nodes_in_cluster, nr_clusters=nr_clusters,
-                                      imbalance=self.imbalance)
+        return kaHyParHyperedgesClusterFunction(graph=graph, nodes_in_cluster=nodes_in_cluster, num_clusters=nr_clusters,
+                                                imbalance=self.imbalance)
 
 
 

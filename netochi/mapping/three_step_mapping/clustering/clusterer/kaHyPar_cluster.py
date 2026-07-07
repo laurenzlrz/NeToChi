@@ -10,13 +10,13 @@ from netochi.mapping.three_step_mapping.interfaces import ClustererFixedHw, Clus
 import kahypar
 
 
-def kaHyParClusterFunction(graph: gt.Graph, nr_clusters: int, nodes_in_cluster: List[int] = None, imbalance: float = 0.00) -> List[List[int]]:
+def kaHyParClusterFunction(graph: gt.Graph, num_clusters: int, nodes_in_cluster: List[int] = None, imbalance: float = 0.00) -> List[List[int]]:
     """
     Extracts an induced cluster subgraph, maps it to KaHyPar's in-memory
     hypergraph structures, and computes a k-way partition.
     """
     if nodes_in_cluster is None:
-        nodes_in_cluster = graph.num_vertices()
+        nodes_in_cluster = graph.get_vertices().tolist()
     ordered_nodes = list(set(nodes_in_cluster))
     # KaHyPar requires 0-based contiguous indices for nodes
     local_map = {v_id: i for i, v_id in enumerate(ordered_nodes)}
@@ -46,7 +46,7 @@ def kaHyParClusterFunction(graph: gt.Graph, nr_clusters: int, nodes_in_cluster: 
     num_nets = len(seen_edges)
 
     # Target k partitions
-    k = nr_clusters
+    k = num_clusters
 
     # Robustness fallback: If sub-graph has no edges, split as evenly as possible into k chunks
     if num_nets == 0:
