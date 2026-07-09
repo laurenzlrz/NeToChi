@@ -1,6 +1,6 @@
 import math
 import random
-from typing import Any, Optional
+from typing import Optional
 import numpy.typing as npt
 
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
@@ -36,6 +36,21 @@ class SimAnnealingMapperConfig(BaseModel):
     def create(self) -> "SimAnnealingMapper":
         return SimAnnealingMapper(config=self)
 
+
+def compute_inconsistencies(core_assignment, local_assignment, opt_slice_assignment, hw: MosaicHardwareConfig, graph: gt.Graph) -> int:
+    # TODO FUTURE USE EXISTING FUNCTION
+    e_valid = 0
+    for tgt in range(graph.num_vertices()):
+        c_tgt = core_assignment[tgt]
+        for src in graph.get_in_neighbors(tgt):
+            c_src = core_assignment[src]
+            dist = hw.core_distance(c_tgt, c_src)
+            if dist == 0:
+                e_valid += 1
+            else:
+                if hw.get_slice_bounds(dist, opt_slice_assignment[tgt][dist])[0] <= local_assignment[src] < hw.get_slice_bounds(dist, opt_slice_assignment[tgt][dist])[1]:
+                    e_valid += 1
+    return graph.num_edges() - e_valid
 
 class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
     """
@@ -74,7 +89,7 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
 
 
 
-    def _run_simulated_annealing(self, T_start=50.0, T_min=0.05, alpha=0.98, steps_per_T=None) -> BestStateData: # gemini: T_start = 10000, alpha=0.98
+    def _run_simulated_annealing(self, T_start=10.0, T_min=0.1, alpha=0.98, steps_per_T=None) -> BestStateData: # gemini: T_start = 10000, alpha=0.98
         """
         invariant: slice assigner is always in same state as SA state
         """
@@ -83,7 +98,7 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
         assert self.opt_slice_assigner is not None
 
         if steps_per_T is None:
-            steps_per_T = 9 * self.graph.num_vertices()
+            steps_per_T = 2 * self.graph.num_vertices()
 
         current_energy = self._compute_energy()
         best_energy = current_energy
@@ -122,7 +137,7 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
         assert self.state is not None
         assert self.opt_slice_assigner is not None
         assert self.graph is not None
-        return self._compute_inconsistencies(core_assignment=self.state.core_assignment,
+        return compute_inconsistencies(core_assignment=self.state.core_assignment,
                                              local_assignment=self.state.local_assignment,
                                              opt_slice_assignment=self.opt_slice_assigner.slice_assignment,
                                              hw=self.state.hw_config,
@@ -158,17 +173,3 @@ class SimAnnealingMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
             return move_mutation
 
 
-    def _compute_inconsistencies(self, core_assignment, local_assignment, opt_slice_assignment, hw: MosaicHardwareConfig, graph: gt.Graph) -> int:
-        # TODO FUTURE USE EXISTING FUNCTION
-        e_valid = 0
-        for tgt in range(graph.num_vertices()):
-            c_tgt = core_assignment[tgt]
-            for src in graph.get_in_neighbors(tgt):
-                c_src = core_assignment[src]
-                dist = hw.core_distance(c_tgt, c_src)
-                if dist == 0:
-                    e_valid += 1
-                else:
-                    if hw.get_slice_bounds(dist, opt_slice_assignment[tgt][dist])[0] <= local_assignment[src] < hw.get_slice_bounds(dist, opt_slice_assignment[tgt][dist])[1]:
-                        e_valid += 1
-        return graph.num_edges() - e_valid

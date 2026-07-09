@@ -72,7 +72,7 @@ class SummaryReporter(PipelineConsumer[MappingInput, MappingState[Any, Any], Map
         Returns a formatted table for a given set of metrics as a string.
         """
         table_lines = []
-        mapper_width, graph_width, metric_width, time_width = 45, 40, 25, 10
+        mapper_width, graph_width, metric_width, time_width = max([len(result.mapper_name) for result in results]), 40, 25, 10
 
         # Format Header
         header = f"{'Mapper':<{mapper_width}} | {'Graph':<{graph_width}}"

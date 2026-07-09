@@ -54,7 +54,8 @@ class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELI
             input_metadata=input.descriptions,
             objective_results=objective_results,
             error=error_msg,
-            state=state
+            state=state,
+            input=input
         )
         return result
 

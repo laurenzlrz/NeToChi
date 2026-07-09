@@ -38,7 +38,7 @@ class HcdHwClusterer(ClustererFixedHw):
         return self._clusterer.cluster(input_data)
 
     def get_name(self) -> str:
-        return "HCD"
+        return f"HCD{self._clusterer._adapter.get_name()}"
 
 
 

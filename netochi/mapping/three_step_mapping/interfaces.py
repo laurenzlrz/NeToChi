@@ -149,6 +149,9 @@ class ClusteringAdapterFixedHw(ABC):
     def adapt_clustering(self, clustering: HierarchicalClusterOutput, hw_config: MosaicHardwareConfig) -> ClusterAndHwOutput:
         pass
 
+    def get_name(self):
+        return self.__class__.__name__
+
 @runtime_checkable
 class ClusterFunction(Protocol):
     """Abstract type definition for a standalone clustering function."""

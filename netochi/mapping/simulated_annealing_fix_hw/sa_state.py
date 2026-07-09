@@ -5,6 +5,16 @@ import numpy.typing as npt
 from netochi.input_generator.interfaces import MosaicMappingInput
 
 
+class LocalAddressSAState:
+    """A lightweight mock of SAState specifically for the LocalAddressAssigner"""
+
+    def __init__(self, core_assignment: np.ndarray, local_assignment: np.ndarray, slot_to_node: np.ndarray,
+                 hw_config: Any):
+        self.core_assignment = core_assignment
+        self.local_assignment = local_assignment
+        self.slot_to_node = slot_to_node
+        self.hw_config = hw_config
+
 class SAState:
 
 	def __init__(self, mapping_input: MosaicMappingInput):

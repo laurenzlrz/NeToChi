@@ -1,8 +1,7 @@
 
-from typing import Optional
 import graph_tool.all as gt
 
-from netochi.mapping.simulated_annealing_fix_hw.sa_state import SAState
+from netochi.mapping.simulated_annealing_fix_hw.sa_state import SAState, LocalAddressSAState
 from netochi.mapping.three_step_mapping.slice_assignment.delta_optimal_slice_assigner import DeltaOptimalSliceAssigner
 
 
@@ -52,18 +51,18 @@ class SwapMutation(Mutation):
         self.node_a = node_a
         self.node_b = node_b
 
-    def do(self, state: SAState, slice_assigner: DeltaOptimalSliceAssigner, graph: gt.Graph):
+    def do(self, state: SAState | LocalAddressSAState, slice_assigner: DeltaOptimalSliceAssigner, graph: gt.Graph):
         old_core_a, old_local_a = int(state.core_assignment[self.node_a]), int(state.local_assignment[self.node_a])
         old_core_b, old_local_b = int(state.core_assignment[self.node_b]), int(state.local_assignment[self.node_b])
         self._apply_swap(state)
         slice_assigner.delta_assign_slices(state=state, moved_nodes=[self.node_a, self.node_b], graph=graph,
                                            old_core_and_local_of_moved_nodes={int(self.node_a): (old_core_a, old_local_a), int(self.node_b): (old_core_b, old_local_b)})
 
-    def undo(self, state: SAState, slice_assigner: DeltaOptimalSliceAssigner):
+    def undo(self, state: SAState | LocalAddressSAState, slice_assigner: DeltaOptimalSliceAssigner):
         self._apply_swap(state)
         slice_assigner.undo_assign_slices()
 
-    def _apply_swap(self, state: SAState):
+    def _apply_swap(self, state: SAState | LocalAddressSAState):
         core_a, local_a = state.core_assignment[self.node_a], state.local_assignment[self.node_a]
         core_b, local_b = state.core_assignment[self.node_b], state.local_assignment[self.node_b]
         state.core_assignment[self.node_a] = core_b
@@ -72,10 +71,3 @@ class SwapMutation(Mutation):
         state.local_assignment[self.node_b] = local_a
         state.slot_to_node[core_a, local_a] = self.node_b
         state.slot_to_node[core_b, local_b] = self.node_a
-
-
-
-
-
-
-

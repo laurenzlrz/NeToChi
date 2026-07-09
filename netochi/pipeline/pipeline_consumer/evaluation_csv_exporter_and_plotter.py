@@ -49,7 +49,7 @@ class EvaluationExporterAndPlotter(PipelineConsumer[MappingInput, MappingState[A
             return pd.DataFrame()
 
         # Collect all possible headers to ensure consistency across rows
-        headers = ["mapper", "input_id", "metric", "value"]
+        headers = ["mapper", "input_id", "metric", "value", "seed"]
         rows = []
 
 
@@ -61,7 +61,8 @@ class EvaluationExporterAndPlotter(PipelineConsumer[MappingInput, MappingState[A
                     "mapper": res.mapper_name,
                     "input_id": res.input_id,
                     "metric": key,
-                    "value": metric_data[key]
+                    "value": metric_data[key],
+                    "seed": res.input.seed,
                 }
                 full_row = {h: row.get(h, "") for h in headers}
                 rows.append(full_row)

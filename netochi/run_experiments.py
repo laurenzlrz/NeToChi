@@ -3,7 +3,7 @@ from typing import List, Tuple, Optional
 from networkx.algorithms.bipartite import clustering
 
 from netochi.mapping import SimAnnealingIHWConfig
-from netochi.mapping.bottom_up_mapper import BottomUpILPMapperConfig
+from netochi.mapping.bottom_up_mapper import BottomUpMapperConfig, SliceSolveMode, ConstraintGraphMode
 from netochi.mapping.interfaces import (
     BaseMosaicMappingState,
     MappingState
@@ -20,11 +20,14 @@ from netochi.mapping.random_mapper import RandomMapperConfig
 from netochi.mapping.simulated_annealing_mapper import SimAnnealingMapperConfig
 from netochi.mapping.simulated_annealing_mapper_cluster_init import SimulatedAnnealingMapperClusterInit, \
     SimulatedAnnealingMapperClusterInitConfig
+from netochi.mapping.three_step_mapping.clustering.clusterer.bottom_up_clusterer import BottomUpClusterer
 from netochi.mapping.three_step_mapping.clustering.clusterer.gt_clusterer import GroundTruthOrRandomClusterer
-from netochi.mapping.three_step_mapping.clustering.clusterer.kaHyPar_cluster import KaHyParHierarchicalClusterer
+from netochi.mapping.three_step_mapping.clustering.clusterer.kaHyPar_cluster import KaHyParHierarchicalClusterer, \
+    kaHyParClusterFunction
 from netochi.mapping.three_step_mapping.clustering.clusterer.kaHyPar_hyperedges_clusterer import \
-    KaHyParHyperedgesClusterer
-from netochi.mapping.three_step_mapping.clustering.clusterer.kaMinPar_cluster import KaMinParHierarchicalClusterer
+    KaHyParHyperedgesClusterer, kaHyParHyperedgesClusterFunction
+from netochi.mapping.three_step_mapping.clustering.clusterer.kaMinPar_cluster import KaMinParHierarchicalClusterer, \
+    kaMinParClusterFunction
 from netochi.mapping.three_step_mapping.clustering.hcd_hw_clusterer import HcdHwClusterer
 from netochi.mapping.three_step_mapping.clustering.hsbm_hw_clusterer import HsbmHwClusterer
 from netochi.mapping.three_step_mapping.clustering.qap_hw_clusterer import QapHwClusterer
@@ -34,6 +37,9 @@ from netochi.mapping.three_step_mapping.local_address_assignment.lp_local_addres
 from netochi.mapping.three_step_mapping.local_address_assignment.pca_local_address_assigner import \
     PcaLocalAddressAssigner
 from netochi.mapping.three_step_mapping.local_address_assignment.sdp_local_address_assigner import SDPRoundingAssigner
+from netochi.mapping.three_step_mapping.local_address_assignment.sim_annealing_local_address_assigner import SALocalAddressAssignerConfig
+from netochi.mapping.three_step_mapping.local_address_assignment.top_down_local_address_assigner import \
+    TopDownLocalAddressAssignerConfig
 from netochi.mapping.three_step_mapping.qap_pca_opt_three_step_mapper import QAPPcaOptMapperConfig
 from netochi.mapping.three_step_mapping.slice_assignment.optimal_slice_assigner import OptimalSliceAssigner
 from netochi.mapping.three_step_mapping.three_step_hw_mapper import ThreeStepHwMapperConfig
@@ -78,13 +84,6 @@ from netochi.pipeline.pipeline_consumer.objective_consumer import CustomObjectiv
 # ======================= CONFIGURE PIPELINE HERE =============================
 PIPELINE_OUTPUT = PipelineOutputConfig().create()
 
-HW_SMALL = MosaicHardwareConfig(
-    nodes_per_router=2,
-    neurons_per_core=16,
-    router_levels=2,
-    slice_factor=2
-)
-
 HW_MINI = MosaicHardwareConfig(
     nodes_per_router=2,
     neurons_per_core=4,
@@ -92,23 +91,50 @@ HW_MINI = MosaicHardwareConfig(
     slice_factor=2
 )
 
+HW_SMALL = MosaicHardwareConfig(
+    nodes_per_router=2,
+    neurons_per_core=16,
+    router_levels=2,
+    slice_factor=2
+)
+
+HW_SMALL_TRINARY = MosaicHardwareConfig(
+    nodes_per_router=3,
+    neurons_per_core=16,
+    router_levels=2,
+    slice_factor=2
+)
+
 HW_MEDIUM = MosaicHardwareConfig(
+    nodes_per_router=2,
+    neurons_per_core=16,
+    router_levels=3,
+    slice_factor=2
+)
+
+HW_MEDIUM_TRINARY = MosaicHardwareConfig(
     nodes_per_router=3,
     neurons_per_core=16,
     router_levels=3,
     slice_factor=2
 )
 
-HW_MEDIUM_BINARY = MosaicHardwareConfig(
+HW_LARGE = MosaicHardwareConfig(
     nodes_per_router=2,
-    neurons_per_core=16,
+    neurons_per_core=32,
     router_levels=3,
     slice_factor=2
 )
 
-
-HW_LARGE = MosaicHardwareConfig(
+HW_LARGE_2 = MosaicHardwareConfig(
     nodes_per_router=2,
+    neurons_per_core=64,
+    router_levels=3,
+    slice_factor=2
+)
+
+HW_LARGE_TRINARY = MosaicHardwareConfig(
+    nodes_per_router=3,
     neurons_per_core=32,
     router_levels=3,
     slice_factor=2
@@ -129,46 +155,42 @@ OBJECTIVE_CONFIGS = [
 ]
 
 HW_CONFIGS = [
+    #HW_MEDIUM,
+    HW_LARGE_2,
+
     #HW_MINI,
     #HW_SMALL,
-    HW_MEDIUM_BINARY,
-    #HW_MEDIUM,
-    HW_LARGE
+    #HW_SMALL_TRINARY,
+    ##HW_MEDIUM_TRINARY,
+    HW_LARGE,
+    #HW_LARGE_TRINARY
 ]
 
-SEEDS = [1,2]
+SEEDS = [1,2,3,4,5]
 
 MAPPERS = [
-    BottomUpILPMapperConfig().create(),
-    #SimulatedAnnealingMapperClusterInitConfig().create()
+   # ThreeStepHwMapperConfig(clusterer=BottomUpClusterer(clusterer=kaMinParClusterFunction), address_assigner=SALocalAddressAssignerConfig().create(), slice_assigner=OptimalSliceAssigner()).create(),
+   # SimulatedAnnealingMapperClusterInitConfig().create(),
+   # ThreeStepHwMapperConfig(clusterer=QapHwClusterer(), address_assigner=TopDownLocalAddressAssignerConfig(slice_solve_mode=SliceSolveMode.KL_CONSTRAINED_BISECTION, constraint_graph_mode=ConstraintGraphMode.CLIQUE).create(), slice_assigner=OptimalSliceAssigner()).create(),
+    ThreeStepHwMapperConfig(clusterer=BottomUpClusterer(clusterer=kaMinParClusterFunction), address_assigner=TopDownLocalAddressAssignerConfig(slice_solve_mode=SliceSolveMode.KL_CONSTRAINED_BISECTION, constraint_graph_mode=ConstraintGraphMode.CLIQUE).create(), slice_assigner=OptimalSliceAssigner()).create(),
+   # ThreeStepHwMapperConfig(clusterer=BottomUpClusterer(clusterer=kaMinParClusterFunction), address_assigner=PipageRoundingAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
+   # RandomMapperConfig().create(),
 
-    #SimAnnealingIHWConfig(time_limit=2.0, pipeline_output=PIPELINE_OUTPUT).create(),
-    # all with FillGivenHardware
+    #ThreeStepHwMapperConfig(clusterer=BottomUpClusterer(clusterer=kaHyParHyperedgesClusterFunction), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
+    #ThreeStepHwMapperConfig(clusterer=BottomUpClusterer(clusterer=kaHyParClusterFunction), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
     #ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=HsbmHwClusterer(), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=HcdHwClusterer(), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=HsbmHwClusterer(), address_assigner=PipageRoundingAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=HcdHwClusterer(), address_assigner=PipageRoundingAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    ThreeStepHwMapperConfig(clusterer=QapHwClusterer(), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=QapHwClusterer(), address_assigner=PipageRoundingAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=GroundTruthOrRandomClusterer(), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=GroundTruthOrRandomClusterer(), address_assigner=PipageRoundingAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #RandomMapperConfig().create(),
-
     #ThreeStepHwMapperConfig(clusterer=KaHyParHyperedgesClusterer(), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
     #ThreeStepHwMapperConfig(clusterer=KaHyParHierarchicalClusterer(), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=GroundTruthOrRandomClusterer(), address_assigner=GroundTruthOrRandomLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #SimAnnealingMapperConfig().create(),
-    #SimAnnealingIHWConfig(time_limit=2.0, pipeline_output=PIPELINE_OUTPUT).create(),
-    #SimAnnealingMapperConfig().create(),
-    #SimAnnealingIHWConfig(time_limit=2.0, pipeline_output=PIPELINE_OUTPUT).create(),
-    #GreedyMapperConfig().create(),
-    #MosaicGroundTruthBaselineProviderConfig().create()
-    #ILPMapperConfig().create(),
+    #ThreeStepHwMapperConfig(clusterer=HsbmHwClusterer(), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
+    #ThreeStepHwMapperConfig(clusterer=HcdHwClusterer(), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
+    #ThreeStepHwMapperConfig(clusterer=QapHwClusterer(), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
+    #ThreeStepHwMapperConfig(clusterer=HsbmHwClusterer(), address_assigner=PipageRoundingAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
+    #ThreeStepHwMapperConfig(clusterer=HcdHwClusterer(), address_assigner=PipageRoundingAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
+    #ThreeStepHwMapperConfig(clusterer=QapHwClusterer(), address_assigner=PipageRoundingAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
 ]
 
 
-PROBABILITIES = [0.2] #, 1.0]
+PROBABILITIES = [0.5, 1.0]
 
 HOOKS = [
     ValidatorConfig(pipeline_output=PIPELINE_OUTPUT).create()
@@ -243,7 +265,7 @@ def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, Mappi
                                     config=PIPELINE_OUTPUT)
     tasks: List[ExperimentTaskBase[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]] = [
         mosaic_tasks,
-        er_tasks,
+        #er_tasks,
         #swta_tasks
     ]
 

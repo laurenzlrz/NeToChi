@@ -221,7 +221,7 @@ class KaHyParHierarchicalClusterer(ClustererFixedHw):
         )
 
     def _partition(self, graph: gt.Graph, nr_clusters: int, nodes_in_cluster: List[int] = None) -> List[List[int]]:
-        return kaHyParClusterFunction(graph=graph, nodes_in_cluster=nodes_in_cluster, nr_clusters=nr_clusters, imbalance=self.imbalance)
+        return kaHyParClusterFunction(graph=graph, nodes_in_cluster=nodes_in_cluster, num_clusters=nr_clusters, imbalance=self.imbalance)
 
 
 

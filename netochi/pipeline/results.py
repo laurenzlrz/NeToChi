@@ -16,9 +16,9 @@ class ExperimentResult[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELIN
     mapper_name: str = Field(..., description="Name of the mapper/algorithm used.")
     input_metadata: Dict[str, str] = Field(default_factory=dict, description="Metadata about the input graph, e.g., graph type, size.")
     objective_results: List[RESULT] = Field(default_factory=list, description="Objective results of the evaluation.")
+    input: Optional[INPUT] = Field(description="The input that was mapped.")
     error: Optional[str] = Field(None, description="Error message if the mapping failed, otherwise None.")
     state: Optional[MAPPING_STATE] = Field(default=None, description="The mapping state object.")
-    input: Optional[INPUT] = Field(default=None, description="The input that was mapped.")
     baseline_state: Optional[BASELINE_STATE] = Field(default=None, description="The baseline state object, if applicable.")
 
     @property

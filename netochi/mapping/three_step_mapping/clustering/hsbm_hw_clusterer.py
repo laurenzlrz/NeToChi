@@ -19,4 +19,4 @@ class HsbmHwClusterer(ClustererFixedHw):
         return self._clusterer.cluster(input_data)
 
     def get_name(self) -> str:
-        return "hSBM"
+        return f"hSBM{self._clusterer._adapter.get_name()}"

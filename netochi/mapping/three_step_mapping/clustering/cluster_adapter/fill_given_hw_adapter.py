@@ -44,4 +44,6 @@ class FillGivenHwAdapter(ClusteringAdapterFixedHw):
             hw=hw_config
         )
 
+    def get_name(self):
+        return "Fill"
 
