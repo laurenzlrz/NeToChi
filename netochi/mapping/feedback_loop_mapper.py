@@ -3,8 +3,10 @@ Feedback-loop mapper for the Mosaic hardware (edge-weight feedback).
 
 Pipeline
 --------
-init : cores   <- recursive spectral bisection that follows the routing tree
-       indices <- recursive bisection of each core's nodes on co-fan-in
+init : cores   <- ClustererFixedHw (default: SpectralTreeClusterer, recursive spectral
+                         bisection along the routing tree)
+       indices <- LocalAddressAssigner (default: CoFanInAddressAssigner, recursive bisection
+                         of each core's index range on co-fan-in)
 repeat:
   A. slice step   (exact)     per (target q, distance d): pick the fullest slice
   B. index step   (exact)     per core: linear assignment with slices fixed
@@ -25,7 +27,6 @@ from typing import Callable, List, Optional, Tuple
 import numpy as np
 import scipy.sparse as sp
 from scipy.optimize import linear_sum_assignment
-from scipy.sparse.csgraph import connected_components
 
 # ----------------------------------------------------------------------------
 # ADAPT these imports to your project layout
@@ -33,6 +34,11 @@ from scipy.sparse.csgraph import connected_components
 from netochi.input_generator.interfaces import MosaicMappingInput, MosaicAssignment
 from netochi.mapping.interfaces import BaseMapper                      # ADAPT
 from netochi.mapping.interfaces import MosaicNetworkMappingState           # ADAPT
+from netochi.mapping.three_step_mapping.clustering.clusterer.spectral_tree_clusterer import \
+    SpectralTreeClusterer
+from netochi.mapping.three_step_mapping.local_address_assignment.cofanin_address_assigner import \
+    CoFanInAddressAssigner                                              # ADAPT
+from netochi.mapping.three_step_mapping.interfaces import ClustererFixedHw, LocalAddressAssigner
 
 
 # ----------------------------------------------------------------------------
@@ -56,6 +62,10 @@ class FeedbackLoopConfig:
     weighted_index_step: bool = True   # use edge weights in the index step
     distance_cost: Optional[Callable[[int], float]] = None  # proxy cost per distance
     verbose: bool = False
+    # clusterer producing the initial core assignment (cluster id == core id)
+    core_initializer: ClustererFixedHw = SpectralTreeClusterer()
+    # assigner producing the initial local indices (given the clustering)
+    address_initializer: LocalAddressAssigner = CoFanInAddressAssigner()
 
     def create(self) -> "FeedbackLoopMapper":
         return FeedbackLoopMapper(config=self)
@@ -65,30 +75,6 @@ def _default_distance_cost(d: int) -> float:
     # 0 inside a core; 1 - 2^-d = probability that a random source index is NOT
     # inside the target's slice at distance d.
     return 0.0 if d == 0 else 1.0 - 2.0 ** (-d)
-
-
-# ----------------------------------------------------------------------------
-# Spectral helper
-# ----------------------------------------------------------------------------
-def _fiedler(S, rng: np.random.Generator) -> np.ndarray:
-    """Fiedler vector of a symmetric non-negative similarity matrix (dense or sparse)."""
-    m = S.shape[0]
-    if m <= 2:
-        return rng.random(m)
-    S = sp.csr_matrix(S)
-    S = S - sp.diags(S.diagonal())
-    deg = np.asarray(S.sum(axis=1)).ravel()
-    if m <= 1500:
-        lap = np.diag(deg) - S.toarray()
-        vec = np.linalg.eigh(lap)[1][:, 1]
-    else:  # power iteration on (c*I - L), constant vector deflated
-        c = 2.0 * deg.max() + 1e-9
-        vec = rng.standard_normal(m)
-        for _ in range(300):
-            vec -= vec.mean()
-            vec = c * vec - (deg * vec - S @ vec)
-            vec /= np.linalg.norm(vec) + 1e-12
-    return vec + 1e-9 * rng.standard_normal(m)
 
 
 # ----------------------------------------------------------------------------
@@ -117,68 +103,12 @@ class FeedbackLoopSolver:
         fn = cfg.distance_cost or _default_distance_cost
         self.cost = np.array([fn(d) for d in range(self.L + 1)], dtype=float)
 
-        A = sp.csr_matrix((np.ones(self.E), (src, dst)), shape=(n, n))
-        self.Asym = A + A.T
 
     # ------------------------------------------------------------------ helpers
     def _violated(self, core, idx, k) -> np.ndarray:
         d = self.D[core[self.src], core[self.dst]]
         s = idx[self.src] // self.size[d]
         return s != k[self.dst, d]
-
-    # --------------------------------------------------------------- init: cores
-    def _init_cores(self) -> np.ndarray:
-        core = np.zeros(self.n, dtype=np.int64)
-        self._partition(np.arange(self.n), np.arange(self.W), core)
-        return core
-
-    def _partition(self, nodes: np.ndarray, cores: np.ndarray, core: np.ndarray) -> None:
-        if len(nodes) == 0:
-            return
-        if len(cores) == 1:
-            core[nodes] = cores[0]
-            return
-        sub = self.D[np.ix_(cores, cores)]
-        lvl = sub.max()
-        ncomp, lab = connected_components(sp.csr_matrix(sub <= lvl - 1), directed=False)
-        groups = [cores[lab == g] for g in range(ncomp)]
-        if ncomp == 1:  # should not happen for a tree; split arbitrarily
-            groups = [cores[: len(cores) // 2], cores[len(cores) // 2:]]
-        half = len(groups) // 2
-        left, right = np.concatenate(groups[:half]), np.concatenate(groups[half:])
-        cap_l, cap_r = len(left) * self.N, len(right) * self.N
-        m = len(nodes)
-        m_l = int(np.clip(round(m * cap_l / (cap_l + cap_r)), max(0, m - cap_r), min(m, cap_l)))
-        order = np.argsort(_fiedler(self.Asym[nodes][:, nodes], self.rng))
-        self._partition(nodes[order[:m_l]], left, core)
-        self._partition(nodes[order[m_l:]], right, core)
-
-    # ------------------------------------------------------------- init: indices
-    def _init_indices(self, core: np.ndarray) -> np.ndarray:
-        ext = core[self.src] != core[self.dst]
-        A = sp.csr_matrix((np.ones(ext.sum()), (self.src[ext], self.dst[ext])),
-                          shape=(self.n, self.n))
-        idx = np.zeros(self.n, dtype=np.int64)
-        for c in range(self.W):
-            nodes = np.flatnonzero(core == c)
-            if nodes.size == 0:
-                continue
-            S = (A[nodes] @ A[nodes].T).toarray()  # shared external targets
-
-            def rec(loc: np.ndarray, lo: int, hi: int) -> None:
-                if len(loc) == 0:
-                    return
-                if len(loc) == 1 or hi - lo == 1:
-                    idx[nodes[loc]] = lo + np.arange(len(loc))
-                    return
-                mid, m = (lo + hi) // 2, len(loc)
-                m_l = int(np.clip(-(-m // 2), max(0, m - (hi - mid)), min(m, mid - lo)))
-                order = np.argsort(_fiedler(S[np.ix_(loc, loc)], self.rng))
-                rec(loc[order[:m_l]], lo, mid)
-                rec(loc[order[m_l:]], mid, hi)
-
-            rec(np.arange(len(nodes)), 0, self.N)
-        return idx
 
     # ------------------------------------------------------------------ A: slices
     def _slice_step(self, core, idx, k) -> None:
@@ -221,7 +151,7 @@ class FeedbackLoopSolver:
     def _core_step(self, core, idx, w, viol) -> int:
         cfg, rng, n, W, N = self.cfg, self.rng, self.n, self.W, self.N
 
-        Wm = sp.csr_matrix((w, (self.src, self.dst)), shape=(n, n)) # weighted adjacency matrix
+        Wm = sp.csr_matrix((w, (self.src, self.dst)), shape=(n, n))
         Wm = Wm + Wm.T
         Wm = Wm - sp.diags(Wm.diagonal())
         Wm.eliminate_zeros()
@@ -233,26 +163,26 @@ class FeedbackLoopSolver:
         if pain.sum() <= 0:
             return 0
 
-        Cd = self.cost[self.D]          # proxy cost per core pair: routing distance
+        Cd = self.cost[self.D]                      # (W, W) proxy cost per core pair
         owner = -np.ones((W, N), dtype=np.int64)
         owner[core, idx] = np.arange(n)
 
         attempts = max(1, int(cfg.core_attempts_factor * n))
-        picks = rng.choice(n, size=attempts, p=pain / pain.sum()) # sample nodes proportional to pain
+        picks = rng.choice(n, size=attempts, p=pain / pain.sum())
         moves = 0
         for u in picks:
-            core_of_u = core[u]
+            a = core[u]
             s, e = indptr[u], indptr[u + 1]
             if s == e:
                 continue
-            nbw = np.bincount(core[indices[s:e]], weights=data[s:e], minlength=W) # weight of u's neighbors per core
-            cost_vec = Cd @ nbw       # cost of u at every core
-            cur = cost_vec[core_of_u] # current cost
+            nbw = np.bincount(core[indices[s:e]], weights=data[s:e], minlength=W)
+            cost_vec = Cd @ nbw                      # cost of u at every core
+            cur = cost_vec[a]
 
             best_delta, best = -1e-9, None
             tried = 0
             for b in np.argsort(cost_vec):
-                if b == core_of_u:
+                if b == a:
                     continue
                 gain_u = cost_vec[b] - cur
                 if tried >= cfg.target_cores or gain_u >= 0:
@@ -265,8 +195,8 @@ class FeedbackLoopSolver:
                     continue
                 occ = owner[b]
                 cand = occ if len(occ) <= cfg.swap_candidates else \
-                    rng.choice(occ, cfg.swap_candidates, replace=False) # sample swap candidates in the target cores uniformly at random
-                diff = Cd[core_of_u] - Cd[b]
+                    rng.choice(occ, cfg.swap_candidates, replace=False)
+                diff = Cd[a] - Cd[b]
                 for v in cand:
                     s2, e2 = indptr[v], indptr[v + 1]
                     gain_v = 0.0
@@ -274,7 +204,7 @@ class FeedbackLoopSolver:
                         nbwv = np.bincount(core[indices[s2:e2]], weights=data[s2:e2], minlength=W)
                         gain_v = float(diff @ nbwv)
                     # the u-v edge keeps its distance, remove its double counting
-                    delta = gain_u + gain_v + 2.0 * Wm[u, v] * Cd[core_of_u, b]
+                    delta = gain_u + gain_v + 2.0 * Wm[u, v] * Cd[a, b]
                     if delta < best_delta:
                         best_delta, best = delta, (b, int(v), int(idx[v]))
 
@@ -283,26 +213,23 @@ class FeedbackLoopSolver:
             b, v, j = best
             iu = idx[u]
             if v < 0:                                # move
-                owner[core_of_u, iu] = -1
+                owner[a, iu] = -1
                 owner[b, j] = u
                 core[u], idx[u] = b, j
             else:                                    # swap
-                owner[core_of_u, iu] = v
+                owner[a, iu] = v
                 owner[b, j] = u
-                core[v], idx[v] = core_of_u, iu
+                core[v], idx[v] = a, iu
                 core[u], idx[u] = b, j
             moves += 1
         return moves
 
     # ------------------------------------------------------------------ main loop
-    def solve(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[int]]:
-        """
-        returns: core assignment, local address assignment, slice assignment, history
-        """
+    def solve(self, init_core: np.ndarray, init_idx: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[int]]:
         cfg = self.cfg
         t0 = time.time()
-        core = self._init_cores() # TODO
-        idx = self._init_indices(core) # TODO
+        core = np.asarray(init_core, dtype=np.int64).copy()
+        idx = np.asarray(init_idx, dtype=np.int64).copy()
         k = np.zeros((self.n, self.L + 1), dtype=np.int64)
         w = np.ones(self.E)
 
@@ -351,6 +278,8 @@ class FeedbackLoopMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
 
     def __init__(self, config: Optional[FeedbackLoopConfig] = None) -> None:
         self.config = config or FeedbackLoopConfig()
+        self.clusterer: ClustererFixedHw = self.config.core_initializer
+        self.address_assigner: LocalAddressAssigner = self.config.address_initializer
         self.last_history: List[int] = []
 
     def run_mapping(self, mapping_input: MosaicMappingInput) -> MosaicNetworkMappingState:
@@ -358,9 +287,16 @@ class FeedbackLoopMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
         edges = np.asarray(graph.get_edges())[:, :2].astype(np.int64)
         n = int(graph.num_vertices())
 
+        # init: cores from the clusterer (cluster id == core id)
+        cluster_output = self.clusterer.cluster(mapping_input)
+        init_core = np.asarray(cluster_output.cluster_assignment, dtype=np.int64)
+        # init: local indices from the address assigner
+        init_idx = np.asarray(self.address_assigner.assign_addresses(mapping_input, cluster_output),
+                              dtype=np.int64)
+
         solver = FeedbackLoopSolver(mapping_input.hw_config, edges[:, 0], edges[:, 1], n,
                                     self.config, mapping_input.seed)
-        core, idx, k, history = solver.solve()
+        core, idx, k, history = solver.solve(init_core, init_idx)
         self.last_history = history
 
         assignment = MosaicAssignment(
