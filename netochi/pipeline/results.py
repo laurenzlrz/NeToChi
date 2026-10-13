@@ -13,6 +13,7 @@ class ExperimentResult[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELIN
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
     input_id: str = Field(..., description="Unique identifier for the input generated.")
+    seed: int = Field(..., description="The seed used to generate the input.")
     mapper_name: str = Field(..., description="Name of the mapper/algorithm used.")
     input_metadata: Dict[str, str] = Field(default_factory=dict, description="Metadata about the input graph, e.g., graph type, size.")
     objective_results: List[RESULT] = Field(default_factory=list, description="Objective results of the evaluation.")

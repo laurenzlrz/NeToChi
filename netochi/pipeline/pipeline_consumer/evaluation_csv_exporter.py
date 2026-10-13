@@ -47,7 +47,7 @@ class EvaluationExporter(PipelineConsumer[MappingInput, MappingState[Any, Any], 
             return pd.DataFrame()
 
         # Collect all possible headers to ensure consistency across rows
-        headers = ["mapper", "input_id", "metric", "value"]
+        headers = ["mapper", "input_id", "seed", "metric", "value"]
         rows = []
 
 
@@ -57,7 +57,8 @@ class EvaluationExporter(PipelineConsumer[MappingInput, MappingState[Any, Any], 
             for key in metric_data.keys():
                 row = {
                     "mapper": res.mapper_name,
-                    "input_id": res.input_id,
+                    "input_id": res.input.seed,
+                    "seed": res.seed,
                     "metric": key,
                     "value": metric_data[key]
                 }

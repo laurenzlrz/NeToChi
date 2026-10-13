@@ -121,20 +121,31 @@ def plot_results_csv(output_path: str, csv_path: str, metrics: List[str] | None 
                 print(f"No data found for metric '{metric}' and input '{input_id}'. Skipping...")
                 continue
 
-            # Create the plot
+            # Aggregate over seeds: mean, std and number of runs per mapper
+            stats = (
+                plot_data
+                .groupby('mapper', sort=False)['value']
+                .agg(['mean', 'std', 'count'])
+                .reindex([m for m in mappers if m in plot_data['mapper'].values])  # keep requested order
+            )
+            # std is NaN when there is only one run -> no error bar
+            stats['std'] = stats['std'].fillna(0.0)
+
             plt.figure(figsize=(10, 6))
 
             # Plot bars mapping the 'mapper' to the 'value' column
             plt.bar(
-                plot_data['mapper'],
-                plot_data['value'],
+                stats.index,
+                stats['mean'],
+                yerr=stats['std'],
+                capsize=5,
                 color='steelblue',
                 edgecolor='black',
+                ecolor='black',
                 zorder=2
             )
 
-            # Formatting and styling
-            plt.title(f"{metric} for {input_id}", fontsize=14, pad=15)
+            plt.title(f"{metric} for {input_id} (mean ± std)", fontsize=14, pad=15)
             plt.xlabel("Mapper", fontsize=12)
             plt.ylabel(metric, fontsize=12)
 
@@ -143,9 +154,8 @@ def plot_results_csv(output_path: str, csv_path: str, metrics: List[str] | None 
             plt.grid(axis='y', linestyle='--', alpha=0.7, zorder=1)
             plt.tight_layout()
 
-            # Create a safe filename (remove spaces, parentheses, and equal signs)
-            safe_metric = metric.replace(" ", "_").replace("(", "").replace(")", "")
-            safe_input_id = input_id.replace("=", "_").replace(",", "_")
+            safe_metric = str(metric).replace(" ", "_").replace("(", "").replace(")", "")
+            safe_input_id = str(input_id).replace("=", "_").replace(",", "_")
             file_name = f"{safe_metric}_{safe_input_id}.png"
 
             # Save and close
@@ -153,4 +163,3 @@ def plot_results_csv(output_path: str, csv_path: str, metrics: List[str] | None 
             plt.close()
 
     print(f"Successfully generated plots in {output_path}")
-

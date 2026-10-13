@@ -33,7 +33,7 @@ class ErdosRenyiFactory(HWBaseInputFactory[MosaicMappingInput]):
 
     def get_id(self) -> str:
         """Returns a concise name reflecting size and probability."""
-        return f"ER_n={self.n}_p={self.probability}_seed={self.seed}"
+        return f"ER_n={self.n}_p={self.probability}"
 
     def generate(self) -> MosaicMappingInput:
         """Generate a single MosaicMappingInput with an Erdős-Rényi graph."""

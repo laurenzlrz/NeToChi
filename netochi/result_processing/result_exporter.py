@@ -67,6 +67,7 @@ def import_summary_from_csv(filepath: str) -> PipelineSummary:
             result = ExperimentResult(
                 mapper_name=row["mapper_name"],
                 input_id=row["input_id"],
+                seed=row["seed"],
                 # Deserialize JSON strings back into Python dictionaries
                 input_metadata=json.loads(row["input_metadata"]),
                 metrics=json.loads(row["metrics"]),

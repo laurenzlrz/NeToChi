@@ -50,6 +50,7 @@ class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELI
 
         result = ExperimentResult(
             input_id=input_id,
+            seed=input.seed,
             mapper_name=mapper_name,
             input_metadata=input.descriptions,
             objective_results=objective_results,

@@ -51,7 +51,7 @@ class SwtaFactory(HWBaseInputFactory[MosaicMappingInput]):
     def get_id(self) -> str:
         """Returns a name reflecting size and configuration."""
         total_n = self.config.num_clusters * self.config.neurons_per_cluster
-        return f"sWTA_{total_n}n_{self.config.num_clusters}c_{self.config.neurons_per_cluster}N_{self.config.seed}seed"
+        return f"sWTA_{total_n}n_{self.config.num_clusters}c_{self.config.neurons_per_cluster}N"
 
     def _get_cluster_id(self, neuron_idx: int) -> int:
         return neuron_idx // self.config.neurons_per_cluster
