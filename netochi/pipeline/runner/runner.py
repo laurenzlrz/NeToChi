@@ -14,7 +14,7 @@ from netochi.mapping.interfaces import MappingState
 from netochi.objectives.interfaces import ObjectiveResult
 from netochi.pipeline.config import PipelineOutput
 from netochi.pipeline.interfaces import BasePipelineRunner, PipelineConsumer
-from netochi.pipeline.results import ExperimentResult, PipelineSummary, ExperimentLabels, LabeledObjectiveResult
+from netochi.pipeline.results import ExperimentResult, PipelineSummary, ExperimentLabels
 from netochi.pipeline.runner.evaluator_bundle import EvaluatorBundle
 
 
@@ -39,12 +39,14 @@ class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELI
         input_id = input.id
         state = self.mapper.run(input)
         elapsed = time.time() - t0
-        objective_results = self.evaluator_bundle.evaluate_all(state)
-        objective_results.append(LabeledObjectiveResult(result=ObjectiveResult(
+        labeled_objective_results = self.evaluator_bundle.evaluate_all(state)
+        objective_results = list(labeled_objective_results)
+        objective_results.append(ObjectiveResult(
             objective_name=NAME_OBJ_EXECUTION_TIME,
             value=elapsed,
             baseline_value=DEFAULT_METRIC_VALUE
-        )))
+        ))
+        objective_labels = {result: label for result, label in labeled_objective_results.items() if label is not None}
 
         error_msg: Optional[str] = None
         mapper_name = self.mapper.get_name()
@@ -58,7 +60,7 @@ class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELI
             error=error_msg,
             state=state,
             input=input,
-            labels=ExperimentLabels(task=task_label, input=input_label, mapper=self.mapper_label)
+            labels=ExperimentLabels(task=task_label, input=input_label, mapper=self.mapper_label, objectives=objective_labels)
         )
         return result
 

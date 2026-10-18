@@ -7,7 +7,6 @@ from netochi.mapping.interfaces import MappingState, BaseMapper
 from netochi.objectives.interfaces import ObjectiveResult
 from netochi.pipeline import MappingMetric
 from netochi.pipeline.interfaces import MappingStateConsumer
-from netochi.pipeline.results import LabeledObjectiveResult
 from netochi.definitions.constants import DEFAULT_METRIC_VALUE
 
 
@@ -52,16 +51,17 @@ class EvaluatorBundle[MAPPING_STATE: MappingState, BASELINE_STATE: MappingState,
             if baseline_provider is not None:
                 baseline_provider.run(input)
 
-    def evaluate_all(self, state: MAPPING_STATE) -> List[LabeledObjectiveResult[OBJECTIVE_LABEL, ObjectiveResult]]:
+    def evaluate_all(self, state: MAPPING_STATE) -> Dict[ObjectiveResult, Optional[OBJECTIVE_LABEL]]:
+        """Evaluates all metrics; returns each result with its label, in metric order."""
         for hook, baseline_provider in self.hooks:
             baseline = baseline_provider.baseline_state if baseline_provider is not None else None
             hook.consume(state, baseline)
             
-        results: List[LabeledObjectiveResult[OBJECTIVE_LABEL, ObjectiveResult]] = []
+        results: Dict[ObjectiveResult, Optional[OBJECTIVE_LABEL]] = {}
         for label, metric, baseline_provider in self.labeled_metrics_w_baselines:
             baseline = baseline_provider.baseline_state
             res = metric.evaluate(state, baseline)
-            results.append(LabeledObjectiveResult(label=label, result=res))
+            results[res] = label
         return results
 
     @property

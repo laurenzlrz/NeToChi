@@ -59,17 +59,17 @@ class EvaluationExporter(PipelineConsumer[MappingInput, MappingState[Any, Any], 
 
         for res in summary.results:
             # Build the base row dictionary
-            for labeled_result in res.objective_results:
+            for objective_result in res.objective_results:
                 row = {
                     "mapper": res.mapper_name,
                     "input_id": res.input.seed,
                     "seed": res.seed,
-                    "metric": labeled_result.result.objective_name,
-                    "value": labeled_result.result.value,
+                    "metric": objective_result.objective_name,
+                    "value": objective_result.value,
                     "task_label": _label_str(res.labels.task),
                     "input_label": _label_str(res.labels.input),
                     "mapper_label": _label_str(res.labels.mapper),
-                    "objective_label": _label_str(labeled_result.label)
+                    "objective_label": _label_str(res.labels.objectives.get(objective_result))
                 }
                 full_row = {h: row.get(h, "") for h in headers}
                 rows.append(full_row)
