@@ -306,3 +306,6 @@ class FeedbackLoopMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
             neuron_slice_assignment=k,
         )
         return MosaicNetworkMappingState(assignment=assignment, mapping_input=mapping_input)
+
+    def get_name(self) -> str:
+        return f"Feedback_{self.clusterer.get_name()}_{self.address_assigner.get_name()}"

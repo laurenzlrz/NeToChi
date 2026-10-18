@@ -488,4 +488,4 @@ class TopDownLocalAddressAssigner(LocalAddressAssigner):
 
 
     def get_name(self) -> str:
-        return "TopDown"
+        return self.config.slice_solve_mode.name

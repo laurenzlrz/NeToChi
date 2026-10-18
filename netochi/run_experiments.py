@@ -24,6 +24,8 @@ from netochi.mapping.simulated_annealing_mapper import SimAnnealingMapperConfig
 from netochi.mapping.simulated_annealing_mapper_cluster_init import SimulatedAnnealingMapperClusterInit, \
     SimulatedAnnealingMapperClusterInitConfig
 from netochi.mapping.theoretical_bounds_mapper import TheoreticalBoundsMapperConfig
+from netochi.mapping.three_step_mapping.clustering.cluster_adapter.hierarchy_aware_fill_adapter import \
+    HierarchyAwareFillAdapter
 from netochi.mapping.three_step_mapping.clustering.clusterer.bottom_up_clusterer import BottomUpClusterer
 from netochi.mapping.three_step_mapping.clustering.clusterer.gt_clusterer import GroundTruthOrRandomClusterer
 from netochi.mapping.three_step_mapping.clustering.clusterer.kaHyPar_cluster import KaHyParHierarchicalClusterer, \
@@ -32,6 +34,7 @@ from netochi.mapping.three_step_mapping.clustering.clusterer.kaHyPar_hyperedges_
     KaHyParHyperedgesClusterer, kaHyParHyperedgesClusterFunction
 from netochi.mapping.three_step_mapping.clustering.clusterer.kaMinPar_cluster import KaMinParHierarchicalClusterer, \
     kaMinParClusterFunction
+from netochi.mapping.three_step_mapping.clustering.clusterer.random_clusterer import RandomClusterer
 from netochi.mapping.three_step_mapping.clustering.clusterer.spectral_tree_clusterer import SpectralTreeClusterer
 from netochi.mapping.three_step_mapping.clustering.hcd_hw_clusterer import HcdHwClusterer
 from netochi.mapping.three_step_mapping.clustering.hsbm_hw_clusterer import HsbmHwClusterer
@@ -42,6 +45,7 @@ from netochi.mapping.three_step_mapping.local_address_assignment.gt_local_assign
 from netochi.mapping.three_step_mapping.local_address_assignment.lp_local_address_assigner import PipageRoundingAssigner
 from netochi.mapping.three_step_mapping.local_address_assignment.pca_local_address_assigner import \
     PcaLocalAddressAssigner
+from netochi.mapping.three_step_mapping.local_address_assignment.random_address_assigner import RandomAddressAssigner
 from netochi.mapping.three_step_mapping.local_address_assignment.sdp_local_address_assigner import SDPRoundingAssigner
 from netochi.mapping.three_step_mapping.local_address_assignment.sim_annealing_local_address_assigner import SALocalAddressAssignerConfig
 from netochi.mapping.three_step_mapping.local_address_assignment.top_down_local_address_assigner import \
@@ -139,6 +143,20 @@ HW_LARGE_2 = MosaicHardwareConfig(
     slice_factor=2
 )
 
+HW_LARGE_3 = MosaicHardwareConfig(
+    nodes_per_router=2,
+    neurons_per_core=64,
+    router_levels=4,
+    slice_factor=2
+)
+
+HW_LARGE_4 = MosaicHardwareConfig(
+    nodes_per_router=2,
+    neurons_per_core=128,
+    router_levels=4,
+    slice_factor=2
+)
+
 HW_LARGE_TRINARY = MosaicHardwareConfig(
     nodes_per_router=3,
     neurons_per_core=32,
@@ -161,46 +179,45 @@ OBJECTIVE_CONFIGS = [
 ]
 
 HW_CONFIGS = [
-    #HW_MEDIUM,
-    #HW_LARGE_2,
-
     #HW_MINI,
     HW_SMALL,
-    #HW_SMALL_TRINARY,
-    ##HW_MEDIUM_TRINARY,
-    HW_LARGE,
-    #HW_LARGE_TRINARY
+    #HW_MEDIUM,
+    #HW_LARGE,
+    #HW_LARGE_2,
+    #HW_LARGE_3,
+    #HW_LARGE_4,
 ]
 
-SEEDS = [1,2] #3,4,5]
+SEEDS = [1,2,3] #,4,5]
 
 MAPPERS = [
-    #ThreeStepHwMapperConfig(clusterer=BottomUpClusterer(clusterer=kaMinParClusterFunction), address_assigner=PipageRoundingAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=BottomUpClusterer(clusterer=kaMinParClusterFunction), address_assigner=SALocalAddressAssignerConfig().create(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=BottomUpClusterer(clusterer=kaMinParClusterFunction), address_assigner=TopDownLocalAddressAssignerConfig(slice_solve_mode=SliceSolveMode.KL_CONSTRAINED_BISECTION, constraint_graph_mode=ConstraintGraphMode.CLIQUE).create(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=QapHwClusterer(), address_assigner=TopDownLocalAddressAssignerConfig(slice_solve_mode=SliceSolveMode.KL_CONSTRAINED_BISECTION, constraint_graph_mode=ConstraintGraphMode.CLIQUE).create(), slice_assigner=OptimalSliceAssigner()).create(),
-    RandomMapperConfig().create(),
-    #FeedbackLoopConfig().create(),
-    #ThreeStepHwMapperConfig(clusterer=SpectralTreeClusterer(), address_assigner=CoFanInAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
+    #RandomMapperConfig().create(),
+    FeedbackLoopConfig(core_initializer=RandomClusterer(), address_initializer=RandomAddressAssigner()).create(),
+    # FeedbackLoopConfig(core_initializer=KaMinParHierarchicalClusterer(), address_initializer=TopDownLocalAddressAssignerConfig(slice_solve_mode=SliceSolveMode.KL_CONSTRAINED_BISECTION, constraint_graph_mode=ConstraintGraphMode.CLIQUE).create()).create(),
 
-    #SimulatedAnnealingMapperClusterInitConfig().create(),
-    # SDP-based recovery mapper (TheoreticalBoundsProof/alg1). Only for binary routers, slice_factor=2,
-    # power-of-two neurons_per_core and |V| = total_neurons (raises otherwise, e.g. on *_TRINARY configs).
-    # The core SDP has N^2 variables (N = 512, HW_LARGE_2: ~7 s with SCS); refused above max_neurons (default 1024).
+    ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
+                            address_assigner=TopDownLocalAddressAssignerConfig(
+                                slice_solve_mode=SliceSolveMode.KL_CONSTRAINED_BISECTION,
+                                constraint_graph_mode=ConstraintGraphMode.CLIQUE).create(),
+                            slice_assigner=OptimalSliceAssigner()).create(),
+
     TheoreticalBoundsMapperConfig().create(),
-    #ILPMapperConfig().create()
+    # ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
+    #                         address_assigner=CoFanInAddressAssigner(),
+    #                         slice_assigner=OptimalSliceAssigner()).create(),
+    #
+    # ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
+    #                         address_assigner=PcaLocalAddressAssigner(),
+    #                         slice_assigner=OptimalSliceAssigner()).create(),
 
-    #ThreeStepHwMapperConfig(clusterer=BottomUpClusterer(clusterer=kaHyParHyperedgesClusterFunction), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=BottomUpClusterer(clusterer=kaHyParClusterFunction), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=KaHyParHyperedgesClusterer(), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=KaHyParHierarchicalClusterer(), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=HsbmHwClusterer(), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=HcdHwClusterer(), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=QapHwClusterer(), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=HsbmHwClusterer(), address_assigner=PipageRoundingAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=HcdHwClusterer(), address_assigner=PipageRoundingAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
-    #ThreeStepHwMapperConfig(clusterer=QapHwClusterer(), address_assigner=PipageRoundingAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
+    #ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
+     #                       address_assigner=SALocalAddressAssignerConfig().create(),
+      #                      slice_assigner=OptimalSliceAssigner()).create(),
+
+    # ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
+    #                         address_assigner=PipageRoundingAssigner(),
+    #                         slice_assigner=OptimalSliceAssigner()).create(),
+
 ]
 
 
@@ -243,6 +260,7 @@ def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, Mappi
     er_factories: List[Tuple[Tuple[float, int, int], HWBaseInputFactory[MosaicMappingInput]]] = [
         ((p, hw_config.total_neurons, seed), ErdosRenyiConfig(hw_config=hw_config, n=hw_config.total_neurons, probability=p, seed=seed).create()) for p in PROBABILITIES for hw_config in HW_CONFIGS for seed in SEEDS
     ]
+
     swta_factories: List[Tuple[Tuple[None, int, int], HWBaseInputFactory[MosaicMappingInput]]] = [
         ((None, hw_config.total_neurons, seed), SwtaGeneratorConfig(hw_config=hw_config,
                             num_clusters=hw_config.total_cores,
@@ -292,10 +310,10 @@ def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, Mappi
                                     config=PIPELINE_OUTPUT,
                                     label="swta")
     tasks: List[ExperimentTaskBase[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput], str, Tuple[Optional[float], int, int]]] = [
-        mosaic_tasks,
+        #mosaic_tasks,
         #er_tasks,
         noisy_mosaic_tasks,
-        swta_tasks
+        #swta_tasks
     ]
 
     task_bundle: TaskBundle[MappingInput, MappingState, MappingState] = TaskBundle(tasks=tasks, consumer=CONSUMERS, config=PIPELINE_OUTPUT)
