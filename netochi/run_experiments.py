@@ -23,6 +23,7 @@ from netochi.mapping.random_mapper import RandomMapperConfig
 from netochi.mapping.simulated_annealing_mapper import SimAnnealingMapperConfig
 from netochi.mapping.simulated_annealing_mapper_cluster_init import SimulatedAnnealingMapperClusterInit, \
     SimulatedAnnealingMapperClusterInitConfig
+from netochi.mapping.theoretical_bounds_mapper import TheoreticalBoundsMapperConfig
 from netochi.mapping.three_step_mapping.clustering.clusterer.bottom_up_clusterer import BottomUpClusterer
 from netochi.mapping.three_step_mapping.clustering.clusterer.gt_clusterer import GroundTruthOrRandomClusterer
 from netochi.mapping.three_step_mapping.clustering.clusterer.kaHyPar_cluster import KaHyParHierarchicalClusterer, \
@@ -167,7 +168,7 @@ HW_CONFIGS = [
     HW_SMALL,
     #HW_SMALL_TRINARY,
     ##HW_MEDIUM_TRINARY,
-    #HW_LARGE,
+    HW_LARGE,
     #HW_LARGE_TRINARY
 ]
 
@@ -179,10 +180,14 @@ MAPPERS = [
     #ThreeStepHwMapperConfig(clusterer=BottomUpClusterer(clusterer=kaMinParClusterFunction), address_assigner=TopDownLocalAddressAssignerConfig(slice_solve_mode=SliceSolveMode.KL_CONSTRAINED_BISECTION, constraint_graph_mode=ConstraintGraphMode.CLIQUE).create(), slice_assigner=OptimalSliceAssigner()).create(),
     #ThreeStepHwMapperConfig(clusterer=QapHwClusterer(), address_assigner=TopDownLocalAddressAssignerConfig(slice_solve_mode=SliceSolveMode.KL_CONSTRAINED_BISECTION, constraint_graph_mode=ConstraintGraphMode.CLIQUE).create(), slice_assigner=OptimalSliceAssigner()).create(),
     RandomMapperConfig().create(),
-    FeedbackLoopConfig().create(),
+    #FeedbackLoopConfig().create(),
     #ThreeStepHwMapperConfig(clusterer=SpectralTreeClusterer(), address_assigner=CoFanInAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
 
-    SimulatedAnnealingMapperClusterInitConfig().create(),
+    #SimulatedAnnealingMapperClusterInitConfig().create(),
+    # SDP-based recovery mapper (TheoreticalBoundsProof/alg1). Only for binary routers, slice_factor=2,
+    # power-of-two neurons_per_core and |V| = total_neurons (raises otherwise, e.g. on *_TRINARY configs).
+    # The core SDP has N^2 variables (N = 512, HW_LARGE_2: ~7 s with SCS); refused above max_neurons (default 1024).
+    TheoreticalBoundsMapperConfig().create(),
     #ILPMapperConfig().create()
 
     #ThreeStepHwMapperConfig(clusterer=BottomUpClusterer(clusterer=kaHyParHyperedgesClusterFunction), address_assigner=PcaLocalAddressAssigner(), slice_assigner=OptimalSliceAssigner()).create(),
@@ -231,7 +236,7 @@ def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, Mappi
     ]
 
     noisy_mosaic_factories: List[HWBaseInputFactory[MosaicMappingInput]] = [
-        NoisyMosaicNetworkConfig(hw_config=hw_config, probability=p, seed=seed, epsilon=0.0).create() for p in PROBABILITIES for hw_config in HW_CONFIGS for seed in SEEDS
+        NoisyMosaicNetworkConfig(hw_config=hw_config, probability=p, seed=seed, epsilon=0.1).create() for p in PROBABILITIES for hw_config in HW_CONFIGS for seed in SEEDS
     ]
 
     er_factories: List[HWBaseInputFactory[MosaicMappingInput]] = [
@@ -284,8 +289,8 @@ def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, Mappi
     tasks: List[ExperimentTaskBase[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]] = [
         mosaic_tasks,
         #er_tasks,
-        #noisy_mosaic_tasks,
-        #swta_tasks
+        noisy_mosaic_tasks,
+        swta_tasks
     ]
 
     task_bundle: TaskBundle[MappingInput, MappingState, MappingState] = TaskBundle(tasks=tasks, consumer=CONSUMERS, config=PIPELINE_OUTPUT)
