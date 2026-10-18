@@ -1,12 +1,12 @@
 import time
 from abc import ABC
-from typing import List, Optional, Any, Sequence, Generic
+from typing import List, Optional, Any, Sequence, Generic, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from eventbus.event_bus import EventBus, BaseEvent
 from netochi.definitions.constants import NAME_OBJ_EXECUTION_TIME, DEFAULT_METRIC_VALUE
-from netochi.definitions.generics import Input_co, MappingState_co, BaselineState_co
+from netochi.definitions.generics import Input_co, MappingState_co, BaselineState_co, TaskLabel_co, InputLabel_co
 from netochi.input_generator.interfaces import BaseInputFactory
 from netochi.input_generator.interfaces import MappingInput
 from netochi.mapping.interfaces import BaseMapper
@@ -14,11 +14,11 @@ from netochi.mapping.interfaces import MappingState
 from netochi.objectives.interfaces import ObjectiveResult
 from netochi.pipeline.config import PipelineOutput
 from netochi.pipeline.interfaces import BasePipelineRunner, PipelineConsumer
-from netochi.pipeline.results import ExperimentResult, PipelineSummary
+from netochi.pipeline.results import ExperimentResult, PipelineSummary, ExperimentLabels, LabeledObjectiveResult
 from netochi.pipeline.runner.evaluator_bundle import EvaluatorBundle
 
 
-class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELINE_STATE: MappingState](BaseModel):
+class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELINE_STATE: MappingState, MAPPER_LABEL](BaseModel):
     """
     An execution step binding mappers, inputs, and baseline logic.
     Summarizes the combinatorical space and reduces repetitive input generations, when compatible:
@@ -26,9 +26,10 @@ class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELI
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True, strict=True)
     mapper: BaseMapper[MAPPING_STATE, INPUT] = Field(description="Mapper to execute for this task run.")
-    evaluator_bundle: EvaluatorBundle[MAPPING_STATE, BASELINE_STATE, INPUT] = Field(description="Mapping of mappers to their corresponding evaluator bundles.")
+    evaluator_bundle: EvaluatorBundle[MAPPING_STATE, BASELINE_STATE, INPUT, Any] = Field(description="Mapping of mappers to their corresponding evaluator bundles.")
+    mapper_label: Optional[MAPPER_LABEL] = Field(default=None, description="Experiment label (alias) for the mapper.")
 
-    def run(self, input: INPUT) -> ExperimentResult:
+    def run(self, input: INPUT, task_label: Optional[Any] = None, input_label: Optional[Any] = None) -> ExperimentResult:
         self.evaluator_bundle.prepare(input)
         assert isinstance(input, MappingInput), "Each input must be an instance of HWBaseInputFactory"
         assert isinstance(self.mapper, BaseMapper), "Each mapper must be an instance of BaseMapper"
@@ -39,11 +40,11 @@ class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELI
         state = self.mapper.run(input)
         elapsed = time.time() - t0
         objective_results = self.evaluator_bundle.evaluate_all(state)
-        objective_results.append(ObjectiveResult(
+        objective_results.append(LabeledObjectiveResult(result=ObjectiveResult(
             objective_name=NAME_OBJ_EXECUTION_TIME,
             value=elapsed,
             baseline_value=DEFAULT_METRIC_VALUE
-        ))
+        )))
 
         error_msg: Optional[str] = None
         mapper_name = self.mapper.get_name()
@@ -56,27 +57,34 @@ class ExperimentTaskRun[INPUT: MappingInput, MAPPING_STATE: MappingState, BASELI
             objective_results=objective_results,
             error=error_msg,
             state=state,
-            input=input
+            input=input,
+            labels=ExperimentLabels(task=task_label, input=input_label, mapper=self.mapper_label)
         )
         return result
 
 
-class ExperimentTaskBase(BaseModel, Generic[Input_co, MappingState_co, BaselineState_co]):
+class ExperimentTaskBase(BaseModel, Generic[Input_co, MappingState_co, BaselineState_co, TaskLabel_co, InputLabel_co]):
     """Base for experiment tasks, defining common attributes."""
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True, strict=True)
 
     # For convenience, we allow multiple input factories to be associated with the same mapper and baseline logic,
     # enabling combinatorial testing without needing to duplicate the entire task definition.
-    input_generators: Sequence[BaseInputFactory[Input_co]] = Field(
-        description="List of input factories to generate mapping inputs.")
-    evaluator_mapper_bundles: Sequence[ExperimentTaskRun[Any, Any, Any]] = Field(
+    # Each entry is either a factory or a (label, factory) pair; the label is an experiment alias for that input.
+    input_generators: Sequence[BaseInputFactory[Input_co] | Tuple[InputLabel_co, BaseInputFactory[Input_co]]] = Field(
+        description="List of input factories (optionally as (label, factory) pairs) to generate mapping inputs.")
+    evaluator_mapper_bundles: Sequence[ExperimentTaskRun[Any, Any, Any, Any]] = Field(
         description="Mapping of mappers to their corresponding evaluator bundles.")
     config: PipelineOutput = Field(description="Configuration for pipeline outputs.")
+    label: Optional[TaskLabel_co] = Field(default=None, description="Experiment label (alias) for this task.")
+
+    @property
+    def labeled_input_generators(self) -> List[Tuple[Optional[InputLabel_co], BaseInputFactory[Input_co]]]:
+        return [entry if isinstance(entry, tuple) else (None, entry) for entry in self.input_generators]
 
     def run(self) -> List[ExperimentResult]:
         results: List[ExperimentResult] = []
 
-        for input in self.input_generators:
+        for input_label, input in self.labeled_input_generators:
             assert isinstance(input, BaseInputFactory), "Each input generator must be an instance of BaseInputFactory"
             input_instance = input.generate() # TODO Make Sure No Altering!
             input_name = input.get_id()
@@ -84,7 +92,7 @@ class ExperimentTaskBase(BaseModel, Generic[Input_co, MappingState_co, BaselineS
             for evaluator_mapper_bundle in self.evaluator_mapper_bundles:
                 mapper_name = evaluator_mapper_bundle.mapper.get_name()
                 self.config.print_console(f"\nRunning mapper: {mapper_name}")
-                result = evaluator_mapper_bundle.run(input_instance)
+                result = evaluator_mapper_bundle.run(input_instance, task_label=self.label, input_label=input_label)
                 if result.error:
                     self.config.print_console(f"  --> Mapper failed: {result.error}")
                 else:
@@ -100,7 +108,7 @@ class TaskBundle(BaseModel, Generic[Input_co, MappingState_co, BaselineState_co]
     """
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True, strict=True)
 
-    tasks: Sequence[ExperimentTaskBase[Input_co, MappingState_co, BaselineState_co]] = Field(
+    tasks: Sequence[ExperimentTaskBase[Input_co, MappingState_co, BaselineState_co, Any, Any]] = Field(
         description="List of experiment tasks to execute in the pipeline.")
     consumer: Sequence[PipelineConsumer[Any, Any, Any]] = Field(
         description="List of consumers to process the pipeline summary after execution.")

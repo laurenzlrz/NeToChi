@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Dict
+from typing import Any, List, Optional, Tuple, Dict
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -7,6 +7,7 @@ from netochi.mapping.interfaces import MappingState, BaseMapper
 from netochi.objectives.interfaces import ObjectiveResult
 from netochi.pipeline import MappingMetric
 from netochi.pipeline.interfaces import MappingStateConsumer
+from netochi.pipeline.results import LabeledObjectiveResult
 from netochi.definitions.constants import DEFAULT_METRIC_VALUE
 
 
@@ -30,34 +31,40 @@ class BaselineStorer[MAPPING_INPUT: MappingInput, BASELINE_STATE: MappingState](
         pass
 
 
-class EvaluatorBundle[MAPPING_STATE: MappingState, BASELINE_STATE: MappingState, MAPPING_INPUT: MappingInput](BaseModel):
+class EvaluatorBundle[MAPPING_STATE: MappingState, BASELINE_STATE: MappingState, MAPPING_INPUT: MappingInput, OBJECTIVE_LABEL](BaseModel):
     """Strongly typed container for metrics."""
     model_config = ConfigDict(arbitrary_types_allowed=True, strict=True, frozen=True)
-    metrics_w_baselines: List[Tuple[MappingMetric[MAPPING_STATE, BASELINE_STATE], BaselineStorer[MAPPING_INPUT, BASELINE_STATE]]] = Field(description="Metrics to evaluate the mapping state against a baseline.")
+    # Each entry is (metric, baseline) or (label, metric, baseline); the label is an experiment alias for the objective.
+    metrics_w_baselines: List[Tuple[MappingMetric[MAPPING_STATE, BASELINE_STATE], BaselineStorer[MAPPING_INPUT, BASELINE_STATE]]
+                              | Tuple[OBJECTIVE_LABEL, MappingMetric[MAPPING_STATE, BASELINE_STATE], BaselineStorer[MAPPING_INPUT, BASELINE_STATE]]] = Field(description="Metrics (optionally labeled) to evaluate the mapping state against a baseline.")
     hooks: List[Tuple[MappingStateConsumer[MAPPING_STATE, BASELINE_STATE], Optional[BaselineStorer[MAPPING_INPUT, BASELINE_STATE]]]] = Field(description="Hooks to consume the mapping state and baseline after evaluation.")
+
+    @property
+    def labeled_metrics_w_baselines(self) -> List[Tuple[Optional[OBJECTIVE_LABEL], MappingMetric[MAPPING_STATE, BASELINE_STATE], BaselineStorer[MAPPING_INPUT, BASELINE_STATE]]]:
+        return [entry if len(entry) == 3 else (None, *entry) for entry in self.metrics_w_baselines]
 
     def prepare(self, input: MAPPING_INPUT) -> None:
         # Precompute baselines for all metrics
-        for metric, baseline_provider in self.metrics_w_baselines:
+        for _, metric, baseline_provider in self.labeled_metrics_w_baselines:
             baseline_provider.run(input)
         # Precompute baselines for all hooks
         for hook, baseline_provider in self.hooks:
             if baseline_provider is not None:
                 baseline_provider.run(input)
 
-    def evaluate_all(self, state: MAPPING_STATE) -> List[ObjectiveResult]:
+    def evaluate_all(self, state: MAPPING_STATE) -> List[LabeledObjectiveResult[OBJECTIVE_LABEL, ObjectiveResult]]:
         for hook, baseline_provider in self.hooks:
             baseline = baseline_provider.baseline_state if baseline_provider is not None else None
             hook.consume(state, baseline)
             
-        results: List[ObjectiveResult] = []
-        for metric, baseline_provider in self.metrics_w_baselines:
+        results: List[LabeledObjectiveResult[OBJECTIVE_LABEL, ObjectiveResult]] = []
+        for label, metric, baseline_provider in self.labeled_metrics_w_baselines:
             baseline = baseline_provider.baseline_state
             res = metric.evaluate(state, baseline)
-            results.append(res)
+            results.append(LabeledObjectiveResult(label=label, result=res))
         return results
 
     @property
     def get_baselines(self) -> List[BaselineStorer[MAPPING_INPUT, BASELINE_STATE]]:
-        return [metric_baseline_tuple[1] for metric_baseline_tuple in self.metrics_w_baselines]
+        return [baseline_provider for _, _, baseline_provider in self.labeled_metrics_w_baselines]
 

@@ -52,9 +52,9 @@ class EventProcessor(PipelineConsumer[Input_contra, MappingState_contra, Baselin
         This method must be implemented by subclasses.
         """
         for exp_result in data.results:
-            for objective_result in exp_result.objective_results:
+            for labeled_result in exp_result.objective_results:
                 event = ObjectiveResultWrapperEvent(
-                    result=objective_result,
+                    result=labeled_result.result,
                     exp_result=exp_result,
                     summary=data
                 )

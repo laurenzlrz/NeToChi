@@ -12,6 +12,11 @@ from netochi.pipeline.results import PipelineSummary
 from netochi.result_processing.config import FILENAME_EVALUATION_CSV
 
 
+def _label_str(label: Any) -> str:
+    """Labels are generic; the CSV stores their string form (empty if unset)."""
+    return "" if label is None else str(label)
+
+
 class EvaluationExporterConfig(BaseModel):
     model_config = ConfigDict(strict=True, arbitrary_types_allowed=True)
 
@@ -47,20 +52,24 @@ class EvaluationExporter(PipelineConsumer[MappingInput, MappingState[Any, Any], 
             return pd.DataFrame()
 
         # Collect all possible headers to ensure consistency across rows
-        headers = ["mapper", "input_id", "seed", "metric", "value"]
+        headers = ["mapper", "input_id", "seed", "metric", "value",
+                   "task_label", "input_label", "mapper_label", "objective_label"]
         rows = []
 
 
         for res in summary.results:
             # Build the base row dictionary
-            metric_data = res.raw_metrics
-            for key in metric_data.keys():
+            for labeled_result in res.objective_results:
                 row = {
                     "mapper": res.mapper_name,
                     "input_id": res.input.seed,
                     "seed": res.seed,
-                    "metric": key,
-                    "value": metric_data[key]
+                    "metric": labeled_result.result.objective_name,
+                    "value": labeled_result.result.value,
+                    "task_label": _label_str(res.labels.task),
+                    "input_label": _label_str(res.labels.input),
+                    "mapper_label": _label_str(res.labels.mapper),
+                    "objective_label": _label_str(labeled_result.label)
                 }
                 full_row = {h: row.get(h, "") for h in headers}
                 rows.append(full_row)

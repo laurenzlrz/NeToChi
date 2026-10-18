@@ -231,26 +231,27 @@ CONSUMERS: List[PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[Mosa
 def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, MappingState]:
 
     # 1. Define the inputs (Factories)
-    mosaic_factories: List[HWBaseInputFactory[MosaicMappingInput]] = [
-        MosaicNetworkConfig(hw_config=hw_config, probability=p, seed=seed).create() for p in PROBABILITIES for hw_config in HW_CONFIGS for seed in SEEDS
+    # Inputs are (label, factory) pairs; here the label is the triple (probability, total_neurons, seed)
+    mosaic_factories: List[Tuple[Tuple[float, int, int], HWBaseInputFactory[MosaicMappingInput]]] = [
+        ((p, hw_config.total_neurons, seed), MosaicNetworkConfig(hw_config=hw_config, probability=p, seed=seed).create()) for p in PROBABILITIES for hw_config in HW_CONFIGS for seed in SEEDS
     ]
 
-    noisy_mosaic_factories: List[HWBaseInputFactory[MosaicMappingInput]] = [
-        NoisyMosaicNetworkConfig(hw_config=hw_config, probability=p, seed=seed, epsilon=0.1).create() for p in PROBABILITIES for hw_config in HW_CONFIGS for seed in SEEDS
+    noisy_mosaic_factories: List[Tuple[Tuple[float, int, int], HWBaseInputFactory[MosaicMappingInput]]] = [
+        ((p, hw_config.total_neurons, seed), NoisyMosaicNetworkConfig(hw_config=hw_config, probability=p, seed=seed, epsilon=0.1).create()) for p in PROBABILITIES for hw_config in HW_CONFIGS for seed in SEEDS
     ]
 
-    er_factories: List[HWBaseInputFactory[MosaicMappingInput]] = [
-        ErdosRenyiConfig(hw_config=hw_config, n=hw_config.total_neurons, probability=p, seed=seed).create() for p in PROBABILITIES for hw_config in HW_CONFIGS for seed in SEEDS
+    er_factories: List[Tuple[Tuple[float, int, int], HWBaseInputFactory[MosaicMappingInput]]] = [
+        ((p, hw_config.total_neurons, seed), ErdosRenyiConfig(hw_config=hw_config, n=hw_config.total_neurons, probability=p, seed=seed).create()) for p in PROBABILITIES for hw_config in HW_CONFIGS for seed in SEEDS
     ]
-    swta_factories: List[HWBaseInputFactory[MosaicMappingInput]] = [
-        SwtaGeneratorConfig(hw_config=hw_config,
+    swta_factories: List[Tuple[Tuple[None, int, int], HWBaseInputFactory[MosaicMappingInput]]] = [
+        ((None, hw_config.total_neurons, seed), SwtaGeneratorConfig(hw_config=hw_config,
                             num_clusters=hw_config.total_cores,
                             neurons_per_cluster=hw_config.neurons_per_core,
                             inhibitory_ratio=0.2,
                             p_neighbor=0.1,
                             p_e_to_i=0.2,
                             p_i_to_e=0.8,
-                            seed=seed).create() for seed in SEEDS
+                            seed=seed).create()) for seed in SEEDS
         for hw_config in HW_CONFIGS
     ]
 
@@ -273,20 +274,24 @@ def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, Mappi
 
     mosaic_tasks = ExperimentTaskBase(input_generators=mosaic_factories,
                                        evaluator_mapper_bundles=mosaic_task_runs,
-                                       config=PIPELINE_OUTPUT)
+                                       config=PIPELINE_OUTPUT,
+                                       label="mosaic")
 
     noisy_mosaic_tasks = ExperimentTaskBase(input_generators=noisy_mosaic_factories,
                                       evaluator_mapper_bundles=mosaic_task_runs,
-                                      config=PIPELINE_OUTPUT)
+                                      config=PIPELINE_OUTPUT,
+                                      label="noisy_mosaic")
 
     er_tasks = ExperimentTaskBase(input_generators=er_factories,
                                   evaluator_mapper_bundles=other_task_runs,
-                                  config=PIPELINE_OUTPUT)
+                                  config=PIPELINE_OUTPUT,
+                                  label="erdos_renyi")
 
     swta_tasks = ExperimentTaskBase(input_generators=swta_factories,
                                     evaluator_mapper_bundles=other_task_runs,
-                                    config=PIPELINE_OUTPUT)
-    tasks: List[ExperimentTaskBase[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]] = [
+                                    config=PIPELINE_OUTPUT,
+                                    label="swta")
+    tasks: List[ExperimentTaskBase[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput], str, Tuple[Optional[float], int, int]]] = [
         mosaic_tasks,
         #er_tasks,
         noisy_mosaic_tasks,
