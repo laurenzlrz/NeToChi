@@ -4,7 +4,8 @@ from netochi.mapping.three_step_mapping.clustering.cluster_adapter.padding_adapt
 from netochi.mapping.three_step_mapping.clustering.clusterer.hcd_clusterer import HcdClusterer
 from netochi.mapping.three_step_mapping.clustering.hw_clusterer_adapter import HwClustererAdapter
 from netochi.mapping.three_step_mapping.clustering.hw_clusterer_adapter_given_hw import GivenHwClustererAdapter
-from netochi.mapping.three_step_mapping.interfaces import ClusterAndHwOutput, ClustererInferHw, ClustererFixedHw
+from netochi.mapping.three_step_mapping.interfaces import ClusterAndHwOutput, ClustererInferHw, ClustererFixedHw, \
+    ClusteringAdapter, ClusteringAdapterFixedHw
 
 
 class HcdInferHwClusterer(ClustererInferHw):
@@ -30,8 +31,8 @@ class HcdHwClusterer(ClustererFixedHw):
     2. infers hardware and fits clustering to it using the padding adapter
     """
 
-    def __init__(self) -> None:
-        self._clusterer = GivenHwClustererAdapter(clusterer=HcdClusterer(), adapter=FillGivenHwAdapter())
+    def __init__(self, clustering_adapter: ClusteringAdapterFixedHw = FillGivenHwAdapter()) -> None:
+        self._clusterer = GivenHwClustererAdapter(clusterer=HcdClusterer(), adapter=clustering_adapter)
 
 
     def cluster(self, input_data: MosaicMappingInput) -> ClusterAndHwOutput:
