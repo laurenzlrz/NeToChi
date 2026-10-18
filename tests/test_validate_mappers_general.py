@@ -4,8 +4,8 @@ import numpy as np
 
 from netochi.input_generator.interfaces import MosaicMappingInput, MosaicAssignment
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
-from netochi.mapping.greedy_mapper import GreedyMapper
-from netochi.mapping.ilp_mapper import ILPMapper
+from netochi.mapping.greedy_mapper import GreedyMapperConfig
+from netochi.mapping.ilp_mapper import ILPMapperConfig
 from netochi.mapping.qap_mapper_legacy import QAPMapper
 from netochi.mapping.simulated_annealing_mapper import SimAnnealingMapper
 from netochi.mapping.three_step_mapping.hcd_pca_opt_three_step_mapper import HcdPcaOptThreeStepMapper
@@ -17,8 +17,8 @@ from tests.utils_graph_generation import create_fc_graph, create_two_fc_componen
 
 MAPPERS_TO_TEST = [
     # SimAnnealingMapper(),
-    GreedyMapper(),
-    ILPMapper(),
+    GreedyMapperConfig().create(),
+    ILPMapperConfig().create(),
     QAPMapper(),
     # HcdPcaOptThreeStepMapper(),
     # HsbmPcaOptThreeStepMapper()
@@ -68,7 +68,7 @@ def test_fc_component_mapped_to_single_core(mapper, hw_config, output_dir):
                 g.add_edge(i, j)
                 
     assignment = MosaicAssignment.spread(hw_config.total_neurons, hw_config)
-    mapping_input = MosaicMappingInput(graph=g, descriptions={}, hw_config=hw_config, assignment=assignment)
+    mapping_input = MosaicMappingInput(graph=g, descriptions={}, hw_config=hw_config, seed=42, assignment=assignment)
 
     state = mapper.run(mapping_input)
     unique_cores = np.unique(state.c[:hw_config.neurons_per_core])
@@ -90,7 +90,7 @@ def test_two_fc_components_mapped_separately(mapper, hw_config, output_dir):
     N = hw_config.neurons_per_core
     g = create_two_fc_components(N)
     assignment = MosaicAssignment.spread(hw_config.total_neurons, hw_config)
-    mapping_input = MosaicMappingInput(graph=g, descriptions={}, hw_config=hw_config, assignment=assignment)
+    mapping_input = MosaicMappingInput(graph=g, descriptions={}, hw_config=hw_config, seed=42, assignment=assignment)
 
     state = mapper.run(mapping_input)
 
@@ -117,7 +117,7 @@ def test_slice_alignment_for_dependent_clusters(mapper, hw_config, output_dir):
     N = hw_config.neurons_per_core
     g = create_two_fc_with_directed_half(N)
     assignment = MosaicAssignment.spread(hw_config.total_neurons, hw_config)
-    mapping_input = MosaicMappingInput(graph=g, descriptions={}, hw_config=hw_config, assignment=assignment)
+    mapping_input = MosaicMappingInput(graph=g, descriptions={}, hw_config=hw_config, seed=42, assignment=assignment)
 
     state = mapper.run(mapping_input)
 

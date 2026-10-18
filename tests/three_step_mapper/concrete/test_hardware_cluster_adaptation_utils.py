@@ -13,7 +13,9 @@ def compute_avg_children(cluster_parent: np.ndarray) -> float:
     Computes the average number of children per non-leaf node.
     Returns 0.0 if there are no non-leaf nodes.
     """
-    output = HierarchicalClusterOutput(cluster_assignment=None, num_clusters=None, cluster_parent=cluster_parent)
+    # Leaves (clusters that are nobody's parent) are 0..k-1; give each one neuron so the output is valid.
+    leaves = np.setdiff1d(np.arange(cluster_parent.size), cluster_parent)
+    output = HierarchicalClusterOutput(cluster_assignment=leaves, num_clusters=leaves.size, cluster_parent=cluster_parent)
     return compute_avg_non_leaf_children_count(cluster_output=output)
 
 
@@ -68,7 +70,7 @@ class TestHwClusterAdapterUtils(unittest.TestCase):
 
     def test_compute_core_sizes_single_large_core(self):
         """Test counting core sizes when all nodes belong to a single core."""
-        cluster_assignment = np.array([4, 4, 4, 4, 4], dtype=np.int_)
+        cluster_assignment = np.array([0, 0, 0, 0, 0], dtype=np.int_)
 
         clustering = HierarchicalClusterOutput(
             cluster_assignment=cluster_assignment,
@@ -78,7 +80,7 @@ class TestHwClusterAdapterUtils(unittest.TestCase):
 
         core_sizes = compute_core_sizes(clustering)
 
-        expected_sizes = {4: 5}
+        expected_sizes = {0: 5}
         self.assertEqual(core_sizes, expected_sizes)
 
 
@@ -113,16 +115,16 @@ class TestHwClusterAdapterUtils(unittest.TestCase):
 
     def test_transform_hierarchy_standard_hierarchy(self):
         """Test a standard 3-level tree hierarchy with multiple leaves and neurons."""
-        # Setup a tree where:
-        #   0 (Root) -> 1, 2 (Routers)
-        #   1 -> 3, 4 (Leaf Clusters)
-        #   2 -> 5 (Leaf Cluster)
+        # Setup a tree where (leaf clusters must be 0..num_clusters-1):
+        #   5 (Root) -> 3, 4 (Routers)
+        #   3 -> 0, 1 (Leaf Clusters)
+        #   4 -> 2 (Leaf Cluster)
         # Array index = Cluster ID, Value = Parent ID
-        cluster_parent = np.array([-1, 0, 0, 1, 1, 2], dtype=np.int_)
+        cluster_parent = np.array([3, 3, 4, 5, 5, -1], dtype=np.int_)
 
         # Neurons re-indexed to 0, 1, 2, 3, 4
         # Array index = Neuron ID, Value = Leaf Cluster ID
-        cluster_assignment = np.array([3, 3, 4, 5, 5], dtype=np.int_)
+        cluster_assignment = np.array([0, 0, 1, 2, 2], dtype=np.int_)
 
         clustering = HierarchicalClusterOutput(
             cluster_assignment=cluster_assignment,
@@ -134,9 +136,9 @@ class TestHwClusterAdapterUtils(unittest.TestCase):
 
         # Verify Adjacency List (Children Mapping)
         expected_children = {
-            0: np.array([1, 2], dtype=np.int_),
-            1: np.array([3, 4], dtype=np.int_),
-            2: np.array([5], dtype=np.int_)
+            5: np.array([3, 4], dtype=np.int_),
+            3: np.array([0, 1], dtype=np.int_),
+            4: np.array([2], dtype=np.int_)
         }
 
         self.assertEqual(set(children.keys()), set(expected_children.keys()))
@@ -145,9 +147,9 @@ class TestHwClusterAdapterUtils(unittest.TestCase):
 
         # Verify Leaf to Neuron Mapping
         expected_leaf_neurons = {
-            3: np.array([0, 1], dtype=np.int_),
-            4: np.array([2], dtype=np.int_),
-            5: np.array([3, 4], dtype=np.int_)
+            0: np.array([0, 1], dtype=np.int_),
+            1: np.array([2], dtype=np.int_),
+            2: np.array([3, 4], dtype=np.int_)
         }
 
         self.assertEqual(set(leaf_neurons.keys()), set(expected_leaf_neurons.keys()))
@@ -156,25 +158,25 @@ class TestHwClusterAdapterUtils(unittest.TestCase):
 
     def test_transform_hierarchy_sorting_determinism(self):
         """Ensure that child IDs and neuron IDs are sorted deterministically."""
-        # Nodes 1 and 2 both have parent 0
-        cluster_parent = np.array([-1, 0, 0], dtype=np.int_)
+        # Leaves 0 and 1 both have parent 2 (the root)
+        cluster_parent = np.array([2, 2, -1], dtype=np.int_)
 
-        # Neurons 0 and 1 both belong to cluster 2
-        cluster_assignment = np.array([2, 2], dtype=np.int_)
+        # Neurons 0 and 2 belong to cluster 1, neuron 1 to cluster 0
+        cluster_assignment = np.array([1, 0, 1], dtype=np.int_)
 
         clustering = HierarchicalClusterOutput(
             cluster_assignment=cluster_assignment,
-            num_clusters=1,
+            num_clusters=2,
             cluster_parent=cluster_parent
         )
 
         children, leaf_neurons = transform_hierarchy_into_adjacency_list(clustering)
 
-        # Root 0's children must be sorted [1, 2]
-        np.testing.assert_array_equal(children[0], np.array([1, 2], dtype=np.int_))
+        # Root 2's children must be sorted [0, 1]
+        np.testing.assert_array_equal(children[2], np.array([0, 1], dtype=np.int_))
 
-        # Cluster 2's neurons must be sorted [0, 1]
-        np.testing.assert_array_equal(leaf_neurons[2], np.array([0, 1], dtype=np.int_))
+        # Cluster 1's neurons must be sorted [0, 2]
+        np.testing.assert_array_equal(leaf_neurons[1], np.array([0, 2], dtype=np.int_))
 
     def test_transform_hierarchy_single_node_tree(self):
         """Test edge case where the tree only consists of a root node."""

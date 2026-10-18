@@ -35,8 +35,8 @@ class TestFlatRebuildClusteringAdapter(unittest.TestCase):
     def test_fractional_mean_rounding(self):
         """Test that mean children counts round up correctly to integers."""
 
-        # Original keys (0, 1) mapped to values
-        cluster_assignment = np.array([0, 1], dtype=np.int_)
+        # One neuron per leaf cluster (0 through 4)
+        cluster_assignment = np.array([0, 1, 2, 3, 4], dtype=np.int_)
 
         # Original keys (0 through 7) mapped to values
         cluster_parent = np.array([5, 5, 5, 6, 6, 7, 7, -1], dtype=np.int_)

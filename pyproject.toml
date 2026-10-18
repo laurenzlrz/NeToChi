@@ -8,7 +8,7 @@ version = "0.1.0"
 authors = [
   { name="Laurenz", email="laurenz@example.com" },
 ]
-description = "Neuromorphic To Chip: Stochastic Block Model Mapping Framework"
+description = "Mapping neural networks onto neuromorphic hardware with hierarchical routing"
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
@@ -21,6 +21,8 @@ dependencies = [
     "numpy",
     "networkx",
     "pydantic",
+    "scipy",
+    "cvxpy",
     # Note: graph-tool is a dependency but often requires manual installation
 ]
 
@@ -30,7 +32,43 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["netochi*"]
+include = ["netochi*", "eventbus*"]
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["osx-arm64", "linux-64"]
+
+# Mirrors requirements.txt; graph-tool is only available via conda-forge.
+[tool.pixi.dependencies]
+python = ">=3.12,<3.14"
+graph-tool = "*"
+numpy = ">=2.4.4,<2.5"
+networkx = ">=3.6.1,<3.7"
+scikit-learn = ">=1.8.0,<1.9"
+pulp = ">=2.8.0,<2.9"
+pydantic = ">=2.13.2,<2.14"
+scipy = ">=1.17.1,<1.18"
+matplotlib = "*"
+seaborn = "*"
+pandas = ">=3.0.2,<3.1"
+typing_extensions = ">=4.15.0,<4.16"
+icontract = ">=2.7.3,<2.8"
+cvxpy = ">=1.9.3,<1.10"
+pytest = ">=9.0.3,<9.1"
+mypy = "*"
+pixi-pycharm = ">=0.0.12,<0.0.13"
+
+# Not available on conda-forge
+[tool.pixi.pypi-dependencies]
+netochi = { path = ".", editable = true }
+kahypar = ">=1.3.7,<1.4"
+kaminpar = ">=3.7.3,<3.8"
+gurobipy = "*"
+
+[tool.pixi.tasks]
+test = "python -m pytest tests"
+experiments = "python -m netochi.run_experiments"
+typecheck = "mypy netochi"
 
 [tool.mypy]
 python_version = "3.10"

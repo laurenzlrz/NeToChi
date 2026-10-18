@@ -8,13 +8,15 @@ from netochi.mapping.three_step_mapping.clustering.clusterer.hsbm_clusterer impo
 from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOutput
 from netochi.visualization.visualize_clustering import plot_clustering_comparison
 
+os.makedirs("test_results", exist_ok=True)
+
 
 # --- Helper Function ---
 def run_clusterer(graph: gt.Graph) -> HierarchicalClusterOutput:
     """
     Runs the HcdClusterer on the provided graph.
     """
-    input_data = MappingInput(graph=graph, descriptions={}, payload=None)
+    input_data = MappingInput(graph=graph, descriptions={}, seed=42)
     return HsbmClusterer().cluster(input_data) # configure the desired clusterer here!!
 
 
@@ -110,5 +112,5 @@ class TestClusterer:
             g,
             initial_assignment=ground_truth_assignment,
             inferred_assignment=output.cluster_assignment,
-            filename="../test_results/cluster_test_output.pdf"
+            filename="test_results/cluster_test_output.pdf"
         )

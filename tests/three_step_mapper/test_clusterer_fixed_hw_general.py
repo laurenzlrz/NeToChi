@@ -1,3 +1,4 @@
+import os
 import itertools
 
 import numpy as np
@@ -11,6 +12,8 @@ from netochi.mapping.three_step_mapping.interfaces import ClustererFixedHw
 from netochi.mapping.three_step_mapping.clustering.clusterer.kaMinPar_cluster import KaMinParHierarchicalClusterer
 from netochi.mapping.three_step_mapping.clustering.clusterer.kaHyPar_cluster import KaHyParHierarchicalClusterer
 from netochi.visualization.visualize_clustering import plot_clustering_comparison
+
+os.makedirs("test_results", exist_ok=True)
 
 
 def get_clusterer() -> ClustererFixedHw:
@@ -54,7 +57,8 @@ def test_hierarchical_clustering_structure():
     mapping_input = MosaicMappingInput(
         graph=graph,
         descriptions={},
-        hw_config=hw_config
+        hw_config=hw_config,
+        seed=42
     )
 
     # 4. Instantiate the Clusterer
@@ -92,7 +96,7 @@ def test_hierarchical_clustering_structure():
         graph,
         initial_assignment=np.array([0,0,1,1,2,2,3,3]),
         inferred_assignment=result.cluster_assignment,
-        filename="../test_results/cluster_hierarchy_test_output.pdf"
+        filename="test_results/cluster_hierarchy_test_output.pdf"
     )
 
 
@@ -141,7 +145,8 @@ def test_kaminpar_clustering_16_neurons_4_cores():
     mapping_input = MosaicMappingInput(
         graph=graph,
         descriptions={},
-        hw_config=hw_config
+        hw_config=hw_config,
+        seed=42
     )
 
     # 4. Instantiate the Clusterer
@@ -180,7 +185,7 @@ def test_kaminpar_clustering_16_neurons_4_cores():
         graph,
         initial_assignment=np.array([0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3], dtype=np.int_),
         inferred_assignment=result.cluster_assignment,
-        filename="../test_results/cluster_hierarchy_test_output.pdf"
+        filename="test_results/cluster_hierarchy_test_output.pdf"
     )
 
 
@@ -241,7 +246,8 @@ def test_kaminpar_clustering_27_neurons_9_cores_3_ary():
     mapping_input = MosaicMappingInput(
         graph=graph,
         descriptions={},
-        hw_config=hw_config
+        hw_config=hw_config,
+        seed=42
     )
 
     # 4. Instantiate the Clusterer
@@ -283,5 +289,5 @@ def test_kaminpar_clustering_27_neurons_9_cores_3_ary():
         graph,
         initial_assignment=initial_assignment,
         inferred_assignment=result.cluster_assignment,
-        filename="../test_results/cluster_hierarchy_3ary_test_output.pdf"
+        filename="test_results/cluster_hierarchy_3ary_test_output.pdf"
     )

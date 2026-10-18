@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
-from netochi.input_generator.mosaic_network_factory import MosaicNetworkFactory
+from netochi.input_generator.mosaic_network_factory import MosaicNetworkConfig
 
 from tests.input_generator.helpers import predecessors_in_core
 
@@ -21,7 +21,7 @@ class TestMosaicNetworkFactoryDistanceZero(unittest.TestCase):
             router_levels=1,
             slice_factor=2,
         )
-        factory = MosaicNetworkFactory(hw_config=hw, probability=1.0, seed=123)
+        factory = MosaicNetworkConfig(hw_config=hw, probability=1.0, seed=123, permute=False).create()
         result = factory.generate()
 
         for target in range(neurons_per_core):
@@ -44,7 +44,7 @@ class TestMosaicNetworkFactoryDistanceOne(unittest.TestCase):
             router_levels=1,
             slice_factor=2,
         )
-        factory = MosaicNetworkFactory(hw_config=hw, probability=1.0, seed=7)
+        factory = MosaicNetworkConfig(hw_config=hw, probability=1.0, seed=7, permute=False).create()
         result = factory.generate()
 
         self.assertEqual(hw.core_distance(0, 1), 1)
@@ -79,7 +79,7 @@ class TestMosaicNetworkFactoryDistanceTwo(unittest.TestCase):
             router_levels=2,
             slice_factor=2,
         )
-        factory = MosaicNetworkFactory(hw_config=hw, probability=1.0, seed=11)
+        factory = MosaicNetworkConfig(hw_config=hw, probability=1.0, seed=11, permute=False).create()
         result = factory.generate()
 
         self.assertEqual(hw.core_distance(0, 2), 2)

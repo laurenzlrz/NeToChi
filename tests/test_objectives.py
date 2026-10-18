@@ -48,9 +48,9 @@ def verify_equations(state: BaseMosaicMappingState[MosaicMappingInput]):
 
     assert num_edges_on_chip == num_edges_on_chip_2, "num_edges_on_chip do not match!"
 
-    e_valid = valid_edges_objective().evaluate(state)
-    inconsistencies = inconsistency_objective().evaluate(state)
-    unused_connections = unused_connections_objective().evaluate(state)
+    e_valid = valid_edges_objective().evaluate(state).value
+    inconsistencies = inconsistency_objective().evaluate(state).value
+    unused_connections = unused_connections_objective().evaluate(state).value
 
 
     # Equation 1: Every edge is either valid or inconsistent

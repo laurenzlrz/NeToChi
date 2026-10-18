@@ -8,7 +8,7 @@ from netochi.mapping.three_step_mapping.interfaces import HierarchicalClusterOut
 class TestAdaptClustering(unittest.TestCase):
 
     def test_perfectly_balanced_tree(self):
-        """
+        r"""
         Scenario: A symmetric binary tree where every router has exactly 2 children.
         No structural padding should change the alignment positions.
         Tree Layout:
@@ -44,7 +44,7 @@ class TestAdaptClustering(unittest.TestCase):
         np.testing.assert_array_equal(output.cluster_assignment, expected_assignments)
 
     def test_asymmetric_tree_requiring_padding(self):
-        """
+        r"""
         Scenario: Max branching factor is 2, but one router is missing a child branch.
         Tree Layout:
               5 (Root)
@@ -77,7 +77,7 @@ class TestAdaptClustering(unittest.TestCase):
         np.testing.assert_array_equal(output.cluster_assignment, expected_assignments)
 
     def test_asymmetric_tree_requiring_padding2(self):
-        """
+        r"""
         Scenario: Max branching factor is 2, but one router is missing a child branch.
         Tree Layout:
                 7 (Root)
@@ -108,7 +108,7 @@ class TestAdaptClustering(unittest.TestCase):
         np.testing.assert_array_equal(output.cluster_assignment, expected_assignments)
 
     def test_dense_neurons_per_core(self):
-        """
+        r"""
         Scenario: Verifies that multiple neurons sitting inside the same core
         all get transitioned to the same physical hardware coordinate together.
         """
@@ -133,7 +133,7 @@ class TestAdaptClustering(unittest.TestCase):
         self.assertEqual(output.cluster_assignment[3], 1)
 
     def test_large_branching_factor(self):
-        """
+        r"""
         Scenario: A wide single-level router structure (Base-4 arithmetic).
               4 (Root)
            /  |  |  \

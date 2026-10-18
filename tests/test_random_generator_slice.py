@@ -1,6 +1,6 @@
 import unittest
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
-from netochi.input_generator.mosaic_network_factory import MosaicNetworkFactory
+from netochi.input_generator.mosaic_network_factory import MosaicNetworkConfig
 
 class TestRandomGeneratorSliceConstraints(unittest.TestCase):
 
@@ -12,7 +12,7 @@ class TestRandomGeneratorSliceConstraints(unittest.TestCase):
             router_levels=1,
             slice_factor=2
         )
-        factory = MosaicNetworkFactory(hw_config=hw_config, probability=1.0, seed=123)
+        factory = MosaicNetworkConfig(hw_config=hw_config, probability=1.0, seed=123, permute=False).create()
         result = factory.generate()
 
         # One core at distance 0: every neuron receives from all other neurons in that core.
@@ -29,7 +29,7 @@ class TestRandomGeneratorSliceConstraints(unittest.TestCase):
             router_levels=1,
             slice_factor=2
         )
-        factory = MosaicNetworkFactory(hw_config=hw_config, probability=1.0, seed=7)
+        factory = MosaicNetworkConfig(hw_config=hw_config, probability=1.0, seed=7, permute=False).create()
 
         # Two cores under one level-1 router are immediate neighbors: distance must be 1.
         self.assertEqual(hw_config.core_distance(0, 1), 1)

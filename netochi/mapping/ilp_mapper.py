@@ -104,7 +104,12 @@ class ILPMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
                                 prob += I[(j, i)] >= (M[i, c_i, x_i] + M[j, c_j, x_j] - 1 - S_vars[(i, d, s_req)])
 
         # 7. Fire up the solver engine
-        prob.solve(pulp.PULP_CBC_CMD(msg=True, timeLimit=300))
+        # pip's pulp bundles a CBC binary (PULP_CBC_CMD); conda-forge's pulp relies on the
+        # coin-or-cbc package's `cbc` on PATH instead (COIN_CMD).
+        solver = pulp.PULP_CBC_CMD(msg=True, timeLimit=300)
+        if not solver.available():
+            solver = pulp.COIN_CMD(msg=True, timeLimit=300)
+        prob.solve(solver)
 
         if pulp.LpStatus[prob.status] not in ["Optimal"]:
             print(f"Solver status: {pulp.LpStatus[prob.status]}. Proceeding to extract best found state.")

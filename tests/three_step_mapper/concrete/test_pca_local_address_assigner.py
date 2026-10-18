@@ -2,11 +2,16 @@ import unittest
 import numpy as np
 import graph_tool.all as gt
 
+from netochi.input_generator.interfaces import MappingInput
+from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.mapping.three_step_mapping.interfaces import ClusterAndHwOutput
 from netochi.mapping.three_step_mapping.local_address_assignment.pca_local_address_assigner import PcaLocalAddressAssigner
 
 
 
+
+# Large enough for every clustering below (4 cores x 4 neurons).
+HW = MosaicHardwareConfig(nodes_per_router=4, neurons_per_core=4, router_levels=1)
 
 class TestPcaLocalAddressAssigner(unittest.TestCase):
 
@@ -20,10 +25,10 @@ class TestPcaLocalAddressAssigner(unittest.TestCase):
 
         # Each node is isolated in its own dedicated core (0, 1, 2)
         clustering = ClusterAndHwOutput(
-            cluster_assignment=np.array([0, 1, 2], dtype=np.int_), num_clusters=3, hw=None
+            cluster_assignment=np.array([0, 1, 2], dtype=np.int_), num_clusters=3, hw=HW
         )
 
-        result = self.assigner.assign_addresses(g, clustering)
+        result = self.assigner.assign_addresses(MappingInput(graph=g, descriptions={}, seed=0), clustering)
 
         # Every node should be index 0 inside its respective core
         expected = np.array([0, 0, 0], dtype=np.int_)
@@ -36,12 +41,12 @@ class TestPcaLocalAddressAssigner(unittest.TestCase):
 
         # All 4 nodes are placed into the exact same core
         clustering = ClusterAndHwOutput(
-            cluster_assignment=np.array([0, 0, 0, 0], dtype=np.int_), num_clusters=1, hw=None
+            cluster_assignment=np.array([0, 0, 0, 0], dtype=np.int_), num_clusters=1, hw=HW
         )
 
         # Because the graph is completely empty/disconnected, all rows in the adjacency
         # matrix are uniformly zero. The fallback should trigger sequential assignment.
-        result = self.assigner.assign_addresses(g, clustering)
+        result = self.assigner.assign_addresses(MappingInput(graph=g, descriptions={}, seed=0), clustering)
 
         expected = np.array([0, 1, 2, 3], dtype=np.int_)
         np.testing.assert_array_equal(result, expected)
@@ -53,14 +58,14 @@ class TestPcaLocalAddressAssigner(unittest.TestCase):
 
         # All nodes are in core 0, but we give them distinct connectivity gradients
         clustering = ClusterAndHwOutput(
-            cluster_assignment=np.array([0, 0, 0], dtype=np.int_), num_clusters=1, hw=None
+            cluster_assignment=np.array([0, 0, 0], dtype=np.int_), num_clusters=1, hw=HW
         )
 
         # Node 0 has no connections
         # Node 1 connects to Node 2
         g.add_edge(1, 2)
 
-        result = self.assigner.assign_addresses(g, clustering)
+        result = self.assigner.assign_addresses(MappingInput(graph=g, descriptions={}, seed=0), clustering)
 
         # Ensure that every node got a unique, valid local address slot [0, 1, 2]
         self.assertEqual(set(result), {0, 1, 2})
@@ -76,12 +81,12 @@ class TestPcaLocalAddressAssigner(unittest.TestCase):
         # Core 0: Nodes 0, 1, 2
         # Core 1: Nodes 3, 4
         cluster_assignment = np.array([0, 0, 0, 1, 1], dtype=np.int_)
-        clustering = ClusterAndHwOutput(cluster_assignment=cluster_assignment, num_clusters=2, hw=None)
+        clustering = ClusterAndHwOutput(cluster_assignment=cluster_assignment, num_clusters=2, hw=HW)
 
         # Add a few edges to differentiate profiles inside Core 0
         g.add_edge(0, 1)
 
-        result = self.assigner.assign_addresses(g, clustering)
+        result = self.assigner.assign_addresses(MappingInput(graph=g, descriptions={}, seed=0), clustering)
 
         # Extract indices belonging to Core 0 and Core 1
         core_0_addresses = result[0:3]
@@ -97,12 +102,12 @@ class TestPcaLocalAddressAssigner(unittest.TestCase):
         g = gt.Graph(directed=False)
         g.add_vertex(2)
 
-        # Core IDs skip ID '1' entirely (0 and 2 used)
+        # Core IDs skip ID '1' entirely (0 and 2 used, core 1 left empty)
         cluster_assignment = np.array([0, 2], dtype=np.int_)
-        clustering = ClusterAndHwOutput(cluster_assignment=cluster_assignment, num_clusters=2, hw=None)
+        clustering = ClusterAndHwOutput(cluster_assignment=cluster_assignment, num_clusters=3, hw=HW)
 
         # Should handle skipped partitions elegantly without crashing
-        result = self.assigner.assign_addresses(g, clustering)
+        result = self.assigner.assign_addresses(MappingInput(graph=g, descriptions={}, seed=0), clustering)
 
         expected = np.array([0, 0], dtype=np.int_)
         np.testing.assert_array_equal(result, expected)

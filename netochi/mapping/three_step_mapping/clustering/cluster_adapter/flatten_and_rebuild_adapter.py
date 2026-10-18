@@ -16,7 +16,7 @@ class FlatRebuildClusteringAdapter(ClusteringAdapter):
 
         # --- 1. Infer hw config ---
         cluster_sizes = compute_core_sizes(clustering)
-        neurons_per_core = max(cluster_sizes.values())
+        neurons_per_core = int(max(cluster_sizes.values()))
 
         if clustering.num_clusters == 1:
             nodes_per_router = 1
@@ -31,7 +31,8 @@ class FlatRebuildClusteringAdapter(ClusteringAdapter):
         hw = MosaicHardwareConfig(
             nodes_per_router=nodes_per_router,
             neurons_per_core=neurons_per_core,
-            router_levels=router_levels
+            router_levels=router_levels,
+            slice_factor=min(2, neurons_per_core),  # singleton clusters can't be sliced further
         )
 
         new_num_clusters = nodes_per_router**router_levels  # Total nr of cores (real + dummy cores appended at the end)

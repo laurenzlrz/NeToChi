@@ -2,10 +2,15 @@ import unittest
 import numpy as np
 import graph_tool.all as gt
 
+from netochi.input_generator.interfaces import MappingInput
+from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.mapping.three_step_mapping.interfaces import ClusterAndHwOutput
 from netochi.mapping.three_step_mapping.local_address_assignment.pca_local_address_assigner import \
     PcaLocalAddressAssigner
 
+
+# Large enough for every clustering below (4 cores x 4 neurons).
+HW = MosaicHardwareConfig(nodes_per_router=4, neurons_per_core=4, router_levels=1)
 
 class TestSliceLocalAddressAssigner(unittest.TestCase):
 
@@ -27,14 +32,14 @@ class TestSliceLocalAddressAssigner(unittest.TestCase):
         # Neurons 0,1,2,3 -> Cluster 0 (A)
         # Neurons 4,5,6,7 -> Cluster 1 (B)
         cluster_assignment = np.array([0, 0, 0, 0, 1, 1, 1, 1], dtype=np.int_)
-        clustering = ClusterAndHwOutput(cluster_assignment=cluster_assignment, num_clusters=2, hw=None)
+        clustering = ClusterAndHwOutput(cluster_assignment=cluster_assignment, num_clusters=2, hw=HW)
 
         # Establish directed edges: 4 -> 0 and 5 -> 0
         g.add_edge(4, 0)
         g.add_edge(5, 0)
 
         # Run the assignment algorithm
-        local_addresses = self.assigner.assign_addresses(g, clustering)
+        local_addresses = self.assigner.assign_addresses(MappingInput(graph=g, descriptions={}, seed=0), clustering)
 
         # Extract local coordinates for the two source neurons in Cluster B
         addr_4 = local_addresses[4]
@@ -60,7 +65,7 @@ class TestSliceLocalAddressAssigner(unittest.TestCase):
         g.add_vertex(8)
 
         cluster_assignment = np.array([0, 0, 0, 0, 1, 1, 1, 1], dtype=np.int_)
-        clustering = ClusterAndHwOutput(cluster_assignment=cluster_assignment, num_clusters=2, hw=None)
+        clustering = ClusterAndHwOutput(cluster_assignment=cluster_assignment, num_clusters=2, hw=HW)
 
         # Group 1 targeting Neuron 0
         g.add_edge(4, 0)
@@ -70,7 +75,7 @@ class TestSliceLocalAddressAssigner(unittest.TestCase):
         g.add_edge(6, 1)
         g.add_edge(7, 1)
 
-        local_addresses = self.assigner.assign_addresses(g, clustering)
+        local_addresses = self.assigner.assign_addresses(MappingInput(graph=g, descriptions={}, seed=0), clustering)
 
         # Determine which halves the groups landed in
         group_1_halves = [local_addresses[4] // 2, local_addresses[5] // 2]
@@ -93,14 +98,14 @@ class TestSliceLocalAddressAssigner(unittest.TestCase):
 
         # Cluster 0 has 4 neurons, Cluster 1 has 2 neurons
         cluster_assignment = np.array([0, 0, 0, 0, 1, 1], dtype=np.int_)
-        clustering = ClusterAndHwOutput(cluster_assignment=cluster_assignment, num_clusters=2, hw=None)
+        clustering = ClusterAndHwOutput(cluster_assignment=cluster_assignment, num_clusters=2, hw=HW)
 
         # Randomized connectivity to stress test sorting
         g.add_edge(0, 4)
         g.add_edge(2, 5)
         g.add_edge(3, 4)
 
-        local_addresses = self.assigner.assign_addresses(g, clustering)
+        local_addresses = self.assigner.assign_addresses(MappingInput(graph=g, descriptions={}, seed=0), clustering)
 
         # Extract address layouts per cluster block
         cluster_0_slots = local_addresses[0:4]

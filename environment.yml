@@ -8,6 +8,8 @@ dependencies:
   - networkx
   - graph-tool
   - pydantic
+  - scipy
+  - cvxpy
   - pytest
   - pip
   - mypy

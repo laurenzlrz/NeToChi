@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 import random
 
+from netochi.input_generator.interfaces import MosaicMappingInput
 from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.mapping.simulated_annealing_fix_hw.sa_mutation import SwapMutation, MoveMutation
 from netochi.mapping.simulated_annealing_fix_hw.sa_state import SAState
@@ -44,7 +45,6 @@ class TestDeltaVsGroundTruth:
 
         hw_config = MosaicHardwareConfig(nodes_per_router=2, neurons_per_core=8, router_levels=2)
         num_nodes = hw_config.total_neurons // 2  # Keep hardware half-empty to allow Move mutations
-        state = SAState(num_nodes, hw_config)
 
         # --- generate random graph ---
         graph = gt.Graph(directed=True)
@@ -56,6 +56,9 @@ class TestDeltaVsGroundTruth:
             tgt = random.randint(0, num_nodes - 1)
             if src != tgt:
                 graph.add_edge(src, tgt)
+
+        # No pre-assignment -> SAState draws a random initial placement
+        state = SAState(MosaicMappingInput(graph=graph, descriptions={}, hw_config=hw_config, seed=42))
 
         return hw_config, graph, state
 

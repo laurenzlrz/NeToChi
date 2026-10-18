@@ -23,7 +23,8 @@ class PaddingClusteringAdapter(ClusteringAdapter):
         hw = MosaicHardwareConfig(
             nodes_per_router=nodes_per_router,
             neurons_per_core=neurons_per_core,
-            router_levels=router_levels
+            router_levels=router_levels,
+            slice_factor=min(2, neurons_per_core),  # singleton clusters can't be sliced further
         )
 
         new_num_clusters = nodes_per_router**router_levels  # Total nr of cores (real + dummy)

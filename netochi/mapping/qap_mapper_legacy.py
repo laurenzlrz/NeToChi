@@ -75,7 +75,7 @@ class QAPMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInput]):
                 s_assignment[tgt, d] = best_slice
                 
         return MosaicNetworkMappingState(
-            _mapping_input=mapping_input,
+            mapping_input=mapping_input,
             assignment=assignment
         )
 
