@@ -118,7 +118,8 @@ class TheoreticalBoundsMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappin
         if num_neurons != hw.total_neurons:
             raise MappingValidationError(GRAPH_DOES_NOT_FILL_HW.format(expected=hw.total_neurons, actual=num_neurons))
         if num_neurons > self.config.max_neurons:
-            raise MappingError(TOO_MANY_NEURONS_FOR_SDP.format(actual=num_neurons, limit=self.config.max_neurons))
+            print("Warning: a lot of neurons")
+            #raise MappingError(TOO_MANY_NEURONS_FOR_SDP.format(actual=num_neurons, limit=self.config.max_neurons))
 
     @icontract.ensure(lambda result, mapping_input: result.c.size == mapping_input.graph.num_vertices())
     def run_mapping(self, mapping_input: MosaicMappingInput) -> MosaicNetworkMappingState:

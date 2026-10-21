@@ -18,41 +18,37 @@ class QapHwClusterer(ClustererFixedHw):
     def cluster(self, input_data: MosaicMappingInput) -> ClusterAndHwOutput:
         """Find core and address allocations using QAP FAQ heuristic."""
         graph = input_data.graph
-        gt_hw = input_data.hw_config
+        hw = input_data.hw_config
         N_graph = graph.num_vertices()
+        N_hw = hw.total_neurons
 
+        # 1. Adjacency (transpose is irrelevant since B is symmetric)
+        A = np.zeros((N_hw, N_hw))
+        A[:N_graph, :N_graph] = cast(Any, gt.adjacency(graph)).toarray()
 
-        hw_num_neurons = gt_hw.total_neurons
+        # 2. Affinity, vectorized over cores
+        core_of_slot = np.array([hw.global_neuron_to_local(k)[0] for k in range(N_hw)])
+        C = hw.total_cores
+        core_aff = np.array([[1.0 / hw.num_slices_at_distance(hw.core_distance(a, b))
+                              for b in range(C)] for a in range(C)])
+        B = core_aff[core_of_slot[:, None], core_of_slot[None, :]]
 
-        # 1. Build Adjacency Matrix A
-        A = np.zeros((hw_num_neurons, hw_num_neurons))
-        adj = cast(Any, gt.adjacency(graph)).toarray()
-        A[:N_graph, :N_graph] = adj
+        # 3. FAQ with random restarts (barycenter init is degenerate for symmetric B)
+        rng = np.random.default_rng(input_data.seed)
+        best = None
+        for _ in range(10):  # e.g. 10
+            res = quadratic_assignment(
+                A, B, method="faq",
+                options={"maximize": True, "P0": "randomized",
+                         "rng": rng,  # `random_state` on scipy < 1.15
+                         "maxiter": 100, "tol": 1e-4})
+            if best is None or res.fun > best.fun:
+                best = res
 
-        # 2. Build Affinity Matrix B
-        B = np.zeros((hw_num_neurons, hw_num_neurons))
-        for k in range(hw_num_neurons):
-            c_k = gt_hw.global_neuron_to_local(k)[0]
-            for l in range(hw_num_neurons):
-                c_l = gt_hw.global_neuron_to_local(l)[0]
-                dist = gt_hw.core_distance(c_l, c_k)
-                s_d = gt_hw.num_slices_at_distance(dist)
-                B[k, l] = 1.0 / s_d
-
-        # 3. Solve QAP using FAQ
-        res = quadratic_assignment(A, B, method='faq', options={'maximize': True})
-        perm = res.col_ind
-
-        core_assignment = np.zeros(N_graph, dtype=np.int_)
-        num_clusters = gt_hw.total_cores
-
-        # 4. Map the results back
-        for node in range(N_graph):
-            slot = perm[node]
-            local_tuple = gt_hw.global_neuron_to_local(slot)
-            core_assignment[node] = local_tuple[0]
-
-        return ClusterAndHwOutput(cluster_assignment=core_assignment.astype(np.int_), num_clusters=num_clusters, hw=input_data.hw_config)
+        # 4. Map back
+        core_assignment = core_of_slot[best.col_ind[:N_graph]].astype(np.int_)
+        return ClusterAndHwOutput(cluster_assignment=core_assignment,
+                                  num_clusters=C, hw=hw)
 
     def get_name(self) -> str:
         return "QAP"
