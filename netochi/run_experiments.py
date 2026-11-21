@@ -1,4 +1,4 @@
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Union
 
 from networkx.algorithms.bipartite import clustering
 
@@ -34,6 +34,7 @@ from netochi.mapping.three_step_mapping.clustering.clusterer.kaHyPar_hyperedges_
     KaHyParHyperedgesClusterer, kaHyParHyperedgesClusterFunction
 from netochi.mapping.three_step_mapping.clustering.clusterer.kaMinPar_cluster import KaMinParHierarchicalClusterer, \
     kaMinParClusterFunction
+from netochi.mapping.three_step_mapping.clustering.clusterer.metis_clusterer import HierarchicalMetisClusterer
 from netochi.mapping.three_step_mapping.clustering.clusterer.random_clusterer import RandomClusterer
 from netochi.mapping.three_step_mapping.clustering.clusterer.spectral_tree_clusterer import SpectralTreeClusterer
 from netochi.mapping.three_step_mapping.clustering.hcd_hw_clusterer import HcdHwClusterer
@@ -94,114 +95,55 @@ from netochi.pipeline.pipeline_consumer.objective_consumer import CustomObjectiv
 # ======================= CONFIGURE PIPELINE HERE =============================
 PIPELINE_OUTPUT = PipelineOutputConfig().create()
 
-HW_MINI = MosaicHardwareConfig(
-    nodes_per_router=2,
-    neurons_per_core=4,
-    router_levels=2,
-    slice_factor=2
-)
+HW_3L_1 = MosaicHardwareConfig(neurons_per_core=16, router_levels=3) # 128 neurons
+HW_3L_2 = MosaicHardwareConfig(neurons_per_core=32, router_levels=3) # 256 neurons
+HW_3L_3 = MosaicHardwareConfig(neurons_per_core=64, router_levels=3) # 512 neurons
+HW_3L_4 = MosaicHardwareConfig(neurons_per_core=128, router_levels=3) # 1024 neurons
+HW_3L_5 = MosaicHardwareConfig(neurons_per_core=256, router_levels=3) # 2048 neurons
 
-HW_SMALL = MosaicHardwareConfig(
-    nodes_per_router=2,
-    neurons_per_core=16,
-    router_levels=2,
-    slice_factor=2
-)
+HW_4L_1 = MosaicHardwareConfig(neurons_per_core=8, router_levels=4) # 128 neurons
+HW_4L_2 = MosaicHardwareConfig(neurons_per_core=16, router_levels=4) # 256 neurons
+HW_4L_3 = MosaicHardwareConfig(neurons_per_core=32, router_levels=4) # 512 neurons
+HW_4L_4 = MosaicHardwareConfig(neurons_per_core=64, router_levels=4) # 1024 neurons
+HW_4L_5 = MosaicHardwareConfig(neurons_per_core=128, router_levels=4) # 2048 neurons
 
-HW_SMALL_TRINARY = MosaicHardwareConfig(
-    nodes_per_router=3,
-    neurons_per_core=16,
-    router_levels=2,
-    slice_factor=2
-)
-
-HW_MEDIUM = MosaicHardwareConfig(
-    nodes_per_router=2,
-    neurons_per_core=16,
-    router_levels=3,
-    slice_factor=2
-)
-
-HW_MEDIUM_TRINARY = MosaicHardwareConfig(
-    nodes_per_router=3,
-    neurons_per_core=16,
-    router_levels=3,
-    slice_factor=2
-)
-
-HW_LARGE = MosaicHardwareConfig(
-    nodes_per_router=2,
-    neurons_per_core=32,
-    router_levels=3,
-    slice_factor=2
-)
-
-HW_LARGE_2 = MosaicHardwareConfig(
-    nodes_per_router=2,
-    neurons_per_core=64,
-    router_levels=3,
-    slice_factor=2
-)
-
-HW_LARGE_3 = MosaicHardwareConfig(
-    nodes_per_router=2,
-    neurons_per_core=64,
-    router_levels=4,
-    slice_factor=2
-)
-
-HW_LARGE_4 = MosaicHardwareConfig(
-    nodes_per_router=2,
-    neurons_per_core=128,
-    router_levels=4,
-    slice_factor=2
-)
-
-HW_LARGE_TRINARY = MosaicHardwareConfig(
-    nodes_per_router=3,
-    neurons_per_core=32,
-    router_levels=3,
-    slice_factor=2
-)
-
+HW_CONFIGS = [
+    HW_3L_1, HW_3L_2, HW_3L_3, HW_3L_4, HW_3L_5 
+]
 
 OBJECTIVE_CONFIGS = [
     InconsistencyRelativeObjectiveConfig(),
-    #ClusteringARIObjectiveConfig(),
-    #ClusteringAccuracyObjectiveConfig(),
     #CoreDistanceDifferenceObjectiveConfig(),
+    #ClusteringAccuracyObjectiveConfig(),
     #InconsistencyObjectiveConfig(),
-    #MosaicHardwareSizeObjectiveConfig(),
-    #UnusedConnectionsObjectiveConfig(),
-    #MosaicHardwareSizeObjectiveConfig(),
-    #UnusedConnectionsObjectiveConfig(),
-    #LogLikelihoodObjectiveConfig()
 ]
 
-HW_CONFIGS = [
-    #HW_MINI,
-    HW_SMALL,
-    #HW_MEDIUM,
-    #HW_LARGE,
-    #HW_LARGE_2,
-    #HW_LARGE_3,
-    #HW_LARGE_4,
-]
 
-SEEDS = [1,2,3] #,4,5]
+SEEDS = [1,2,3,4,5]
 
 MAPPERS = [
-    #RandomMapperConfig().create(),
     FeedbackLoopConfig(core_initializer=RandomClusterer(), address_initializer=RandomAddressAssigner()).create(),
+    ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
+                             address_assigner=TopDownLocalAddressAssignerConfig(
+                                 slice_solve_mode=SliceSolveMode.KL_CONSTRAINED_BISECTION,
+                                 constraint_graph_mode=ConstraintGraphMode.CLIQUE).create(),
+                         slice_assigner=OptimalSliceAssigner()).create(),
+    TheoreticalBoundsMapperConfig().create(),
+
+    # ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
+    #                          address_assigner=RandomAddressAssigner(),
+    #                          slice_assigner=OptimalSliceAssigner()).create(),
+    # ThreeStepHwMapperConfig(clusterer=HierarchicalMetisClusterer(),
+    #                         address_assigner=RandomAddressAssigner(),
+    #                         slice_assigner=OptimalSliceAssigner()).create(),
+    # RandomMapperConfig().create(),
     # FeedbackLoopConfig(core_initializer=KaMinParHierarchicalClusterer(), address_initializer=TopDownLocalAddressAssignerConfig(slice_solve_mode=SliceSolveMode.KL_CONSTRAINED_BISECTION, constraint_graph_mode=ConstraintGraphMode.CLIQUE).create()).create(),
 
-    ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
-                            address_assigner=TopDownLocalAddressAssignerConfig(
-                                slice_solve_mode=SliceSolveMode.KL_CONSTRAINED_BISECTION,
-                                constraint_graph_mode=ConstraintGraphMode.CLIQUE).create(),
-                            slice_assigner=OptimalSliceAssigner()).create(),
 
-    TheoreticalBoundsMapperConfig().create(),
+    # ThreeStepHwMapperConfig(clusterer=QapHwClusterer(),
+                         #address_assigner=RandomAddressAssigner(),
+                         #slice_assigner=OptimalSliceAssigner()).create(),
+
     # ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
     #                         address_assigner=CoFanInAddressAssigner(),
     #                         slice_assigner=OptimalSliceAssigner()).create(),
@@ -211,17 +153,18 @@ MAPPERS = [
     #                         slice_assigner=OptimalSliceAssigner()).create(),
 
     #ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
-     #                       address_assigner=SALocalAddressAssignerConfig().create(),
-      #                      slice_assigner=OptimalSliceAssigner()).create(),
+    #                       address_assigner=SALocalAddressAssignerConfig().create(),
+    #                       slice_assigner=OptimalSliceAssigner()).create(),
 
     # ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
     #                         address_assigner=PipageRoundingAssigner(),
     #                         slice_assigner=OptimalSliceAssigner()).create(),
-
+    #ILPMapperConfig().create()
 ]
 
 
-PROBABILITIES = [0.5, 1.0]
+PROBABILITIES = [0.5] # 1.0,
+ER_PROBABILITIES = ["mosaic_p0.5"] # 0.05, 0.2,
 
 HOOKS = [
     ValidatorConfig(pipeline_output=PIPELINE_OUTPUT).create()
@@ -233,17 +176,30 @@ CONSUMERS: List[PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[Mosa
     EvaluationExporterAndPlotterConfig(pipeline_output=PIPELINE_OUTPUT).create(),
     #ClusteringVisualizerConfig(pipeline_output=PIPELINE_OUTPUT).create(),
     #MappingOutputVisualizerConfig(pipeline_output=PIPELINE_OUTPUT).create(),
-
-    #PipelinePlotterConfig(pipeline_output=PIPELINE_OUTPUT).create(),
-    #SummaryArchiverConfig(pipeline_output=PIPELINE_OUTPUT).create(),
-    #AdjacencyMatrixVisualizerConfig(pipeline_output=PIPELINE_OUTPUT).create(),
-    #RoutingHierarchyVisualizerConfig(pipeline_output=PIPELINE_OUTPUT).create(),
-    #EventProcessor(EventProcessorConfig(objective_consumer=[CustomObjectiveConsumer("MyCustomObjectiveConsumer")]))
 ]
 
 
 
 # ==============================================================================
+
+def er_prob_matching_mosaic(hw_config, p_mosaic: float) -> float:
+    """ER edge probability with the same expected number of edges as a
+    Mosaic graph with probability p_mosaic on this hardware (binary routers)."""
+    N = hw_config.total_neurons
+    d_max = hw_config.router_levels
+    C = 2 ** d_max                      # number of cores (binary routers)
+    assert N % C == 0, "total_neurons must be divisible by the number of cores"
+    n = N // C                          # neurons per core
+    allowed_per_neuron = (n - 1) + d_max * n / 2
+    return p_mosaic * allowed_per_neuron / (N - 1)
+
+def resolve_er_prob(p: Union[float, str], hw_config) -> float:
+    """Return p unchanged if it is a number. If it is "mosaic_p<value>",
+    return the ER probability matching a Mosaic graph with that p."""
+    if isinstance(p, str) and p.startswith("mosaic_p"):
+        p_mosaic = float(p[len("mosaic_p"):])
+        return er_prob_matching_mosaic(hw_config, p_mosaic)
+    return float(p)
 
 def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, MappingState]:
 
@@ -258,7 +214,7 @@ def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, Mappi
     ]
 
     er_factories: List[Tuple[Tuple[float, int, int], HWBaseInputFactory[MosaicMappingInput]]] = [
-        ((p, hw_config.total_neurons, seed), ErdosRenyiConfig(hw_config=hw_config, n=hw_config.total_neurons, probability=p, seed=seed).create()) for p in PROBABILITIES for hw_config in HW_CONFIGS for seed in SEEDS
+        ((p, hw_config.total_neurons, seed), ErdosRenyiConfig(hw_config=hw_config, n=hw_config.total_neurons, probability=resolve_er_prob(p=p, hw_config=hw_config), seed=seed).create()) for p in ER_PROBABILITIES for hw_config in HW_CONFIGS for seed in SEEDS
     ]
 
     swta_factories: List[Tuple[Tuple[None, int, int], HWBaseInputFactory[MosaicMappingInput]]] = [
@@ -311,8 +267,8 @@ def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, Mappi
                                     label="swta")
     tasks: List[ExperimentTaskBase[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput], str, Tuple[Optional[float], int, int]]] = [
         #mosaic_tasks,
-        #er_tasks,
-        noisy_mosaic_tasks,
+        er_tasks,
+        #noisy_mosaic_tasks,
         #swta_tasks
     ]
 
@@ -332,7 +288,7 @@ def run_experiment() -> None:
     print("Neuromorphic Mapping Pipeline Execution")
     print("=" * 100)
 
-    summary = runner.run()
+    runner.run()
 
 
 if __name__ == '__main__':
