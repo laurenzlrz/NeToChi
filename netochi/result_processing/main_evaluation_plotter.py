@@ -96,7 +96,7 @@ def plot_metric(df: pd.DataFrame, metric: str, title: str, y_label: str, out_dir
 if __name__ == "__main__":
     #RUN_NAME = "inconsistencies_evaluation"
     RUN_NAME = "inconsistencies_evaluation"
-    results = Path(f"results/{RUN_NAME}/evaluation_results.csv")
+    results = Path(f"results/{RUN_NAME}/evaluation_results_presentation_IBM.csv")
     out_dir = Path(f"results/{RUN_NAME}/plots")
     out_dir.mkdir(parents=True, exist_ok=True)
 
