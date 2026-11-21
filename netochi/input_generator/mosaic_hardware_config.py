@@ -11,7 +11,7 @@ class MosaicHardwareConfig(BaseModel):
     """Configuration for the target neuromorphic hardware."""
     model_config = ConfigDict(frozen=True, strict=True)
 
-    nodes_per_router: int = Field(gt=0, description="Number of nodes connected to each router.")
+    nodes_per_router: int = Field(default=2, gt=0, description="Number of nodes connected to each router.")
     neurons_per_core: int = Field(gt=0, description="Number of neurons in each core.")
     router_levels: int = Field(ge=0, description="Number of levels in the router hierarchy.")
     slice_factor: int = Field(default=2, gt=0, description="Factor determining slice sizes for fan-in.")
