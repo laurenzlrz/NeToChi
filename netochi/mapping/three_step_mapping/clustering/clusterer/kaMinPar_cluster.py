@@ -15,7 +15,7 @@ from scipy.sparse import csr_matrix
 import numpy.typing as npt
 
 
-def kaMinParClusterFunction(graph: gt.Graph, num_clusters: int, nodes_in_cluster: List[int] | None = None, imbalance: float = 0.001) -> List[List[int]]:
+def kaMinParClusterFunction(graph: gt.Graph, num_clusters: int, imbalance: float, nodes_in_cluster: List[int] | None = None) -> List[List[int]]:
     """
     Extracts an induced cluster subgraph, encodes it to METIS format,
     and calls KaMinPar to compute a k-way partition.
