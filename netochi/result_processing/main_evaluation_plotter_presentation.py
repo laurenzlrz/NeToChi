@@ -1,9 +1,4 @@
 """
-Reproduce the three results plots from the IBM presentation.
-
-Usage:
-    python plot_results.py evaluation_results_presentation_IBM.csv [output_dir]
-
 Expects a long-format CSV with columns: mapper, input_id, seed, metric, value
   metric is "Inconsistencies (Fraction)" or "Time (s)".
 
@@ -11,12 +6,13 @@ Creates in output_dir (default: ./plots), as PDF:
   1_mosaic_inconsistencies_p05 / _p10
   2_noisy_mosaic_inconsistencies_p05 / _p10
   3_runtime
-  4_swta_inconsistencies, 5_er_inconsistencies_p005, 6_er_inconsistencies_p02
+  4_swta_inconsistencies
+  5_er_inconsistencies
 
 Lines are means over seeds (runtime: median); the error bars show +- one standard
 deviation over seeds (runtime: interquartile range, 25th-75th percentile).
 """
-import sys
+import re
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -28,14 +24,25 @@ TIME = "Time (s)"
 SIZES = [128, 256, 512, 1024, 2048]
 RUN_NAME = "inconsistencies_evaluation"
 
+# Erdős–Rényi input graphs: number of neurons -> edge probability (has the same number of expected edges as equivalent Mosaic with p = 0.5)
+ER_GRAPHS_05p = {
+    128: 0.15354330708661418, # L = 3
+    256: 0.15490196078431373, # L = 3
+    512: 0.15557729941291584, # L = 3
+    1024: 0.09335288367546432, # L = 4
+}
+
 # mapper -> (label, color, linestyle, marker, hollow marker)
 STYLE = {
     "KaMinPar_KL": ("Three-Step", "#184774", "-", "o", False),
     "TheoreticalBoundsMapper": ("Theoretical Bounds", "#E97132", "--", "^", True),
-    "Feedback_RandomInit": ("Feedback Loop", "#196B24", "-", "s", False),
+    "Feedback_RandomClusterer_RandomAddressAssigner": ("Feedback Loop", "#196B24", "-", "s", False),
     "RandomMapper": ("Random", "#A6A6A6", "-", "D", False),
+    "Feedback_KaMinPar_KL": ("Feedback Loop (Three-Step init)", "#4EA72E", "--", "s", True),
 }
-ORDER = ["KaMinPar_KL", "TheoreticalBoundsMapper", "Feedback_RandomInit", "RandomMapper"]
+ORDER = ["KaMinPar_KL", "TheoreticalBoundsMapper", "Feedback_RandomClusterer_RandomAddressAssigner", "RandomMapper"]
+SWTA_ORDER = ["KaMinPar_KL", "TheoreticalBoundsMapper", "Feedback_RandomClusterer_RandomAddressAssigner",
+              "Feedback_KaMinPar_KL", "RandomMapper"]
 
 plt.rcParams.update({
     "font.size": 12,
@@ -113,12 +120,13 @@ def summarize_sizes(df: pd.DataFrame, pattern: str, metric: str, agg: str) -> pd
     return sel.groupby(["N", "mapper"])["value"].agg(agg).unstack().sort_index()
 
 
-def plot_lines_sizes(ax, table: pd.DataFrame, mappers, title=None, band=None):
+def plot_lines_sizes(ax, table: pd.DataFrame, mappers, title=None, band=None, tick_labels=None):
+    """tick_labels: optional dict number of neurons -> x tick label."""
     sizes = list(table.index)
     x = list(range(len(sizes)))
     _draw(ax, x, table, mappers, band)
     ax.set_xticks(list(x))
-    ax.set_xticklabels([str(n) for n in sizes])
+    ax.set_xticklabels([tick_labels.get(n, str(n)) if tick_labels else str(n) for n in sizes])
     ax.set_xlabel("Number of neurons")
     if title:
         ax.set_title(title, loc="left", pad=34, fontsize=13, fontweight="bold", color="#1F1F1F")
@@ -171,7 +179,7 @@ if __name__ == "__main__":
     q25 = summarize(df, rt_pat, TIME, lambda v: v.quantile(0.25))
     q75 = summarize(df, rt_pat, TIME, lambda v: v.quantile(0.75))
     fig, ax = plt.subplots(figsize=(8, 4.8))
-    plot_lines(ax, runtime, ["KaMinPar_KL", "TheoreticalBoundsMapper", "Feedback_RandomInit"],  # Random (< 1 ms) left out
+    plot_lines(ax, runtime, ["KaMinPar_KL", "TheoreticalBoundsMapper", "Feedback_RandomClusterer_RandomAddressAssigner"],  # Random (< 1 ms) left out
                band=(q25, q75))
     ax.set_yscale("log")
     ax.set_ylim(0.01, 1000)
@@ -180,23 +188,34 @@ if __name__ == "__main__":
     legend_top(ax, ncol=3)
     save(fig, out, "3_runtime")
 
-    # ---------- 4) sWTA and Erdős–Rényi ----------
-    other = {
-        "4_swta_inconsistencies": (r"^sWTA_", ""),
-        "5_er_inconsistencies_p005": (r"^ER_(?:256|512|1024)n_0\.05p$", "Erdős–Rényi, p = 0.05"),
-        "6_er_inconsistencies_p02": (r"^ER_(?:256|512|1024)n_0\.2p$", "Erdős–Rényi, p = 0.2"),
-    }
-    for name, (pattern, title) in other.items():
-        table = summarize_sizes(df, pattern, INC, "mean")
-        std = summarize_sizes(df, pattern, INC, "std")
-        fig, ax = plt.subplots(figsize=(8, 4.8))
-        plot_lines_sizes(ax, table, ORDER, title=title, band=band_std(table, std))
-        ax.set_ylim(0, 0.9)
-        ax.yaxis.set_major_formatter(PercentFormatter(1.0, decimals=0))
-        ax.set_ylabel("Inconsistencies")
-        ax.legend(loc="lower left", bbox_to_anchor=(0, 1.01), ncol=4, frameon=False, fontsize=11)
-        save(fig, out, name)
-        print(f"\n{title}:\n", (table * 100).round(1))
+    # ---------- 4) sWTA ----------
+    table = summarize_sizes(df, r"^sWTA_", INC, "mean")
+    std = summarize_sizes(df, r"^sWTA_", INC, "std")
+    fig, ax = plt.subplots(figsize=(8, 4.8))
+    plot_lines_sizes(ax, table, SWTA_ORDER, band=band_std(table, std))
+    ax.set_ylim(0, 0.9)
+    ax.yaxis.set_major_formatter(PercentFormatter(1.0, decimals=0))
+    ax.set_ylabel("Inconsistencies")
+    ax.legend(loc="lower left", bbox_to_anchor=(0, 1.01), ncol=3, frameon=False, fontsize=11)
+    save(fig, out, "4_swta_inconsistencies")
+    print("\nsWTA:\n", (table * 100).round(1))
+
+    # ---------- 5) Erdős–Rényi ----------
+    # One input graph per size, with the edge probability given in ER_GRAPHS_05p
+    er_pattern = "|".join(rf"^ER_{n}n_{re.escape(str(p))}p$" for n, p in ER_GRAPHS_05p.items())
+    er_ticks = {n: f"{n}\np = {p:.3f}" for n, p in ER_GRAPHS_05p.items()}
+    table = summarize_sizes(df, er_pattern, INC, "mean")
+    std = summarize_sizes(df, er_pattern, INC, "std")
+    fig, ax = plt.subplots(figsize=(8, 4.8))
+    plot_lines_sizes(ax, table, ORDER, title="Erdős–Rényi", band=band_std(table, std),
+                     tick_labels=er_ticks)
+    ax.set_ylim(0, 0.9)
+    ax.yaxis.set_major_formatter(PercentFormatter(1.0, decimals=0))
+    ax.set_ylabel("Inconsistencies")
+    ax.legend(loc="lower left", bbox_to_anchor=(0, 1.01), ncol=4, frameon=False, fontsize=11)
+    save(fig, out, "5_er_inconsistencies")
+    print("\nErdős–Rényi:\n", (table * 100).round(1))
+
 
     # ---------- numbers used in the slide callouts ----------
     for p, table in mosaic.items():
@@ -204,5 +223,5 @@ if __name__ == "__main__":
     for title, table in noisy.items():
         print(f"\nNoisy Mosaic, {title}:\n", (table * 100).round(1))
     print("\nRuntime (median, s):\n", runtime.round(2))
-    fl, ts = runtime.loc[2048, "Feedback_RandomInit"], runtime.loc[2048, "KaMinPar_KL"]
+    fl, ts = runtime.loc[2048, "Feedback_RandomClusterer_RandomAddressAssigner"], runtime.loc[2048, "KaMinPar_KL"]
     print(f"\nSpeed-up Feedback Loop vs. Three-Step at 2048 neurons: {ts / fl:.0f}x")
