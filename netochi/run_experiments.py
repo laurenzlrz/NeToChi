@@ -1,116 +1,99 @@
-from typing import List, Tuple, Optional, Union
+from typing import List, Tuple, Optional, Union, Dict
 
-from networkx.algorithms.bipartite import clustering
-
+from netochi.input_generator.erdos_renyi_factory import ErdosRenyiConfig
+from netochi.input_generator.interfaces import MosaicMappingInput, MappingInput, HWBaseInputFactory
+from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
+from netochi.input_generator.mosaic_network_factory import MosaicNetworkConfig
 from netochi.input_generator.noisy_mosaic_network_factory import NoisyMosaicNetworkConfig
-from netochi.mapping import SimAnnealingIHWConfig
-from netochi.mapping.bottom_up_mapper import BottomUpMapperConfig, SliceSolveMode, ConstraintGraphMode
+from netochi.input_generator.swta_factory import SwtaGeneratorConfig
+from netochi.mapping.bottom_up_mapper import SliceSolveMode, ConstraintGraphMode
 from netochi.mapping.feedback_loop_mapper import FeedbackLoopConfig
-from netochi.mapping.ilp_mapper import ILPMapper, ILPMapperConfig
 from netochi.mapping.interfaces import (
     BaseMosaicMappingState,
     MappingState
 )
-from netochi.input_generator.interfaces import MosaicMappingInput, MappingInput, HWBaseInputFactory
-
-from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
-from netochi.input_generator.erdos_renyi_factory import ErdosRenyiConfig
-from netochi.input_generator.mosaic_network_factory import MosaicNetworkConfig
-from netochi.input_generator.swta_factory import SwtaGeneratorConfig
-
-from netochi.mapping.greedy_mapper import GreedyMapperConfig
 from netochi.mapping.random_mapper import RandomMapperConfig
-from netochi.mapping.simulated_annealing_mapper import SimAnnealingMapperConfig
-from netochi.mapping.simulated_annealing_mapper_cluster_init import SimulatedAnnealingMapperClusterInit, \
-    SimulatedAnnealingMapperClusterInitConfig
+from netochi.mapping.swta_mapper import SwtaMapperConfig
+from netochi.mapping.swta_v2_mapper import SwtaV2MapperConfig
 from netochi.mapping.theoretical_bounds_mapper import TheoreticalBoundsMapperConfig
-from netochi.mapping.three_step_mapping.clustering.cluster_adapter.hierarchy_aware_fill_adapter import \
-    HierarchyAwareFillAdapter
-from netochi.mapping.three_step_mapping.clustering.clusterer.bottom_up_clusterer import BottomUpClusterer
-from netochi.mapping.three_step_mapping.clustering.clusterer.gt_clusterer import GroundTruthOrRandomClusterer
-from netochi.mapping.three_step_mapping.clustering.clusterer.kaHyPar_cluster import KaHyParHierarchicalClusterer, \
-    kaHyParClusterFunction
-from netochi.mapping.three_step_mapping.clustering.clusterer.kaHyPar_hyperedges_clusterer import \
-    KaHyParHyperedgesClusterer, kaHyParHyperedgesClusterFunction
-from netochi.mapping.three_step_mapping.clustering.clusterer.kaMinPar_cluster import KaMinParHierarchicalClusterer, \
-    kaMinParClusterFunction
-from netochi.mapping.three_step_mapping.clustering.clusterer.metis_clusterer import HierarchicalMetisClusterer
+from netochi.mapping.three_step_mapping.clustering.clusterer.kaMinPar_cluster import KaMinParHierarchicalClusterer
 from netochi.mapping.three_step_mapping.clustering.clusterer.random_clusterer import RandomClusterer
-from netochi.mapping.three_step_mapping.clustering.clusterer.spectral_tree_clusterer import SpectralTreeClusterer
-from netochi.mapping.three_step_mapping.clustering.hcd_hw_clusterer import HcdHwClusterer
-from netochi.mapping.three_step_mapping.clustering.hsbm_hw_clusterer import HsbmHwClusterer
-from netochi.mapping.three_step_mapping.clustering.qap_hw_clusterer import QapHwClusterer
-from netochi.mapping.three_step_mapping.local_address_assignment.cofanin_address_assigner import CoFanInAddressAssigner
-from netochi.mapping.three_step_mapping.local_address_assignment.gt_local_assigner import \
-    GroundTruthOrRandomLocalAddressAssigner
-from netochi.mapping.three_step_mapping.local_address_assignment.lp_local_address_assigner import PipageRoundingAssigner
-from netochi.mapping.three_step_mapping.local_address_assignment.pca_local_address_assigner import \
-    PcaLocalAddressAssigner
 from netochi.mapping.three_step_mapping.local_address_assignment.random_address_assigner import RandomAddressAssigner
-from netochi.mapping.three_step_mapping.local_address_assignment.sdp_local_address_assigner import SDPRoundingAssigner
-from netochi.mapping.three_step_mapping.local_address_assignment.sim_annealing_local_address_assigner import SALocalAddressAssignerConfig
 from netochi.mapping.three_step_mapping.local_address_assignment.top_down_local_address_assigner import \
     TopDownLocalAddressAssignerConfig
-from netochi.mapping.three_step_mapping.qap_pca_opt_three_step_mapper import QAPPcaOptMapperConfig
 from netochi.mapping.three_step_mapping.slice_assignment.optimal_slice_assigner import OptimalSliceAssigner
 from netochi.mapping.three_step_mapping.three_step_hw_mapper import ThreeStepHwMapperConfig
-from netochi.mapping.three_step_mapping.three_step_mapper import ThreeStepMapperConfig
-from netochi.objectives.obj_clustering import ClusteringARIObjective, ClusteringARIObjectiveConfig, \
-    ClusteringAccuracyObjectiveConfig, CoreDistanceDifferenceObjectiveConfig
-
-from netochi.objectives.obj_unused_connections import UnusedConnectionsObjectiveConfig
-from netochi.pipeline import BasePipelineRunner, PipelineSummary
-from netochi.pipeline.pipeline_consumer.archiver import SummaryArchiverConfig
+from netochi.objectives.obj_inconsistency import InconsistencyRelativeObjectiveConfig
+from netochi.pipeline import BasePipelineRunner
 from netochi.pipeline.config import PipelineOutputConfig
+from netochi.pipeline.enums import InputGraph
 from netochi.pipeline.interfaces import PipelineConsumer, MappingStateConsumer
-from netochi.pipeline.pipeline_consumer.evaluation_csv_exporter import EvaluationExporter, EvaluationExporterConfig
+from netochi.pipeline.metrics import ObjectiveMetricConfig
 from netochi.pipeline.pipeline_consumer.evaluation_csv_exporter_and_plotter import EvaluationExporterAndPlotterConfig
-from netochi.pipeline.pipeline_consumer.plotter import PipelinePlotterConfig
 from netochi.pipeline.pipeline_consumer.reporter import SummaryReporterConfig
+from netochi.pipeline.runner.baseline_provider import (
+    RandomMosaicBaselineProviderConfig,
+    MosaicGroundTruthBaselineProviderConfig
+)
+from netochi.pipeline.runner.evaluator_bundle import EvaluatorBundle, BaselineStorer
 from netochi.pipeline.runner.runner import (
     PipelineRunner,
     ExperimentTaskBase,
     ExperimentTaskRun, TaskBundle,
 )
-from netochi.pipeline.runner.evaluator_bundle import EvaluatorBundle, BaselineStorer
-from netochi.pipeline.metrics import ObjectiveMetricConfig
-from netochi.objectives.obj_log_likelihood import LogLikelihoodObjectiveConfig
-from netochi.objectives.obj_inconsistency import InconsistencyObjectiveConfig, InconsistencyRelativeObjectiveConfig
-from netochi.objectives.obj_hardware_size import MosaicHardwareSizeObjectiveConfig
-from netochi.pipeline.runner.baseline_provider import (
-    RandomMosaicBaselineProviderConfig,
-    MosaicGroundTruthBaselineProviderConfig
-)
-
 from netochi.pipeline.validator import ValidatorConfig
 
-from netochi.visualization.visualize_adjacency_matrix import AdjacencyMatrixVisualizerConfig
-from netochi.visualization.visualize_clustering import ClusteringVisualizerConfig
-from netochi.visualization.visualize_mapping_output import MappingOutputVisualizerConfig
-from netochi.visualization.visualize_routing_hierarchy import RoutingHierarchyVisualizerConfig
-
-from netochi.pipeline.pipeline_consumer.event_processor import EventProcessor, EventProcessorConfig
-from netochi.pipeline.pipeline_consumer.objective_consumer import CustomObjectiveConsumer
-
 # ======================= CONFIGURE PIPELINE HERE =============================
-PIPELINE_OUTPUT = PipelineOutputConfig().create()
 
+
+# ---------- input configuration ------------
 HW_3L_1 = MosaicHardwareConfig(neurons_per_core=16, router_levels=3) # 128 neurons
 HW_3L_2 = MosaicHardwareConfig(neurons_per_core=32, router_levels=3) # 256 neurons
 HW_3L_3 = MosaicHardwareConfig(neurons_per_core=64, router_levels=3) # 512 neurons
 HW_3L_4 = MosaicHardwareConfig(neurons_per_core=128, router_levels=3) # 1024 neurons
 HW_3L_5 = MosaicHardwareConfig(neurons_per_core=256, router_levels=3) # 2048 neurons
 
-HW_4L_1 = MosaicHardwareConfig(neurons_per_core=8, router_levels=4) # 128 neurons
 HW_4L_2 = MosaicHardwareConfig(neurons_per_core=16, router_levels=4) # 256 neurons
 HW_4L_3 = MosaicHardwareConfig(neurons_per_core=32, router_levels=4) # 512 neurons
 HW_4L_4 = MosaicHardwareConfig(neurons_per_core=64, router_levels=4) # 1024 neurons
 HW_4L_5 = MosaicHardwareConfig(neurons_per_core=128, router_levels=4) # 2048 neurons
 
-HW_CONFIGS = [
-    HW_3L_1, HW_3L_2, HW_3L_3, HW_3L_4, HW_3L_5 
+HW_CONFIGS = {
+    HW_4L_5
+    #HW_3L_1, HW_3L_2, HW_3L_3, HW_4L_4, HW_4L_5
+}
+
+SEEDS = [1,2,3,4,5] # [6,7,8,9,10]#
+
+MOSAIC_PROBABILITIES = [0.5] # 1.0,
+ER_PROBABILITIES = ["mosaic_p0.5"] # 0.05, 0.2,
+
+INPUT_GRAPHS: List[InputGraph] = [
+    InputGraph.ERDOS_RENYI,
+    # InputGraph.MOSAIC,
+    # InputGraph.NOISY_MOSAIC,
+    # InputGraph.SWTA,
+]
+# ---------- mapper configuration ------------
+
+MAPPERS = [
+    SwtaV2MapperConfig().create(),
+    #FeedbackLoopConfig(core_initializer=RandomClusterer(), address_initializer=RandomAddressAssigner()).create(),
+    # ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
+    #                          address_assigner=TopDownLocalAddressAssignerConfig(
+    #                              slice_solve_mode=SliceSolveMode.KL_CONSTRAINED_BISECTION,
+    #                              constraint_graph_mode=ConstraintGraphMode.CLIQUE).create(),
+    #                      slice_assigner=OptimalSliceAssigner()).create(),
+    #TheoreticalBoundsMapperConfig().create(),
+    #RandomMapperConfig().create(),
+
+    # ThreeStepHwMapperConfig(clusterer=HierarchicalMetisClusterer(),
+    #                         address_assigner=RandomAddressAssigner(),
+    #                         slice_assigner=OptimalSliceAssigner()).create()
+
 ]
 
+# ---------- output configuration ------------
 OBJECTIVE_CONFIGS = [
     InconsistencyRelativeObjectiveConfig(),
     #CoreDistanceDifferenceObjectiveConfig(),
@@ -118,58 +101,11 @@ OBJECTIVE_CONFIGS = [
     #InconsistencyObjectiveConfig(),
 ]
 
-
-SEEDS = [1,2,3,4,5]
-
-MAPPERS = [
-    FeedbackLoopConfig(core_initializer=RandomClusterer(), address_initializer=RandomAddressAssigner()).create(),
-    ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
-                             address_assigner=TopDownLocalAddressAssignerConfig(
-                                 slice_solve_mode=SliceSolveMode.KL_CONSTRAINED_BISECTION,
-                                 constraint_graph_mode=ConstraintGraphMode.CLIQUE).create(),
-                         slice_assigner=OptimalSliceAssigner()).create(),
-    TheoreticalBoundsMapperConfig().create(),
-
-    # ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
-    #                          address_assigner=RandomAddressAssigner(),
-    #                          slice_assigner=OptimalSliceAssigner()).create(),
-    # ThreeStepHwMapperConfig(clusterer=HierarchicalMetisClusterer(),
-    #                         address_assigner=RandomAddressAssigner(),
-    #                         slice_assigner=OptimalSliceAssigner()).create(),
-    # RandomMapperConfig().create(),
-    # FeedbackLoopConfig(core_initializer=KaMinParHierarchicalClusterer(), address_initializer=TopDownLocalAddressAssignerConfig(slice_solve_mode=SliceSolveMode.KL_CONSTRAINED_BISECTION, constraint_graph_mode=ConstraintGraphMode.CLIQUE).create()).create(),
-
-
-    # ThreeStepHwMapperConfig(clusterer=QapHwClusterer(),
-                         #address_assigner=RandomAddressAssigner(),
-                         #slice_assigner=OptimalSliceAssigner()).create(),
-
-    # ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
-    #                         address_assigner=CoFanInAddressAssigner(),
-    #                         slice_assigner=OptimalSliceAssigner()).create(),
-    #
-    # ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
-    #                         address_assigner=PcaLocalAddressAssigner(),
-    #                         slice_assigner=OptimalSliceAssigner()).create(),
-
-    #ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
-    #                       address_assigner=SALocalAddressAssignerConfig().create(),
-    #                       slice_assigner=OptimalSliceAssigner()).create(),
-
-    # ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
-    #                         address_assigner=PipageRoundingAssigner(),
-    #                         slice_assigner=OptimalSliceAssigner()).create(),
-    #ILPMapperConfig().create()
-]
-
-
-PROBABILITIES = [0.5] # 1.0,
-ER_PROBABILITIES = ["mosaic_p0.5"] # 0.05, 0.2,
+PIPELINE_OUTPUT = PipelineOutputConfig().create()
 
 HOOKS = [
     ValidatorConfig(pipeline_output=PIPELINE_OUTPUT).create()
 ]
-
 
 CONSUMERS: List[PipelineConsumer[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput]]] = [
     SummaryReporterConfig(pipeline_output=PIPELINE_OUTPUT).create(),
@@ -206,11 +142,11 @@ def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, Mappi
     # 1. Define the inputs (Factories)
     # Inputs are (label, factory) pairs; here the label is the triple (probability, total_neurons, seed)
     mosaic_factories: List[Tuple[Tuple[float, int, int], HWBaseInputFactory[MosaicMappingInput]]] = [
-        ((p, hw_config.total_neurons, seed), MosaicNetworkConfig(hw_config=hw_config, probability=p, seed=seed).create()) for p in PROBABILITIES for hw_config in HW_CONFIGS for seed in SEEDS
+        ((p, hw_config.total_neurons, seed), MosaicNetworkConfig(hw_config=hw_config, probability=p, seed=seed).create()) for p in MOSAIC_PROBABILITIES for hw_config in HW_CONFIGS for seed in SEEDS
     ]
 
     noisy_mosaic_factories: List[Tuple[Tuple[float, int, int], HWBaseInputFactory[MosaicMappingInput]]] = [
-        ((p, hw_config.total_neurons, seed), NoisyMosaicNetworkConfig(hw_config=hw_config, probability=p, seed=seed, epsilon=0.1).create()) for p in PROBABILITIES for hw_config in HW_CONFIGS for seed in SEEDS
+        ((p, hw_config.total_neurons, seed), NoisyMosaicNetworkConfig(hw_config=hw_config, probability=p, seed=seed, epsilon=0.1).create()) for p in MOSAIC_PROBABILITIES for hw_config in HW_CONFIGS for seed in SEEDS
     ]
 
     er_factories: List[Tuple[Tuple[float, int, int], HWBaseInputFactory[MosaicMappingInput]]] = [
@@ -265,12 +201,18 @@ def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, Mappi
                                     evaluator_mapper_bundles=other_task_runs,
                                     config=PIPELINE_OUTPUT,
                                     label="swta")
-    tasks: List[ExperimentTaskBase[MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput], str, Tuple[Optional[float], int, int]]] = [
-        #mosaic_tasks,
-        er_tasks,
-        #noisy_mosaic_tasks,
-        #swta_tasks
-    ]
+
+    all_tasks: Dict[InputGraph, ExperimentTaskBase[
+        MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput], str,
+        Tuple[Optional[float], int, int]]] = {
+        InputGraph.MOSAIC: mosaic_tasks,
+        InputGraph.NOISY_MOSAIC: noisy_mosaic_tasks,
+        InputGraph.ERDOS_RENYI: er_tasks,
+        InputGraph.SWTA: swta_tasks,
+    }
+    tasks = [all_tasks[graph] for graph in dict.fromkeys(INPUT_GRAPHS)]  # keeps order, drops duplicates
+    if not tasks:
+        raise ValueError("INPUT_GRAPHS is empty: enable at least one input graph.")
 
     task_bundle: TaskBundle[MappingInput, MappingState, MappingState] = TaskBundle(tasks=tasks, consumer=CONSUMERS, config=PIPELINE_OUTPUT)
 
