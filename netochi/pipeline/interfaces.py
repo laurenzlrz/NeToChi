@@ -7,7 +7,7 @@ from netochi.pipeline.config import PipelineOutput
 from netochi.mapping.interfaces import MappingState
 from netochi.definitions.generics import Input_contra, MappingState_contra, BaselineState_contra, Input_co, \
     MappingState_co, BaselineState_co
-from netochi.pipeline.results import PipelineSummary
+from netochi.pipeline.results import PipelineSummary, ExperimentResult
 from netochi.objectives.interfaces import ObjectiveResult
 
 class MappingMetric[MAPPING_STATE, MAPPING_STATE_BASELINE](ABC):
@@ -48,6 +48,13 @@ class PipelineConsumer(ABC, Generic[Input_contra, MappingState_contra, BaselineS
         """
         Consume the pipeline summary data.
         This method must be implemented by subclasses.
+        """
+        pass
+
+    def consume_result(self, result: ExperimentResult) -> None:
+        """
+        Called right after each single mapper run, before the pipeline has finished.
+        Override to persist intermediate results; the default does nothing.
         """
         pass
 

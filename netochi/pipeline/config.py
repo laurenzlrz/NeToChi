@@ -156,6 +156,14 @@ class PipelineOutput:
         save_path = self.csv_path / f"{name}.csv"
         csv.to_csv(save_path, index=False)
 
+    def append_to_csv(self, csv: pd.DataFrame, name: str, directory: Optional[Path] = None) -> None:
+        """
+        Appends rows to a CSV file (header is written only when the file is new).
+        Defaults to the dumps directory, used for intermediate results.
+        """
+        save_path = (directory or self.dumps_path) / f"{name}.csv"
+        csv.to_csv(save_path, mode="a", header=not save_path.exists(), index=False)
+
     def save_plot(self, plt, name: str):
         """
         Saves a matplotlib plot to the designated plot directory.

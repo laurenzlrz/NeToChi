@@ -1,6 +1,6 @@
 import time
 from abc import ABC
-from typing import List, Optional, Any, Sequence, Generic, Tuple
+from typing import List, Optional, Any, Sequence, Generic, Tuple, Callable
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -83,7 +83,7 @@ class ExperimentTaskBase(BaseModel, Generic[Input_co, MappingState_co, BaselineS
     def labeled_input_generators(self) -> List[Tuple[Optional[InputLabel_co], BaseInputFactory[Input_co]]]:
         return [entry if isinstance(entry, tuple) else (None, entry) for entry in self.input_generators]
 
-    def run(self) -> List[ExperimentResult]:
+    def run(self, on_result: Optional[Callable[[ExperimentResult], None]] = None) -> List[ExperimentResult]:
         results: List[ExperimentResult] = []
 
         for input_label, input in self.labeled_input_generators:
@@ -100,6 +100,8 @@ class ExperimentTaskBase(BaseModel, Generic[Input_co, MappingState_co, BaselineS
                 else:
                     self.config.print_console(f"  --> Mapper completed successfully in {result.raw_metrics[NAME_OBJ_EXECUTION_TIME]:.4f}s")
                 results.append(result)
+                if on_result is not None:
+                    on_result(result)
 
         return results
 
@@ -121,7 +123,7 @@ class TaskBundle(BaseModel, Generic[Input_co, MappingState_co, BaselineState_co]
         results = []
         start_time = time.time()
         for task in self.tasks:
-            task_results = task.run()
+            task_results = task.run(on_result=self._consume_intermediate_result)
             results.extend(task_results)
         end_time = time.time()
         time_delta = end_time - start_time
@@ -129,6 +131,10 @@ class TaskBundle(BaseModel, Generic[Input_co, MappingState_co, BaselineState_co]
         for consumer in self.consumer:
             consumer.consume(pipeline_summary)
         return pipeline_summary
+
+    def _consume_intermediate_result(self, result: ExperimentResult) -> None:
+        for consumer in self.consumer:
+            consumer.consume_result(result)
 
 
 class PipelineRunner(BasePipelineRunner[Input_co, MappingState_co, BaselineState_co]):

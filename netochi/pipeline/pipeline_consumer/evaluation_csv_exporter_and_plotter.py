@@ -8,7 +8,7 @@ from netochi.pipeline.config import PipelineOutput
 from netochi.pipeline.interfaces import PipelineConsumer
 from netochi.input_generator.interfaces import MappingInput
 from netochi.mapping.interfaces import MappingState
-from netochi.pipeline.results import PipelineSummary
+from netochi.pipeline.results import PipelineSummary, ExperimentResult
 from netochi.result_processing.config import FILENAME_EVALUATION_CSV
 from netochi.result_processing.result_plotter import plot_results_csv
 
@@ -45,6 +45,11 @@ class EvaluationExporterAndPlotter(PipelineConsumer[MappingInput, MappingState[A
         self.pipeline_output.save_to_csv(df, self.csv_filename)
         self.plot_from_csv()
 
+    def consume_result(self, result: ExperimentResult) -> None:
+        """Appends the result of a single mapper run to dumps/<csv_filename>.csv."""
+        df = self.create_summary_dataframe(PipelineSummary(results=[result]))
+        self.pipeline_output.append_to_csv(df, self.csv_filename)
+
 
     def create_summary_dataframe(self, summary: PipelineSummary) -> pd.DataFrame:
         """
@@ -54,8 +59,8 @@ class EvaluationExporterAndPlotter(PipelineConsumer[MappingInput, MappingState[A
             return pd.DataFrame()
 
         # Collect all possible headers to ensure consistency across rows
-        headers = ["mapper", "input_id", "seed", "metric", "value",
-                   "task_label", "input_label", "mapper_label", "objective_label"]
+        headers = ["mapper", "input_id", "seed", "metric", "value"]
+                  # "task_label", "input_label", "mapper_label", "objective_label"]
         rows = []
 
 
@@ -68,10 +73,10 @@ class EvaluationExporterAndPlotter(PipelineConsumer[MappingInput, MappingState[A
                     "input_id": res.input_id,
                     "metric": objective_result.objective_name,
                     "value": objective_result.value,
-                    "task_label": _label_str(res.labels.task),
-                    "input_label": _label_str(res.labels.input),
-                    "mapper_label": _label_str(res.labels.mapper),
-                    "objective_label": _label_str(res.labels.objectives.get(objective_result))
+                    #"task_label": _label_str(res.labels.task),
+                    #"input_label": _label_str(res.labels.input),
+                    #"mapper_label": _label_str(res.labels.mapper),
+                    #"objective_label": _label_str(labeled_result.label)
                 }
                 full_row = {h: row.get(h, "") for h in headers}
                 rows.append(full_row)
