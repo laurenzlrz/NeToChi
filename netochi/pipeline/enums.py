@@ -6,3 +6,4 @@ class InputGraph(Enum):
     NOISY_MOSAIC = "noisy_mosaic"
     ERDOS_RENYI = "erdos_renyi"
     SWTA = "swta"
+    SWTA_V2 = "swtaV2"
