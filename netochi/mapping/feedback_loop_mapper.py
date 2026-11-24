@@ -14,6 +14,10 @@ repeat:
   D. feedback                 violated edges get w *= (1+eta), satisfied w *= gamma
   C. core step    (heuristic) pain-guided moves/swaps between cores, evaluated
                               with the edge weights on a distance-cost proxy
+  C'. KL step     (heuristic) pairwise Kernighan-Lin refinement of the same proxy for
+                              strongly connected core pairs (repairs split cores)
+The whole loop is restarted `restarts` times (from random mappings by default) and
+the mapping with the lowest true loss is returned.
 
 The true loss (number of violated edges) is only measured, never optimised
 directly. The best mapping seen so far is returned.
@@ -21,7 +25,7 @@ directly. The best mapping seen so far is returned.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Callable, List, Optional, Tuple
 
 import numpy as np
@@ -61,6 +65,16 @@ class FeedbackLoopConfig:
     w_max: float = 10.0
     weighted_index_step: bool = True   # use edge weights in the index step
     distance_cost: Optional[Callable[[int], float]] = None  # proxy cost per distance
+    # pairwise Kernighan-Lin refinement inside every core step: for core pairs (a, b), swap
+    # neurons one pair at a time (also through worse states) and keep the best prefix. This
+    # repairs planted cores that ended up split across two cores, which single moves cannot.
+    kl_refinement: bool = True
+    kl_partners: int = 2               # per core: refine with its most strongly connected partner cores
+    kl_max_passes: int = 2             # KL passes per core pair (stops early without improvement)
+    # independent restarts; the mapping with the lowest true loss is returned
+    restarts: int = 5
+    restart_init: str = "random"       # "random": restarts 2.. start from a random mapping;
+                                       # "initializer": every restart starts from the initializer
     verbose: bool = False
     # clusterer producing the initial core assignment (cluster id == core id)
     core_initializer: ClustererFixedHw = SpectralTreeClusterer()
@@ -224,6 +238,83 @@ class FeedbackLoopSolver:
             moves += 1
         return moves
 
+    # ------------------------------------------------------------------ C': pairwise KL
+    def _kl_refine(self, core, idx, w) -> int:
+        """
+        Kernighan-Lin refinement of the core step's proxy objective sum_e w_e * cost(dist(e)),
+        applied to pairs of cores. In one pass over a pair (a, b), the best swap of a still
+        unlocked u in a with an unlocked v in b is applied (even if it is worse), both are
+        locked, and this repeats until one side runs out. The best prefix of the swap
+        sequence is kept. Returns the number of swaps kept.
+        """
+        cfg, n, W = self.cfg, self.n, self.W
+        Wm = sp.csr_matrix((w, (self.src, self.dst)), shape=(n, n))
+        Wm = (Wm + Wm.T).tocsr()
+        Wm.setdiag(0.0)
+        Wm.eliminate_zeros()
+        Cd = self.cost[self.D]
+
+        onehot = sp.csr_matrix((np.ones(n), (np.arange(n), core)), shape=(n, W))
+        between = (onehot.T @ Wm @ onehot).toarray()
+        np.fill_diagonal(between, -np.inf)
+        pairs = set()
+        for a in range(W):
+            for b in np.argsort(-between[a])[:cfg.kl_partners]:
+                if np.isfinite(between[a, b]) and between[a, b] > 0:
+                    pairs.add((min(a, int(b)), max(a, int(b))))
+
+        kept = 0
+        for a, b in sorted(pairs, key=lambda p: -between[p]):
+            for _ in range(cfg.kl_max_passes):
+                swaps = self._kl_pass(core, Wm, Cd, a, b)
+                if not swaps:
+                    break
+                for u, v in swaps:
+                    core[u], core[v] = b, a
+                    idx[u], idx[v] = idx[v], idx[u]
+                kept += len(swaps)
+        return kept
+
+    def _kl_pass(self, core, Wm, Cd, a, b) -> List[Tuple[int, int]]:
+        """One KL pass between cores a and b; returns the swaps of the best prefix."""
+        A = np.flatnonzero(core == a)
+        B = np.flatnonzero(core == b)
+        if A.size == 0 or B.size == 0:
+            return []
+        nodes = np.concatenate([A, B])
+        sub = Wm[nodes][:, nodes].toarray()                  # weights among the pair's neurons
+        # cost[t, c] = sum_j W_tj Cd[c, core_j]; only columns a and b are needed here
+        nbw = (Wm[nodes] @ sp.csr_matrix((np.ones(self.n), (np.arange(self.n), core)),
+                                         shape=(self.n, self.W))).toarray()
+        cost_a, cost_b = nbw @ Cd[a], nbw @ Cd[b]
+        cab = Cd[a, b] - Cd[a, a]                            # proxy cost of a pair split over a, b
+
+        on_a = np.zeros(nodes.size, dtype=bool)
+        on_a[:A.size] = True
+        free = np.ones(nodes.size, dtype=bool)
+        seq: List[Tuple[int, int]] = []
+        total, best_total, best_len = 0.0, -1e-9, 0
+        for _ in range(min(A.size, B.size)):
+            ia = np.flatnonzero(free & on_a)
+            ib = np.flatnonzero(free & ~on_a)
+            if ia.size == 0 or ib.size == 0:
+                break
+            g_a = cost_b[ia] - cost_a[ia]                    # change if u moves a -> b
+            g_b = cost_a[ib] - cost_b[ib]                    # change if v moves b -> a
+            delta = g_a[:, None] + g_b[None, :] + 2.0 * cab * sub[np.ix_(ia, ib)]
+            r, c = np.unravel_index(int(np.argmin(delta)), delta.shape)
+            iu, iv = ia[r], ib[c]
+            total += float(delta[r, c])
+            seq.append((int(nodes[iu]), int(nodes[iv])))
+            free[iu] = free[iv] = False
+            # u now sits on b, v on a: update the costs of all pair neurons
+            diff = (sub[:, iu] - sub[:, iv]) * cab
+            cost_a += diff
+            cost_b -= diff
+            if total < best_total:
+                best_total, best_len = total, len(seq)
+        return seq[:best_len]
+
     # ------------------------------------------------------------------ main loop
     def solve(self, init_core: np.ndarray, init_idx: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[int]]:
         cfg = self.cfg
@@ -266,6 +357,8 @@ class FeedbackLoopSolver:
             if (it + 1) % cfg.core_every == 0:
                 snap = (loss, core.copy(), idx.copy(), k.copy())
                 self._core_step(core, idx, w, viol)                  # C
+                if cfg.kl_refinement:
+                    self._kl_refine(core, idx, w)                    # C'
         _, bc, bi, bk = best
         return bc, bi, bk, history
 
@@ -294,9 +387,7 @@ class FeedbackLoopMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
         init_idx = np.asarray(self.address_assigner.assign_addresses(mapping_input, cluster_output),
                               dtype=np.int64)
 
-        solver = FeedbackLoopSolver(mapping_input.hw_config, edges[:, 0], edges[:, 1], n,
-                                    self.config, mapping_input.seed)
-        core, idx, k, history = solver.solve(init_core, init_idx)
+        core, idx, k, history = self._solve_with_restarts(mapping_input, edges, n, init_core, init_idx)
         self.last_history = history
 
         assignment = MosaicAssignment(
@@ -307,5 +398,53 @@ class FeedbackLoopMapper(BaseMapper[MosaicNetworkMappingState, MosaicMappingInpu
         )
         return MosaicNetworkMappingState(assignment=assignment, mapping_input=mapping_input)
 
+    def _solve_with_restarts(self, mapping_input: MosaicMappingInput, edges: np.ndarray, n: int,
+                             init_core: np.ndarray, init_idx: np.ndarray
+                             ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[int]]:
+        """
+        Runs the solver `restarts` times and keeps the mapping with the lowest true loss. Restart 1
+        starts from the initializer; later restarts start from a random mapping (restart_init =
+        "random") or again from the initializer with a different solver seed ("initializer").
+        A time limit applies to all restarts together.
+        """
+        cfg = self.config
+        if cfg.restart_init not in ("random", "initializer"):
+            raise ValueError(f"restart_init must be 'random' or 'initializer', got {cfg.restart_init!r}.")
+        hw = mapping_input.hw_config
+        seed = mapping_input.seed
+        rng = np.random.default_rng(seed)
+        deadline = None if cfg.time_limit_s is None else time.time() + cfg.time_limit_s
+
+        best: Optional[Tuple[int, np.ndarray, np.ndarray, np.ndarray, List[int]]] = None
+        for r in range(max(1, cfg.restarts)):
+            if r == 0 or cfg.restart_init == "initializer":
+                c0, x0 = init_core, init_idx
+            else:
+                slots = rng.permutation(hw.total_cores * hw.neurons_per_core)[:n]
+                c0, x0 = slots // hw.neurons_per_core, slots % hw.neurons_per_core
+            run_cfg = cfg
+            if deadline is not None:
+                remaining = deadline - time.time()
+                if r > 0 and remaining <= 0:
+                    break
+                run_cfg = replace(cfg, time_limit_s=max(remaining, 1e-3))
+            run_seed = None if seed is None else seed + 1000 * r
+            solver = FeedbackLoopSolver(hw, edges[:, 0], edges[:, 1], n, run_cfg, run_seed)
+            core, idx, k, history = solver.solve(c0, x0)
+            loss = min(history)
+            if cfg.verbose:
+                print(f"restart {r}: best loss {loss}")
+            if best is None or loss < best[0]:
+                best = (loss, core, idx, k, history)
+            if loss == 0:
+                break
+        assert best is not None
+        return best[1], best[2], best[3], best[4]
+
     def get_name(self) -> str:
-        return f"Feedback_{self.clusterer.get_name()}_{self.address_assigner.get_name()}"
+        name = f"Feedback_{self.clusterer.get_name()}_{self.address_assigner.get_name()}"
+        if self.config.restarts > 1:
+            name += f"_R{self.config.restarts}"
+        if self.config.kl_refinement:
+            name += "_PairKL"
+        return name
