@@ -6,6 +6,7 @@ from netochi.input_generator.mosaic_hardware_config import MosaicHardwareConfig
 from netochi.input_generator.mosaic_network_factory import MosaicNetworkConfig
 from netochi.input_generator.noisy_mosaic_network_factory import NoisyMosaicNetworkConfig
 from netochi.input_generator.swta_factory import SwtaGeneratorConfig
+from netochi.input_generator.swta_v2_factory import SwtaV2GeneratorConfig
 from netochi.mapping.bottom_up_mapper import SliceSolveMode, ConstraintGraphMode
 from netochi.mapping.feedback_loop_mapper import FeedbackLoopConfig
 from netochi.mapping.interfaces import (
@@ -59,8 +60,8 @@ HW_4L_4 = MosaicHardwareConfig(neurons_per_core=64, router_levels=4) # 1024 neur
 HW_4L_5 = MosaicHardwareConfig(neurons_per_core=128, router_levels=4) # 2048 neurons
 
 HW_CONFIGS = {
-    HW_4L_5
-    #HW_3L_1, HW_3L_2, HW_3L_3, HW_4L_4, HW_4L_5
+    #HW_4L_5
+    HW_3L_1, HW_3L_2, HW_3L_3, HW_4L_4, HW_4L_5
 }
 
 SEEDS = [1,2,3,4,5] # [6,7,8,9,10]#
@@ -71,19 +72,21 @@ ER_PROBABILITIES = ["mosaic_p0.5"] # 0.05, 0.2,
 INPUT_GRAPHS: List[InputGraph] = [
     InputGraph.ERDOS_RENYI,
     # InputGraph.MOSAIC,
-    # InputGraph.NOISY_MOSAIC,
-    # InputGraph.SWTA,
+    #InputGraph.NOISY_MOSAIC,
+    #InputGraph.SWTA,
+    #InputGraph.SWTA_V2,
 ]
 # ---------- mapper configuration ------------
 
 MAPPERS = [
-    SwtaV2MapperConfig().create(),
-    #FeedbackLoopConfig(core_initializer=RandomClusterer(), address_initializer=RandomAddressAssigner()).create(),
-    # ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
-    #                          address_assigner=TopDownLocalAddressAssignerConfig(
-    #                              slice_solve_mode=SliceSolveMode.KL_CONSTRAINED_BISECTION,
-    #                              constraint_graph_mode=ConstraintGraphMode.CLIQUE).create(),
-    #                      slice_assigner=OptimalSliceAssigner()).create(),
+    #SwtaV2MapperConfig().create(),
+    #SwtaMapperConfig().create(),
+    FeedbackLoopConfig(core_initializer=RandomClusterer(), address_initializer=RandomAddressAssigner()).create(),
+    #ThreeStepHwMapperConfig(clusterer=KaMinParHierarchicalClusterer(),
+       #                       address_assigner=TopDownLocalAddressAssignerConfig(
+     #                             slice_solve_mode=SliceSolveMode.KL_CONSTRAINED_BISECTION,
+       #                           constraint_graph_mode=ConstraintGraphMode.CLIQUE).create(),
+       #                   slice_assigner=OptimalSliceAssigner()).create(),
     #TheoreticalBoundsMapperConfig().create(),
     #RandomMapperConfig().create(),
 
@@ -161,7 +164,16 @@ def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, Mappi
                             p_neighbor=0.1,
                             p_e_to_i=0.2,
                             p_i_to_e=0.8,
-                            seed=seed).create()) for seed in SEEDS
+                            seed=seed).create())
+        for hw_config in HW_CONFIGS for seed in SEEDS
+    ]
+
+    swta_v2_factories: List[Tuple[Tuple[None, int, int], HWBaseInputFactory[MosaicMappingInput]]] = [
+        ((None, hw_config.total_neurons, seed), SwtaV2GeneratorConfig(hw_config=hw_config,
+                                                                    p_neighbor=0.1,
+                                                                    p_e_to_i=0.2,
+                                                                    p_i_to_e=0.8,
+                                                                    seed=seed).create()) for seed in SEEDS
         for hw_config in HW_CONFIGS
     ]
 
@@ -202,6 +214,11 @@ def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, Mappi
                                     config=PIPELINE_OUTPUT,
                                     label="swta")
 
+    swta_v2_tasks = ExperimentTaskBase(input_generators=swta_v2_factories,
+                                    evaluator_mapper_bundles=other_task_runs,
+                                    config=PIPELINE_OUTPUT,
+                                    label="swta_v2")
+
     all_tasks: Dict[InputGraph, ExperimentTaskBase[
         MosaicMappingInput, BaseMosaicMappingState[MosaicMappingInput], BaseMosaicMappingState[MosaicMappingInput], str,
         Tuple[Optional[float], int, int]]] = {
@@ -209,6 +226,7 @@ def define_task_inputs() -> BasePipelineRunner[MappingInput, MappingState, Mappi
         InputGraph.NOISY_MOSAIC: noisy_mosaic_tasks,
         InputGraph.ERDOS_RENYI: er_tasks,
         InputGraph.SWTA: swta_tasks,
+        InputGraph.SWTA_V2: swta_v2_tasks,
     }
     tasks = [all_tasks[graph] for graph in dict.fromkeys(INPUT_GRAPHS)]  # keeps order, drops duplicates
     if not tasks:
