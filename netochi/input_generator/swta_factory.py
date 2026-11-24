@@ -106,6 +106,8 @@ class SwtaFactory(HWBaseInputFactory[MosaicMappingInput]):
             "graph_type": self.get_id(),
             "num_clusters": str(self.config.num_clusters),
             "neurons_per_cluster": str(self.config.neurons_per_cluster),
+            "num_e_clusters": str(self.config.num_e_clusters),
+            "num_i_clusters": str(self.config.num_i_clusters),
             "nodes": str(gt_graph.num_vertices()),
             "edges": str(gt_graph.num_edges())
         }
